@@ -7,12 +7,13 @@ import { Colors } from '@utils/color'
 const App: React.FC = () => {
   const itemManager = new ItemManager();
 
-  const circle1 = new Circle({ x: 100, y: 100, radius: 50, color: Colors.red });
+  const circle1 = new Circle({ order: 5, x: 100, y: 100, radius: 50, color: Colors.red });
   itemManager.addItem(circle1);
-  itemManager.addItem(new Circle({ x: 200, y: 100, radius: 30, color: Colors.blue }));
+  itemManager.addItem(new Circle({ order: 2, x: 200, y: 100, radius: 30, color: Colors.blue }));
   itemManager.addItem(new Rectangle({ x: 300, y: 300, width: 100, height: 100, color: Colors.red }));
 
-  itemManager.removeItem(circle1);
+  //itemManager.removeItem(circle1);
+
 
   return (
     <div>

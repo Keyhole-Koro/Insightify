@@ -20,7 +20,6 @@ export abstract class BaseItemClass implements BaseItem {
   y: number;
   scale: number;
   color: RGBColor;
-  isDragging: boolean;
 
   constructor({
     id = -1,
@@ -34,7 +33,6 @@ export abstract class BaseItemClass implements BaseItem {
     this.y = y;
     this.scale = scale;
     this.color = color;
-    this.isDragging = false;
   }
 
   setPosition(x: number, y: number): void {

@@ -22,6 +22,11 @@ class ItemManager {
     }
   }
 
+  bringItemToFront(item: BaseItem): void {
+    this.items = this.items.filter(i => i !== item);
+    this.items.push(item); // Move item to the end
+  }
+
   renderAll(): JSX.Element[] {
     return this.items.map(item => item.render());
   }

@@ -14,6 +14,8 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
   const handleMouseDown = (item: BaseItem, event: React.MouseEvent) => {
     setDraggedItem(item);
 
+    itemManager.bringItemToFront(item);
+
     const offsetX = event.clientX - item.x;
     const offsetY = event.clientY - item.y;
     setOffset({ x: offsetX, y: offsetY });
@@ -25,7 +27,7 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
     if (draggedItem) {
       draggedItem.x = event.clientX - offset.x;
       draggedItem.y = event.clientY - offset.y;
-      setUpdate(update?false:true);
+      setUpdate(update ? false : true);
     }
   };
 
