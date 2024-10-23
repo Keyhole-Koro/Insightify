@@ -13,6 +13,7 @@ export const Colors = {
     orange: { r: 255, g: 165, b: 0 },
     purple: { r: 128, g: 0, b: 128 },
     gray: { r: 128, g: 128, b: 128 },
+    black: { r: 225, g: 225, b: 225 },
 };
 
 export function rgb(color: RGBColor): string {

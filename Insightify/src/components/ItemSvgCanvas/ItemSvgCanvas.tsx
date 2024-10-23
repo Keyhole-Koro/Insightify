@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import ItemManager from '../managers/ItemManager';
-import { BaseItem } from '@item/base-item';
+import { BaseItemClass } from '@components/item/base/base-item';
 
 export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number; width: number }> = ({
   itemManager,
   height,
   width,
 }) => {
-  const [draggedItem, setDraggedItem] = useState<BaseItem | null>(null);
+  const [draggedItem, setDraggedItem] = useState<BaseItemClass | null>(null);
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [update, setUpdate] = useState<boolean>(false);
 
-  const handleMouseDown = (item: BaseItem, event: React.MouseEvent) => {
+  const handleMouseDown = (item: BaseItemClass, event: React.MouseEvent) => {
     setDraggedItem(item);
 
     itemManager.bringItemToFront(item);
@@ -25,8 +25,19 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (draggedItem) {
-      draggedItem.x = event.clientX - offset.x;
-      draggedItem.y = event.clientY - offset.y;
+      draggedItem.setPosition(
+        event.clientX - offset.x,
+        event.clientY - offset.y
+      );
+
+      const collidingItem = itemManager.getCollidingItem(draggedItem);
+      if (collidingItem) {
+        console.log('Collision detected with:', collidingItem);
+        draggedItem.beChildOf(collidingItem);
+      } else {
+        draggedItem.removeParent();
+      }
+
       setUpdate(update ? false : true);
     }
   };

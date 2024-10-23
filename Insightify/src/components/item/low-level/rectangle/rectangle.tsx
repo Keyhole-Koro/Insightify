@@ -1,32 +1,27 @@
 import React from 'react';
-import './rectangle.css';
-import { BaseItem, BaseItemClass  } from '@item/base-item';
 import { RGBColor, rgb } from '@utils/color';
+import { BaseRectangleClass } from '@components/item/base/base-rectangle';
 
-export class Rectangle extends BaseItemClass {
-    width: number;
-    height: number;
-  
-    constructor({
-      width = 100,
-      height = 100,
-      ...rest
-    }: Partial<BaseItem> & { width?: number, height?: number } = {}) {
-      super({ ...rest });
-      this.width = width;
-      this.height = height;
-    }
-  
-    render(): JSX.Element {
-      return (
-        <rect
-          x={this.x}
-          y={this.y}
-          width={this.width}
-          height={this.height}
-          fill={rgb(this.color)}
-          style={{ cursor: 'pointer' }}
-        />
-      );
-    }
+export class Rectangle extends BaseRectangleClass {
+  constructor({
+    width = 100,
+    height = 100,
+    ...rest
+  }: Partial<BaseRectangleClass>) {
+    super({ ...rest });
+    this._width = width;
+    this._height = height;
   }
+
+  render(): JSX.Element {
+    return this.renderTemplate({});
+  }
+
+  get width(): number {
+    return this._width * this.scale;
+  }
+
+  get height(): number {
+    return this._height * this.scale;
+  }
+}

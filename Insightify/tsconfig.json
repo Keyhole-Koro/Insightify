@@ -24,6 +24,7 @@
       "@utils/*": ["components/utils/*"],
       "@components/*": ["components/*"],
       "@managers/*": ["components/managers/*"],
+      "@base/*": ["components/item/base/*"],
       "@item/*": ["components/item/*"],
       "@llitems/*": ["components/item/low-level/*"]
     }
