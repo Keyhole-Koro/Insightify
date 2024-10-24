@@ -11,38 +11,57 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [update, setUpdate] = useState<boolean>(false);
 
+  const handleCollision = () => {
+    if (!draggedItem) return null;
+
+    const collidingItem = itemManager.getCollidingItem(draggedItem);
+
+    if (!collidingItem) return null;
+
+      itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
+    
+    return collidingItem;
+  };
+
   const handleMouseDown = (item: BaseItemClass, event: React.MouseEvent) => {
     setDraggedItem(item);
 
-    itemManager.bringItemToFront(item);
-
+    // Calculate the offset between the mouse position and the item's position
     const offsetX = event.clientX - item.x;
     const offsetY = event.clientY - item.y;
     setOffset({ x: offsetX, y: offsetY });
+
+    handleCollision();
 
     event.stopPropagation();
   };
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (draggedItem) {
+      // Update the item's position based on the initial offset
       draggedItem.setPosition(
         event.clientX - offset.x,
         event.clientY - offset.y
       );
 
-      const collidingItem = itemManager.getCollidingItem(draggedItem);
-      if (collidingItem) {
-        console.log('Collision detected with:', collidingItem);
-        draggedItem.beChildOf(collidingItem);
-      } else {
-        draggedItem.removeParent();
-      }
+      handleCollision();
 
+      // Trigger a re-render
       setUpdate(update ? false : true);
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = () => {    
+    if (draggedItem) {
+      const collidingItem = itemManager.getCollidingItem(draggedItem);
+    if (collidingItem) {
+        draggedItem.beChildOf(collidingItem);
+        itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
+    } else if (draggedItem.parent) {
+        draggedItem.stopBeingChildOf(draggedItem.parent);
+      }
+    }
+
     setDraggedItem(null);
   };
 

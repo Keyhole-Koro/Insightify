@@ -27,6 +27,22 @@ class ItemManager {
     this.items.push(item); // Move item to the end
   }
 
+  bringChildItemAboveParentBelow(item1: BaseItemClass, item2: BaseItemClass): void {
+    const isItem1ChildOfItem2 = item1.parent === item2;
+    const isItem2ChildOfItem1 = item2.parent === item1;
+  
+    if (isItem1ChildOfItem2 || isItem2ChildOfItem1) {
+      const childItem = isItem1ChildOfItem2 ? item1 : item2;
+      const parentItem = isItem1ChildOfItem2 ? item2 : item1;
+  
+      // Remove the child item from the array
+      this.items = this.items.filter(i => i !== childItem);
+      // Find the index of the parent item
+      const parentIndex = this.items.findIndex(i => i === parentItem);
+      // Insert the child item after the parent item
+      this.items.splice(parentIndex + 1, 0, childItem);
+    }
+  }
   renderAll(): JSX.Element[] {
     return this.items.map(item => item.render());
   }

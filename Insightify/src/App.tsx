@@ -15,8 +15,8 @@ const App: React.FC = () => {
   itemManager.addItem(rect1);
   itemManager.addItem(new Anchor({ x: 300, y: 100, radius: 10, color: Colors.black }));
 
-  circle1.beChildOf(rect1);
-  circle2.beParentOf(rect1);
+  //circle1.beChildOf(rect1);
+  //circle2.beParentOf(rect1);
 
   //itemManager.removeItem(circle1);
 
