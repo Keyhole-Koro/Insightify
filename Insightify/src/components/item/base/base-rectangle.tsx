@@ -1,44 +1,58 @@
-import './css/rectangle.css';
-
 import React from 'react';
-import { BaseItemClass } from '@components/item/base/base-item';
-import { RGBColor, rgb } from '@utils/color';
+import { BaseItemClass, BaseItemProps, BaseItemState } from './base/base-item';
+import { RGBColor, Colors, rgb } from "@utils/color";
+import { Rectangle } from '../low-level/items';
 
-export abstract class BaseRectangleClass extends BaseItemClass {
-  _width: number;
-  _height: number;
+export interface BaseRectangleItemProps extends BaseItemProps {
+  width: number;
+  height: number;
+}
 
-  constructor({
-    width = 100,
-    height = 100,
-    ...rest
-  }: Partial<BaseItemClass> & { width?: number; height?: number } = {}) {
-    super({ ...rest });
-    this._width = width;
-    this._height = height;
-  }
+export interface BaseRectangleItemState extends BaseItemState {
+  width: number;
+  height: number;
+}
 
-  abstract render(): JSX.Element;
-
-  renderTemplate(additionalProps: React.SVGProps<SVGRectElement> = {}): JSX.Element {
-    return (
-      <rect
-        x={this.x}
-        y={this.y}
-        width={this.width}
-        height={this.height}
-        fill={rgb(this.color)}
-        style={{ cursor: 'pointer' }}
-        {...additionalProps}
-    />
-    );
+export class BaseRectangle<
+  P extends BaseRectangleItemProps = BaseRectangleItemProps,
+  S extends BaseRectangleItemState = BaseRectangleItemState
+> extends BaseItemClass<P, S> {
+  
+  constructor(
+    props: P,
+  ) {
+    super(props);
+    this.state = {
+      ...this.state,
+      width: props.width,
+      height: props.height,
+    };
   }
 
   get width(): number {
-    return this._width * this.scale;
+    return this.state.width;
   }
 
   get height(): number {
-    return this._height * this.scale;
+    return this.state.height;
+  }
+
+  updateDimensions(width: number, height: number) {
+    this.setState({ width, height });
+  }
+
+  render(): JSX.Element {
+    const { x, y, scale, color } = this.state;
+    const { width, height } = this.state;
+
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={width * scale}
+        height={height * scale}
+        fill={rgb(color)}
+      />
+    );
   }
 }

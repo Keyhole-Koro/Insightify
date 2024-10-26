@@ -1,3 +1,6 @@
+export {}
+/*
+
 import './css/circle.css';
 
 import React from 'react';
@@ -38,3 +41,4 @@ export abstract class BaseCircleClass extends BaseItemClass {
     return this.radius * 2 * this.scale;
   }
 }
+  */

@@ -1,19 +1,18 @@
 import React from 'react';
 import ItemManager from '@managers/ItemManager';
 import SvgCanvas from '@components/ItemSvgCanvas/ItemSvgCanvas';
-import { Anchor, Circle, Rectangle } from '@llitems/items';
+import { Rectangle } from '@llitems/items';
 import { Colors } from '@utils/color'
 
 const App: React.FC = () => {
   const itemManager = new ItemManager();
 
-  const circle1 = new Circle({ x: 100, y: 100, radius: 50, color: Colors.red });
-  const circle2 = new Circle({ x: 200, y: 100, radius: 30, color: Colors.blue });
   const rect1 = new Rectangle({ x: 300, y: 300, width: 100, height: 100, color: Colors.green });
-  itemManager.addItem(circle1);
-  itemManager.addItem(circle2);
+  const rect2 = new Rectangle({ x: 100, y: 100, width: 100, height: 100, color: Colors.red });
+  const rect3 = new Rectangle({ x: 200, y: 200, width: 100, height: 100, color: Colors.blue });
   itemManager.addItem(rect1);
-  itemManager.addItem(new Anchor({ x: 300, y: 100, radius: 10, color: Colors.black }));
+  itemManager.addItem(rect2);
+  itemManager.addItem(rect3);
 
   //circle1.beChildOf(rect1);
   //circle2.beParentOf(rect1);

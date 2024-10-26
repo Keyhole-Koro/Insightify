@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ItemManager from '../managers/ItemManager';
-import { BaseItemClass } from '@components/item/base/base-item';
+import { BaseItemClass } from '@base/base/base-item';
 
 export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number; width: number }> = ({
   itemManager,
@@ -18,7 +18,7 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
 
     if (!collidingItem) return null;
 
-      itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
+    itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
     
     return collidingItem;
   };
@@ -57,8 +57,8 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
     if (collidingItem) {
         draggedItem.beChildOf(collidingItem);
         itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
-    } else if (draggedItem.parent) {
-        draggedItem.stopBeingChildOf(draggedItem.parent);
+    } else if (draggedItem.state.item_parent) {
+        draggedItem.stopBeingChildOf(draggedItem.state.item_parent);
       }
     }
 

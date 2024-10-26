@@ -1,4 +1,4 @@
-import { BaseItemClass } from '@base/base-item';
+import { BaseItemClass } from '@base/base/base-item';
 
 class ItemManager {
   private items: BaseItemClass[] = [];
@@ -28,8 +28,8 @@ class ItemManager {
   }
 
   bringChildItemAboveParentBelow(item1: BaseItemClass, item2: BaseItemClass): void {
-    const isItem1ChildOfItem2 = item1.parent === item2;
-    const isItem2ChildOfItem1 = item2.parent === item1;
+    const isItem1ChildOfItem2 = item1.state.item_parent === item2;
+    const isItem2ChildOfItem1 = item2.state.item_parent === item1;
   
     if (isItem1ChildOfItem2 || isItem2ChildOfItem1) {
       const childItem = isItem1ChildOfItem2 ? item1 : item2;

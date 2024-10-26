@@ -1,3 +1,5 @@
+export {}
+/*
 import React from 'react';
 import { BaseCircleClass } from '@base/base-circle';
 import { rgb } from '@utils/color';
@@ -17,3 +19,4 @@ export class Circle extends BaseCircleClass {
     return this.renderTemplate({});
   }
 }
+  */

@@ -1,27 +1,16 @@
-import React from 'react';
+import React, { Component } from 'react';
 import { RGBColor, rgb } from '@utils/color';
-import { BaseRectangleClass } from '@components/item/base/base-rectangle';
+import { BaseRectangle, BaseRectangleItemProps, BaseRectangleItemState } from '@base/base-rectangle';
 
-export class Rectangle extends BaseRectangleClass {
-  constructor({
-    width = 100,
-    height = 100,
-    ...rest
-  }: Partial<BaseRectangleClass>) {
-    super({ ...rest });
-    this._width = width;
-    this._height = height;
+interface RectangleProps extends BaseRectangleItemProps {}
+
+interface RectangleState extends BaseRectangleItemState {}
+
+export class Rectangle extends BaseRectangle<RectangleProps, RectangleState> {
+
+  constructor(
+    props: BaseRectangleItemProps) {
+    super( props );
   }
 
-  render(): JSX.Element {
-    return this.renderTemplate({});
-  }
-
-  get width(): number {
-    return this._width * this.scale;
-  }
-
-  get height(): number {
-    return this._height * this.scale;
-  }
 }

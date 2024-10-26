@@ -1,3 +1,5 @@
+export {}
+/*
 import React from 'react';
 import { RGBColor, Colors, rgb } from '@utils/color'
 import { BaseCircleClass } from '@components/item/base/base-circle';
@@ -17,3 +19,4 @@ export class Anchor extends BaseCircleClass {
     return this.renderTemplate({});
   }
 }
+*/
