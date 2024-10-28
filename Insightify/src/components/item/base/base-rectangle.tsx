@@ -29,12 +29,16 @@ export class BaseRectangle<
     };
   }
 
-  get width(): number {
-    return this.state.width;
+  componentDidMount(): void {
+    console.log("componentDidMount");
   }
 
-  get height(): number {
-    return this.state.height;
+  get collision_width(): number {
+    return this.state.width * this.state.scale;
+  }
+
+  get collision_height(): number {
+    return this.state.height * this.state.scale;
   }
 
   updateDimensions(width: number, height: number) {

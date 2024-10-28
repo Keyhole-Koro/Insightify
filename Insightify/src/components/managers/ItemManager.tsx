@@ -1,72 +1,95 @@
+import React, { useState, useEffect, useRef } from 'react';
 import { BaseItemClass } from '@base/base/base-item';
+import { Rectangle, Circle } from '@llitems/items';
+import { Colors } from '@utils/color';
 
-class ItemManager {
-  private items: BaseItemClass[] = [];
-
-  addItem(item: BaseItemClass): void {
-    this.items.push(item);
-  }
-
-  removeItem(item: BaseItemClass): void {
-    this.items = this.items.filter(i => i !== item);
-  }
-
-  getItemByIndex(index: number): BaseItemClass {
-    return this.items[index];
-  }
-
-  updateItemPosition(id: number, x: number, y: number): void {
-    const item = this.items.find(i => i.id === id);
-    if (item) {
-      item.setPosition(x, y);
-    }
-  }
-
-  bringItemToFront(item: BaseItemClass): void {
-    this.items = this.items.filter(i => i !== item);
-    this.items.push(item); // Move item to the end
-  }
-
-  bringChildItemAboveParentBelow(item1: BaseItemClass, item2: BaseItemClass): void {
-    const isItem1ChildOfItem2 = item1.state.item_parent === item2;
-    const isItem2ChildOfItem1 = item2.state.item_parent === item1;
-  
-    if (isItem1ChildOfItem2 || isItem2ChildOfItem1) {
-      const childItem = isItem1ChildOfItem2 ? item1 : item2;
-      const parentItem = isItem1ChildOfItem2 ? item2 : item1;
-  
-      // Remove the child item from the array
-      this.items = this.items.filter(i => i !== childItem);
-      // Find the index of the parent item
-      const parentIndex = this.items.findIndex(i => i === parentItem);
-      // Insert the child item after the parent item
-      this.items.splice(parentIndex + 1, 0, childItem);
-    }
-  }
-  renderAll(): JSX.Element[] {
-    return this.items.map(item => item.render());
-  }
-
-  checkCollision(item1: BaseItemClass, item2: BaseItemClass): boolean {
-    const rect1 = { x: item1.x, y: item1.y, width: item1.width, height: item1.height };
-    const rect2 = { x: item2.x, y: item2.y, width: item2.width, height: item2.height };
-
-    return (
-      rect1.x < rect2.x + rect2.width &&
-      rect1.x + rect1.width > rect2.x &&
-      rect1.y < rect2.y + rect2.height &&
-      rect1.y + rect1.height > rect2.y
-    );
-  }
-
-  getCollidingItem(item: BaseItemClass): BaseItemClass | null {
-    for (const i of this.items) {
-      if (i !== item && this.checkCollision(item, i)) {
-        return i;
-      }
-    }
-    return null;
-  }
+interface ItemComponent {
+  id: number;
+  Component: React.ComponentType<any>;
+  item: BaseItemClass; // Actual instance of the rectangle
 }
 
-export default ItemManager;
+export const useItemManager = () => {
+  const [curId, setCurId] = useState(0);
+  const [componentItems, setComponentItems] = useState<ItemComponent[]>([]);
+  const [mountedComponents, setMountedComponents] = useState<{ [key: number]: boolean }>({});
+  const refs = useRef<{ [key: number]: React.RefObject<any> }>({}); // Using useRef to avoid re-creation
+
+  useEffect(() => {
+    console.log("componentDidMount");
+
+    const rect1 = new Rectangle({ x: 300, y: 200, width: 100, height: 100, color: Colors.green });
+    const rect2 = new Rectangle({ x: 100, y: 100, width: 100, height: 100, color: Colors.red });
+    const rect3 = new Rectangle({ x: 200, y: 400, width: 100, height: 100, color: Colors.blue });
+    const circle1 = new Circle({ x: 500, y: 500, radius: 50, color: Colors.yellow });
+    addItem(rect1);
+    addItem(rect2);
+    addItem(rect3);
+    addItem(circle1);
+
+    toggleMount(1);
+    toggleMount(4);
+  }, []);
+
+  const toggleMount = (id: number) => {
+    setMountedComponents((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const addItem = (component: BaseItemClass) => {
+    const Component = component.constructor as React.ComponentType<any>;
+    setCurId((prevId) => {
+      const newId = prevId + 1;
+      setComponentItems((prevComponentItems) => {
+        const item: ItemComponent = {
+          id: newId,
+          Component: Component,
+          item: component
+        };
+        return [...prevComponentItems, item];
+      });
+      return newId;
+    });
+  };
+
+  const itemButtons = () => {
+    return componentItems.map(({ id }) => (
+      <button key={id} onClick={() => toggleMount(id)}>
+        {`Toggle ${id}`}
+      </button>
+    ))
+  };
+
+  const renderItems = () => {
+    return componentItems.map(({ id, Component, item }) => (
+      mountedComponents[id] && (
+        <Component key={id} ref={refs.current[id]} {...item.props} />
+      )
+    ));
+  };
+  
+  return { addItem, toggleMount, itemButtons, renderItems, componentItems };
+};
+/*
+      {componentItems.map(({ id }) => (
+        <div key={id}>
+          <button onClick={() => toggleMount(id)}>
+            {mountedComponents[id] ? `Unmount ${id}` : `Mount ${id}`}
+          </button>
+        </div>
+      ))}
+        */
+
+export const ItemManager = () => {
+  const { renderItems, itemButtons } = useItemManager();
+  return (
+    <div>
+      <svg width={800} height={600}>
+        {renderItems()}
+      </svg>
+      {itemButtons()}
+    </div>
+  );
+};

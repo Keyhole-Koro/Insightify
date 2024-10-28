@@ -1,44 +1,54 @@
-export {}
-/*
-
 import './css/circle.css';
 
 import React from 'react';
-import { BaseItemClass } from '@base/base-item';
+import { BaseItemClass, BaseItemProps, BaseItemState } from '@base/base/base-item';
 import { rgb } from '@utils/color';
 
-export abstract class BaseCircleClass extends BaseItemClass {
+export interface BaseCircleItemProps extends BaseItemProps {
   radius: number;
+}
 
-  constructor({
-    radius = 50,
-    ...rest
-  }: Partial<BaseItemClass> & { radius?: number } = {}) {
-    super({ ...rest });
-    this.radius = radius;
+export interface BaseCircleItemState extends BaseItemState {
+  radius: number;
+}
+
+
+export abstract class BaseCircleClass<
+    P extends BaseCircleItemProps = BaseCircleItemProps,
+    S extends BaseCircleItemState = BaseCircleItemState
+  > extends BaseItemClass<P, S> {
+
+  constructor(
+    props: P
+  ){
+    super(props);
+    this.state = {
+      ...this.state,
+      radius: props.radius,
+    };
   }
 
-  abstract render(): JSX.Element;
+  render(additionalProps: React.SVGProps<SVGCircleElement> = {}): JSX.Element {
+    const { x, y, scale, color } = this.state;
+    const { radius } = this.state;
 
-  renderTemplate(additionalProps: React.SVGProps<SVGCircleElement> = {}): JSX.Element {
     return (
       <circle
-        cx={this.x}
-        cy={this.y}
-        r={this.radius * this.scale}
-        fill={rgb(this.color)}
+        cx={x}
+        cy={y}
+        r={radius * scale}
+        fill={rgb(color)}
         style={{ cursor: 'pointer' }}
         {...additionalProps}
       />
     );
   }
 
-  get width(): number {
-    return this.radius * 2 * this.scale;
+  get collision_width(): number {
+    return this.state.radius * 2 * this.state.scale;
   }
 
-  get height(): number {
-    return this.radius * 2 * this.scale;
+  get collision_height(): number {
+    return this.state.radius * 2 * this.state.scale;
   }
 }
-  */

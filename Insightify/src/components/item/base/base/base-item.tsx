@@ -7,6 +7,8 @@ export interface BaseItemProps {
   y?: number;
   x_offset?: number;
   y_offset?: number;
+  collision_width?: number;
+  collision_height?: number;
   scale?: number;
   color?: RGBColor;
   item_parent?: BaseItemClass<BaseItemProps, any> | null;
@@ -46,90 +48,60 @@ export abstract class BaseItemClass<
     } as S;
   }
 
-  get id(): number {
-    return this.state.id;
+  componentDidMount(): void {
+    console.log("componentDidMount base item");
   }
 
-  get x(): number {
-    return this.state.x;
-  }
-
-  get y(): number {
-    return this.state.y;
-  }
-
-  get x_offset(): number {
-    return this.state.x_offset;
-  }
-
-  get y_offset(): number {
-    return this.state.y_offset;
-  }
-
-  get scale(): number {
-    return this.state.scale;
-  }
-
-  get color(): RGBColor {
-    return this.state.color;
-  }
-
+  // Update these methods to use setState
   setID(id: number): void {
-    this.state = { ...this.state, id: id };
+    this.setState({ id });
   }
-  
-  setX(x: number): void {
-    this.state = { ...this.state, x: x };
 
+  setX(x: number): void {
+    this.setState({ x });
   }
 
   setY(y: number): void {
-    this.state = { ...this.state, y: y };
+    this.setState({ y });
   }
 
   setScale(scale: number): void {
-    this.state = { ...this.state, scale: scale };
+    this.setState({ scale });
   }
 
   setColor(color: RGBColor): void {
-    this.state = { ...this.state, color: color };
+    this.setState({ color });
   }
 
   setXOffset(x_offset: number): void {
-    this.state = { ...this.state, x_offset: x_offset };
+    this.setState({ x_offset });
   }
 
   setYOffset(y_offset: number): void {
-    this.state = { ...this.state, y_offset: y_offset };
+    this.setState({ y_offset });
   }
 
   setPosition(x: number, y: number): void {
-    this.state = { ...this.state, x: x, y : y };
+    this.setState({ x, y }, () => {
       this.state.item_childs.forEach((child) => {
         child.setPosition(x + child.state.x_offset, y + child.state.y_offset);
       });
+    });
   }
 
   setOffset(x_offset: number, y_offset: number): void {
-    this.state = { ...this.state, x_offset: x_offset, y_offset: y_offset };
+    this.setState({ x_offset, y_offset });
   }
 
   beParentOf(child: BaseItemClass): void {
-    if (child === this.state.item_parent) return; // child can't be parent of parent
-    if (this.state.item_childs.some((c) => c === child)) return; // avoid overlapping children
-
+    if (child === this.state.item_parent || this.state.item_childs.includes(child)) return;
     this.addChild(child);
     child.addParent(this);
   }
 
   beChildOf(item_parent: BaseItemClass): void {
-    if (this.state.item_childs.some((child) => child === item_parent)) return; // parent can't be child of child
-
-    this.setOffset(
-      this.state.x - item_parent.state.x,
-      this.state.y - item_parent.state.y
-    );
-
+    if (this.state.item_childs.includes(item_parent)) return;
+    this.setOffset(this.state.x - item_parent.state.x, this.state.y - item_parent.state.y);
     item_parent.addChild(this);
     this.addParent(item_parent);
   }
@@ -147,30 +119,27 @@ export abstract class BaseItemClass<
 
   addChild(child: BaseItemClass): void {
     if (!this.state.item_childs.includes(child)) {
-      this.state.item_childs.push(child);
+      this.setState((prevState) => ({
+        item_childs: [...prevState.item_childs, child]
+      }));
     }
   }
 
   addParent(parent: BaseItemClass): void {
-    if (this.state.item_parent !== parent) {
-      this.state = {
-        ...this.state,
-        item_parent : parent};
-    }
+    this.setState({ item_parent: parent });
   }
+
   removeChild(child: BaseItemClass): void {
-    this.state = {
-      ...this.state,
-      item_childs: this.state.item_childs.filter((c) => c !== child)
-    }; 
+    this.setState((prevState) => ({
+      item_childs: prevState.item_childs.filter((c) => c !== child)
+    }));
   }
   
   removeParent(): void {
-    this.state = { ...this.state, item_parent: null };
+    this.setState({ item_parent: null });
   }
-  
-  abstract render(): JSX.Element;
 
-  abstract get width(): number;
-  abstract get height(): number;
+  abstract render(): JSX.Element;
+  abstract get collision_width(): number;
+  abstract get collision_height(): number;
 }

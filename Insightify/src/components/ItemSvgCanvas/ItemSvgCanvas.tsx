@@ -1,3 +1,5 @@
+export {}
+/*
 import React, { useState } from 'react';
 import ItemManager from '../managers/ItemManager';
 import { BaseItemClass } from '@base/base/base-item';
@@ -14,11 +16,11 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
   const handleCollision = () => {
     if (!draggedItem) return null;
 
-    const collidingItem = itemManager.getCollidingItem(draggedItem);
+    const collidingItem = itemManager.getCollidingItems(draggedItem);
 
     if (!collidingItem) return null;
 
-    itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
+    itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem[0]);
     
     return collidingItem;
   };
@@ -53,16 +55,28 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
 
   const handleMouseUp = () => {    
     if (draggedItem) {
-      const collidingItem = itemManager.getCollidingItem(draggedItem);
-    if (collidingItem) {
+      const collidingItems = itemManager.getCollidingItems(draggedItem);
+      
+      const parentCollidingItems = collidingItems.filter(
+        (item) => !isChildOf(draggedItem, item)
+      );
+  
+      if (parentCollidingItems.length > 0) {
+        const collidingItem = parentCollidingItems[0];
         draggedItem.beChildOf(collidingItem);
         itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
-    } else if (draggedItem.state.item_parent) {
+      } else if (draggedItem.state.item_parent) {
         draggedItem.stopBeingChildOf(draggedItem.state.item_parent);
       }
+  
+      setDraggedItem(null);
     }
-
-    setDraggedItem(null);
+  };
+  
+  const isChildOf = (parent: BaseItemClass, child: BaseItemClass): boolean => {
+    if (child.state.item_parent === parent) return true;
+    if (!child.state.item_parent) return false;
+    return isChildOf(parent, child.state.item_parent);
   };
 
   return (
@@ -72,14 +86,10 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {itemManager.renderAll().map((element, index) =>
-        React.cloneElement(element, {
-          key: index,
-          onMouseDown: (e: React.MouseEvent) => handleMouseDown(itemManager.getItemByIndex(index), e),
-        })
-      )}
+      <ItemManager />
     </svg>
   );
 };
 
 export default ItemSvgCanvas;
+*/

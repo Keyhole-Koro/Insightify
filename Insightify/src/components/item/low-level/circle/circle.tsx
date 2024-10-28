@@ -1,22 +1,16 @@
-export {}
-/*
 import React from 'react';
-import { BaseCircleClass } from '@base/base-circle';
+import { BaseCircleClass, BaseCircleItemProps, BaseCircleItemState } from '@base/base-circle';
 import { rgb } from '@utils/color';
 
-export class Circle extends BaseCircleClass {
-  radius: number;
+interface CircleProps extends BaseCircleItemProps {}
 
-  constructor({
-    radius = 50,
-    ...rest
-  }: Partial<BaseCircleClass>) {
-    super({ ...rest });
-    this.radius = radius;
-  }
+interface CircleState extends BaseCircleItemState {}
 
-  render(): JSX.Element {
-    return this.renderTemplate({});
+export class Circle extends BaseCircleClass <CircleProps, CircleState> {
+
+  constructor(
+    props: BaseCircleItemProps
+  ) {
+    super( props );
   }
 }
-  */
