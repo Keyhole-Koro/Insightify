@@ -1,65 +1,61 @@
-export {}
-/*
-import React, { Component } from 'react';
-import { BaseItemClass } from './base-item';
+import React from 'react';
+import { BaseItemClass, BaseItemProps, BaseItemState } from '@base/base/base-item';
 
-export interface BaseTextboxClassProps {
-  width?: number;
-  height?: number;
-  text?: string;
-}
-
-interface BaseTextboxClassState {
+export interface BaseTextboxItemProps extends BaseItemProps {
+  width: number;
+  height: number;
   text: string;
 }
 
-export abstract class BaseTextboxClass extends BaseItemClass {
-  _width: number;
-  _height: number;
+export interface BaseTextboxItemState extends BaseItemState {
+  width: number;
+  height: number;
   text: string;
+}
 
-  constructor(props: BaseTextboxClassProps & Partial<BaseItemClass>) {
-    super(props); // Call the constructor of BaseItemClass
-    this._width = props.width || 100;
-    this._height = props.height || 100;
+export abstract class BaseTextboxClass<
+  P extends BaseTextboxItemProps = BaseTextboxItemProps,
+  S extends BaseTextboxItemState = BaseTextboxItemState
+> extends BaseItemClass<P, S> {
+
+  constructor(
+    props: P,
+  ) {
+    super(props);
     this.state = {
-      text: props.text || '',
+      ...this.state,
+      width: props.width,
+      height: props.height,
+      text: props.text ?? '',
     };
-    this.text = props.text || '';
   }
 
-  handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    this.setState({ text: event.target.value });
-    console.log('Input value changed to:', event.target.value);
-  };
+  //additionalProps: React.InputHTMLAttributes<HTMLInputElement> = {}
 
-  abstract render(): JSX.Element;
+  render(additionalProps?: React.InputHTMLAttributes<HTMLInputElement>): JSX.Element {
+    const { x, y, width, height, text } = this.state;
 
-  renderTemplate(additionalProps: React.InputHTMLAttributes<HTMLInputElement> = {}): JSX.Element {
     return (
       <foreignObject
-        x={this.x}
-        y={this.y}
-        width={this._width}
-        height={this._height}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
         style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
       >
         <input
-          value={this.state.text}
-          onChange={this.handleInputChange}
+          value={text}
           {...additionalProps}
           style={{ width: '100%', height: '100%', textAlign: 'center' }}
         />
       </foreignObject>
     );
   }
-
-  get width(): number {
-    return this._width;
+  get collision_width(): number {
+    return this.state.width;
   }
 
-  get height(): number {
-    return this._height;
+  get collision_height(): number {
+    return this.state.height;
   }
 }
-*/

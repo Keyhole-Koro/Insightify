@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BaseItemClass } from '@base/base/base-item';
-import { Rectangle, Circle } from '@llitems/items';
+import { Rectangle, Circle, TextInput } from '@llitems/items';
 import { Colors } from '@utils/color';
 
 interface ItemComponent {
@@ -22,13 +22,16 @@ export const useItemManager = () => {
     const rect2 = new Rectangle({ x: 100, y: 100, width: 100, height: 100, color: Colors.red });
     const rect3 = new Rectangle({ x: 200, y: 400, width: 100, height: 100, color: Colors.blue });
     const circle1 = new Circle({ x: 500, y: 500, radius: 50, color: Colors.yellow });
+    const textInput = new TextInput({ x: 100, y: 100, width: 100, height: 30, text: 'Hello' });
     addItem(rect1);
     addItem(rect2);
     addItem(rect3);
     addItem(circle1);
+    addItem(textInput);
 
     toggleMount(1);
     toggleMount(4);
+    toggleMount(5);
   }, []);
 
   const toggleMount = (id: number) => {
