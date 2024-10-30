@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
-import { RGBColor, Colors } from "@utils/color";
+
+import { RGBAColor, Colors } from "@utils/color";
 
 export interface BaseItemProps {
   id?: number;
@@ -10,7 +11,7 @@ export interface BaseItemProps {
   collision_width?: number;
   collision_height?: number;
   scale?: number;
-  color?: RGBColor;
+  color?: RGBAColor;
   item_parent?: BaseItemClass<BaseItemProps, any> | null;
   item_childs?: BaseItemClass<BaseItemProps, any>[];
 }
@@ -22,7 +23,7 @@ export interface BaseItemState {
   x_offset: number;
   y_offset: number;
   scale: number;
-  color: RGBColor;
+  color: RGBAColor;
   item_parent: BaseItemClass<BaseItemProps, any> | null;
   item_childs: BaseItemClass<BaseItemProps, any>[];
 }
@@ -50,7 +51,9 @@ export abstract class BaseItemClass<
 
   componentDidMount(): void {
     console.log("componentDidMount base item");
+    window.addEventListener('mousedown', this.handleMouseDown);
   }
+  handleMouseDown = () => { }
 
   // Update these methods to use setState
   setID(id: number): void {
@@ -69,7 +72,7 @@ export abstract class BaseItemClass<
     this.setState({ scale });
   }
 
-  setColor(color: RGBColor): void {
+  setColor(color: RGBAColor): void {
     this.setState({ color });
   }
 

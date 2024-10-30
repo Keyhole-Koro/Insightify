@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { RGBColor, rgb } from '@utils/color';
+import { RGBAColor, rgb } from '@utils/color';
 import { BaseRectangle, BaseRectangleItemProps, BaseRectangleItemState } from '@base/base-rectangle';
 
 interface RectangleProps extends BaseRectangleItemProps {}
@@ -14,8 +14,6 @@ export class Rectangle extends BaseRectangle<RectangleProps, RectangleState> {
   }
 
   componentDidMount(): void {
-    console.log("componentDidMount");
-    console.log(this.state);
   }
 
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BaseItemClass, BaseItemProps, BaseItemState } from './base/base-item';
-import { RGBColor, Colors, rgb } from "@utils/color";
+import { RGBAColor, Colors, rgb } from "@utils/color";
 import { Rectangle } from '../low-level/items';
 
 export interface BaseRectangleItemProps extends BaseItemProps {

@@ -1,41 +1,45 @@
-export {}
-/*
-import React, { useState } from 'react';
-import ItemManager from '../managers/ItemManager';
+import React, { useEffect, useState } from 'react';
+import { useItemManager } from '../managers/ItemManager';
 import { BaseItemClass } from '@base/base/base-item';
 
-export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number; width: number }> = ({
-  itemManager,
+export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   height,
   width,
 }) => {
   const [draggedItem, setDraggedItem] = useState<BaseItemClass | null>(null);
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [update, setUpdate] = useState<boolean>(false);
+
+  const {
+    renderItems,
+    itemButtons,
+    checkCollision,
+    getCollidingItems,
+    bringChildItemAboveParentBelow
+  } = useItemManager();
 
   const handleCollision = () => {
     if (!draggedItem) return null;
 
-    const collidingItem = itemManager.getCollidingItems(draggedItem);
+    const collidingItem = getCollidingItems(draggedItem);
 
     if (!collidingItem) return null;
 
-    itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem[0]);
+    bringChildItemAboveParentBelow(draggedItem, collidingItem[0]);
     
     return collidingItem;
   };
 
   const handleMouseDown = (item: BaseItemClass, event: React.MouseEvent) => {
+    console.log('handleMouseDown');
     setDraggedItem(item);
 
     // Calculate the offset between the mouse position and the item's position
-    const offsetX = event.clientX - item.x;
-    const offsetY = event.clientY - item.y;
+    const offsetX = event.clientX - item.state.x;
+    const offsetY = event.clientY - item.state.y;
     setOffset({ x: offsetX, y: offsetY });
 
     handleCollision();
 
-    event.stopPropagation();
   };
 
   const handleMouseMove = (event: React.MouseEvent) => {
@@ -48,14 +52,12 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
 
       handleCollision();
 
-      // Trigger a re-render
-      setUpdate(update ? false : true);
     }
   };
 
-  const handleMouseUp = () => {    
+  const handleMouseUp = () => {
     if (draggedItem) {
-      const collidingItems = itemManager.getCollidingItems(draggedItem);
+      const collidingItems = getCollidingItems(draggedItem);
       
       const parentCollidingItems = collidingItems.filter(
         (item) => !isChildOf(draggedItem, item)
@@ -64,7 +66,7 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
       if (parentCollidingItems.length > 0) {
         const collidingItem = parentCollidingItems[0];
         draggedItem.beChildOf(collidingItem);
-        itemManager.bringChildItemAboveParentBelow(draggedItem, collidingItem);
+        bringChildItemAboveParentBelow(draggedItem, collidingItem);
       } else if (draggedItem.state.item_parent) {
         draggedItem.stopBeingChildOf(draggedItem.state.item_parent);
       }
@@ -80,16 +82,20 @@ export const ItemSvgCanvas: React.FC<{ itemManager: ItemManager; height: number;
   };
 
   return (
-    <svg
-      width={width}
-      height={height}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-    >
-      <ItemManager />
-    </svg>
+    <div>
+      <svg
+        width={width}
+        height={height}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        {renderItems(
+          {
+          })}
+      </svg>
+      {itemButtons()}
+    </div>
   );
 };
 
 export default ItemSvgCanvas;
-*/
