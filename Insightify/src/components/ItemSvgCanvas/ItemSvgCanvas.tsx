@@ -10,11 +10,14 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const {
-    renderItems,
+    componentItems,
+    mountedComponents,
+    refs,
     itemButtons,
     checkCollision,
     getCollidingItems,
-    bringChildItemAboveParentBelow
+    bringChildItemAboveParentBelow,
+    findComponentByElement,
   } = useItemManager();
 
   const handleCollision = () => {
@@ -29,18 +32,24 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
     return collidingItem;
   };
 
-  const handleMouseDown = (item: BaseItemClass, event: React.MouseEvent) => {
-    console.log('handleMouseDown');
-    setDraggedItem(item);
+  const handleMouseDown = (id: number) => (event: MouseEvent) => {
+
+    const targetComponent = refs.current[id];
+
+    if (!targetComponent) {
+      console.warn(`No component found with ID: ${id}`);
+      return;
+    }
+
+    setDraggedItem(targetComponent);
+
+    const item = targetComponent;
 
     // Calculate the offset between the mouse position and the item's position
     const offsetX = event.clientX - item.state.x;
     const offsetY = event.clientY - item.state.y;
     setOffset({ x: offsetX, y: offsetY });
-
-    handleCollision();
-
-  };
+  }
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (draggedItem) {
@@ -50,13 +59,15 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
         event.clientY - offset.y
       );
 
-      handleCollision();
+     // handleCollision();
 
     }
   };
 
+
   const handleMouseUp = () => {
     if (draggedItem) {
+    /*
       const collidingItems = getCollidingItems(draggedItem);
       
       const parentCollidingItems = collidingItems.filter(
@@ -71,6 +82,7 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
         draggedItem.stopBeingChildOf(draggedItem.state.item_parent);
       }
   
+    */
       setDraggedItem(null);
     }
   };
@@ -81,6 +93,19 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
     return isChildOf(parent, child.state.item_parent);
   };
 
+  const renderItems = () => {
+    return componentItems.map(({ id, Component, instance }) => (
+      mountedComponents[id] && (
+        <Component
+          id={id}
+          refs={refs}
+          {...instance.props}
+          onMouseDown={handleMouseDown(id)}
+        />
+      )
+    ));
+  };
+
   return (
     <div>
       <svg
@@ -89,9 +114,7 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
       >
-        {renderItems(
-          {
-          })}
+        {renderItems()}
       </svg>
       {itemButtons()}
     </div>

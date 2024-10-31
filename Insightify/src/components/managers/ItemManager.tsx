@@ -7,14 +7,14 @@ import { TextAlignment } from '@utils/alignment';
 interface ItemComponent {
   id: number;
   Component: React.ComponentType<any>;
-  item: BaseItemClass; // Actual instance
+  instance: BaseItemClass; // Actual instance
 }
 
 export const useItemManager = () => {
   const [curId, setCurId] = useState(0);
   const [componentItems, setComponentItems] = useState<ItemComponent[]>([]);
   const [mountedComponents, setMountedComponents] = useState<{ [key: number]: boolean }>({});
-  const refs = useRef<{ [key: number]: React.RefObject<any> }>({}); // Using useRef to avoid re-creation
+  const refs = useRef<{ [key: number]: BaseItemClass }>({}); // Using useRef to avoid re-creation
 
   useEffect(() => {
     const rect1 = new Rectangle({ x: 300, y: 200, width: 100, height: 100, color: Colors.green });
@@ -34,21 +34,28 @@ export const useItemManager = () => {
   }, []);
 
   const toggleMount = (id: number) => {
-    setMountedComponents((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
+    setMountedComponents((prev) => {
+        const newMounted = {
+            ...prev,
+            [id]: !prev[id],
+        };
+        if (!newMounted[id]) {
+            delete refs.current[id]; // Clean up ref when unmounting
+        }
+        return newMounted;
+    });
+};
 
-  const addItem = (component: BaseItemClass) => {
-    const Component = component.constructor as React.ComponentType<any>;
+
+  const addItem = (instance: BaseItemClass) => {
+    const Component = instance.constructor as React.ComponentType<any>;
     setCurId((prevId) => {
       const newId = prevId + 1;
       setComponentItems((prevComponentItems) => {
         const item: ItemComponent = {
           id: newId,
           Component: Component,
-          item: component
+          instance: instance
         };
         return [...prevComponentItems, item];
       });
@@ -64,26 +71,6 @@ export const useItemManager = () => {
     ))
   };
 
-  const handleMouseDown_ = () => {
-    console.log('handleMouseDown_');
-  };
-
-
-  const renderItems = (additionalProps?: any) => {
-    const a = componentItems.map(({ id, Component, item }) => (
-      mountedComponents[id] && (
-        <Component
-          key={id}
-          ref={refs.current[id]}
-          {...item.props}
-          onClick={() => console.log('clicked')}
-        />
-      )
-    ));
-    console.log(a);
-    return a;
-  };
-
   const checkCollision = (item1: BaseItemClass, item2: BaseItemClass): boolean => {
     const rect1 = { x: item1.state.x, y: item1.state.y, width: item1.collision_width, height: item1.collision_height };
     const rect2 = { x: item2.state.x, y: item2.state.y, width: item2.collision_width, height: item2.collision_height };
@@ -96,10 +83,10 @@ export const useItemManager = () => {
     );
   }
 
-  const getCollidingItems = (item: BaseItemClass): BaseItemClass[] => {
+  const getCollidingItems = (instace: BaseItemClass): BaseItemClass[] => {
     const collidingItems: BaseItemClass[] = [];
-    componentItems.forEach(({ item: i }) => {
-      if (i !== item && checkCollision(item, i)) {
+    componentItems.forEach(({ instance: i }) => {
+      if (i !== instace && checkCollision(instace, i)) {
         collidingItems.push(i);
       }
     });
@@ -116,13 +103,13 @@ export const useItemManager = () => {
   
       setComponentItems((prevItems) => {
         // Remove the child item from the array
-        const filteredItems = prevItems.filter(({ item }) => item !== childItem);
+        const filteredItems = prevItems.filter(({ instance }) => instance !== childItem);
         // Find the index of the parent item
-        const parentIndex = filteredItems.findIndex(({ item }) => item === parentItem);
+        const parentIndex = filteredItems.findIndex(({ instance }) => instance === parentItem);
   
         if (parentIndex !== -1) {
           // Insert the child item after the parent item
-          filteredItems.splice(parentIndex + 1, 0, { id: prevItems[parentIndex].id, Component: Rectangle, item: childItem });
+          filteredItems.splice(parentIndex + 1, 0, { id: prevItems[parentIndex].id, Component: Rectangle, instance: childItem });
         } else {
           console.error('Parent item not found in the items array');
         }
@@ -134,15 +121,20 @@ export const useItemManager = () => {
     }
   };
 
+  const findComponentByElement = () => {}
+
+
   return {
+    componentItems,
+    mountedComponents,
+    refs,
     addItem,
     toggleMount,
     itemButtons,
-    renderItems,
-    componentItems,
     checkCollision,
     getCollidingItems,
-    bringChildItemAboveParentBelow
+    bringChildItemAboveParentBelow,
+    findComponentByElement
   };
 };
 

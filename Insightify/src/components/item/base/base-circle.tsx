@@ -29,8 +29,7 @@ export abstract class BaseCircleClass<
   }
 
   render(additionalProps: React.SVGProps<SVGCircleElement> = {}): JSX.Element {
-    const { x, y, scale, color } = this.state;
-    const { radius } = this.state;
+    const { x, y, scale, color, radius, onMouseDown } = this.state;
 
     return (
       <circle
@@ -39,6 +38,7 @@ export abstract class BaseCircleClass<
         r={radius * scale}
         fill={rgb(color)}
         style={{ cursor: 'pointer' }}
+        onMouseDown={onMouseDown}
         {...additionalProps}
       />
     );

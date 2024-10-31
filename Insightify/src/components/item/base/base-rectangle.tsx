@@ -29,10 +29,6 @@ export class BaseRectangle<
     };
   }
 
-  componentDidMount(): void {
-    console.log("componentDidMount");
-  }
-
   get collision_width(): number {
     return this.state.width * this.state.scale;
   }
@@ -46,8 +42,7 @@ export class BaseRectangle<
   }
 
   render(): JSX.Element {
-    const { x, y, scale, color } = this.state;
-    const { width, height } = this.state;
+    const { x, y, scale, color, width, height, onMouseDown } = this.state;
 
     return (
       <rect
@@ -56,7 +51,8 @@ export class BaseRectangle<
         width={width * scale}
         height={height * scale}
         fill={rgb(color)}
-      />
+        onMouseDown={onMouseDown}
+        />
     );
   }
 }

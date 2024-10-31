@@ -47,7 +47,7 @@ export abstract class BaseTextboxClass<
   // scalable width and height of the textbox element
 
   render(additionalProps: React.InputHTMLAttributes<HTMLInputElement> = {}): JSX.Element {
-    const { x, y, width, height, text, font_color, box_color, alignment, font_size } = this.state;
+    const { x, y, width, height, text, font_color, box_color, alignment, font_size, onMouseDown } = this.state;
 
     return (
       <foreignObject
@@ -64,6 +64,7 @@ export abstract class BaseTextboxClass<
             backgroundColor: rgba(box_color),
             fontSize: font_size
           }}
+          onMouseDown={onMouseDown}
           {...additionalProps}
         />
       </foreignObject>

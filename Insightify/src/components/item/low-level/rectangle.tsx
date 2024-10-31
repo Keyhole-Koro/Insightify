@@ -13,7 +13,4 @@ export class Rectangle extends BaseRectangle<RectangleProps, RectangleState> {
     super( props );
   }
 
-  componentDidMount(): void {
-  }
-
 }
