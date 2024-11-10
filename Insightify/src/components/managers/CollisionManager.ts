@@ -51,7 +51,7 @@ export const useCollisionManager = () => {
 
     const calculateCollisionOffset = (item: BaseItemClass, startCoordi: Point, curCoordi: Point): Point => {
       const maxOffset = (angleDeg: number, width: number, height: number) => {
-        if (angleDeg >= 337.5 || angleDeg < 22.5) {
+      if (angleDeg >= 337.5 || angleDeg < 22.5) {
           return { x: - width / 2, y: 0 }; // CenterLeft
         } else if (angleDeg < 67.5) {
           return { x: - width / 2, y: - height / 2 }; // TopLeft
@@ -70,9 +70,10 @@ export const useCollisionManager = () => {
         }
       }
 
-      const deltaX = curCoordi.x - startCoordi.y;
-      const deltaY = curCoordi.y - startCoordi.y
-    
+
+      const deltaX = curCoordi.x - startCoordi.x;
+      const deltaY = curCoordi.y - startCoordi.y;
+
       const angleDeg = angle(deltaX, deltaY);
 
       const height = item.collision_height;
@@ -80,9 +81,9 @@ export const useCollisionManager = () => {
 
       const offset = maxOffset(angleDeg, width, height);
 
-      const index = sigmoid(Math.log(magnitude(deltaX, deltaY)) - 5);
+      const mag = magnitude(deltaX, deltaY);
 
-      console.log(Math.log(magnitude(deltaX, deltaY)) - 5, index)
+      const index = sigmoid(Math.log(mag) - 4);
 
       const offset_: Point = {
         x: offset.x * index,

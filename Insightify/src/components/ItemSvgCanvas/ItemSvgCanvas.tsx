@@ -16,6 +16,7 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   const [ dragStartPoint, setDragStartPoint ] = useState<Point>({ x: 0, y: 0 });
   let collidingItem_: BaseItemClass;
 
+  const [ intervalId, setIntervalId ] = useState<NodeJS.Timeout | null>(null);
   
   const [ debugCollisionDetPoint, setDebugCollisionDetPoint ] = useState<Point>();
 
@@ -39,7 +40,7 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   
     draggedItem.setRelevantGen();
   
-  }, [collidingItem, draggedItem]);  
+  }, [collidingItem, draggedItem]);
 
   const handleMouseDown = (id: number) => (event: MouseEvent) => {
 
@@ -58,7 +59,41 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
     setOffset({ x: offsetX, y: offsetY });
 
     setDragStartPoint({x: targetComponent.state.x, y: targetComponent.state.y})
+    
   }
+
+  const approachSpeed = 0.1; // Adjust for faster or slower approach
+  const stoppingDistance = 60; // Minimum distance to keep from the target
+
+  useEffect(() => {
+    const animateApproach = () => {
+      setDragStartPoint(prevPoint => {
+        if (!draggedItem) return prevPoint;
+
+        const dx = draggedItem.state.x - prevPoint.x;
+        const dy = draggedItem.state.y - prevPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // If within stopping distance, maintain a gap; otherwise, approach
+        if (distance < stoppingDistance) {
+          return prevPoint;
+        } else {
+          return {
+            x: prevPoint.x + dx * approachSpeed,
+            y: prevPoint.y + dy * approachSpeed,
+          };
+        }
+      });
+
+      requestAnimationFrame(animateApproach);
+    };
+
+    // Start animation
+    animateApproach();
+
+    // Clean up on component unmount
+    return () => cancelAnimationFrame(requestAnimationFrame(animateApproach));
+  }, [draggedItem?.state.x, draggedItem?.state.y]);
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (draggedItem) {
@@ -96,7 +131,8 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
         draggedItem.stopBeingChildOf(draggedItem.state.item_parent);
       }
         */
-  
+      
+      setIntervalId(null)
       setDraggedItem(null);
     }
   };
