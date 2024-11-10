@@ -1,6 +1,7 @@
-  import React, { Component } from 'react';
+  import React, { Component, RefObject } from 'react';
 
   import { RGBAColor, Colors } from "@utils/color";
+import { DebugLogger } from '@utils/debug';
 
   export interface BaseItemProps {
     id?: number;
@@ -10,12 +11,11 @@
     y_offset?: number;
     collision_width?: number;
     collision_height?: number;
-    scale?: number;
     color?: RGBAColor;
+    generation?: number;
     item_parent?: BaseItemClass<BaseItemProps, any> | null;
     item_childs?: BaseItemClass<BaseItemProps, any>[];
-    onMouseDown?: (e: React.MouseEvent) => void
-    refs?: any;
+    mouseDownHandler?: (e: React.MouseEvent) => void
 }
 
   export interface BaseItemState {
@@ -24,18 +24,17 @@
     y: number;
     x_offset: number;
     y_offset: number;
-    scale: number;
     color: RGBAColor;
+    generation: number;
     item_parent: BaseItemClass<BaseItemProps, any> | null;
     item_childs: BaseItemClass<BaseItemProps, any>[];
-    onMouseDown: (e: React.MouseEvent) => void
   }
 
   export abstract class BaseItemClass<
     P extends BaseItemProps = BaseItemProps,
     S extends BaseItemState = BaseItemState
   > extends Component<P, S> {
-    
+
     constructor(props: P) {
       super(props);
       this.state = {
@@ -45,24 +44,12 @@
         y: props.y ?? 0,
         x_offset: props.x_offset ?? 0,
         y_offset: props.y_offset ?? 0,
-        scale: props.scale ?? 1,
         color: props.color ?? Colors.gray,
+        generation: props.generation ?? 0,
         item_parent: props.item_parent ?? null,
         item_childs: props.item_childs ?? [],
-        onMouseDown: props.onMouseDown ?? {}
+        mouseDownHandler: props.mouseDownHandler ?? {}
       } as S;
-    }
-
-    componentDidMount(): void {
-      this.addRef();
-    }
-
-    addRef() {
-      const { refs, id } = this.props;
-
-      if (refs && refs.current) {
-        refs.current[id] = this;
-      }
     }
 
     setPosition(x: number, y: number): void {
@@ -78,16 +65,18 @@
     }
 
     beParentOf(child: BaseItemClass): void {
-      if (child === this.state.item_parent || this.state.item_childs.includes(child)) return;
+      if (this.lookForAncestors(child) || this.lookForDescendants(child)) return;
+
       this.addChild(child);
       child.addParent(this);
     }
 
-    beChildOf(item_parent: BaseItemClass): void {
-      if (this.state.item_childs.includes(item_parent)) return;
-      this.setOffset(this.state.x - item_parent.state.x, this.state.y - item_parent.state.y);
-      item_parent.addChild(this);
-      this.addParent(item_parent);
+    beChildOf(parent: BaseItemClass): void {
+      if (this.lookForAncestors(parent) || this.lookForDescendants(parent)) return;
+
+      this.setOffset(this.state.x - parent.state.x, this.state.y - parent.state.y);
+      parent.addChild(this);
+      this.addParent(parent);
     }
 
     stopBeingParentOf(child: BaseItemClass): void {
@@ -101,7 +90,55 @@
       parent.removeChild(this);
     }
 
-    addChild(child: BaseItemClass): void {
+    setRelevantGen(): void {
+      const lastAncestor = this.lastAncestor();
+      if (!lastAncestor) return;
+      this._setRelevantGen(0, lastAncestor);
+    }
+    
+    private _setRelevantGen(curGen: number, item: BaseItemClass): void {
+      if (!item) return;
+    
+      this.setState({ generation: curGen });
+
+      const nextGen = curGen + 1;
+      item.state.item_childs.forEach((child) => {
+        this._setRelevantGen(nextGen, child);
+      });
+    }
+
+    lastAncestor(): BaseItemClass | null {
+      const parent = this.state.item_parent;
+      if (parent) {
+        return parent.lastAncestor();
+      } else {
+        return parent;
+      }
+    }
+
+    lookForAncestors(target: BaseItemClass): BaseItemClass | null {
+      const parent = this.state.item_parent;
+      if (!parent) return null;
+      if (parent === target) return parent;
+      
+      return this.lookForAncestors(parent);
+    }
+
+    lookForDescendants(target: BaseItemClass): BaseItemClass | null {
+      return this._lookForDescendants(target, this.state.item_childs);
+    }
+
+    private _lookForDescendants(target: BaseItemClass, childs: BaseItemClass[]): BaseItemClass | null {
+      for (const child of childs) {
+        if (child === target) return child;
+        const found = this._lookForDescendants(target, child.state.item_childs);
+        if (found) return found;
+      }
+      
+      return null;
+    }
+
+    private addChild(child: BaseItemClass): void {
       if (!this.state.item_childs.includes(child)) {
         this.setState((prevState) => ({
           item_childs: [...prevState.item_childs, child]
@@ -109,21 +146,24 @@
       }
     }
 
-    addParent(parent: BaseItemClass): void {
+    private addParent(parent: BaseItemClass): void {
       this.setState({ item_parent: parent });
     }
 
-    removeChild(child: BaseItemClass): void {
+    private removeChild(child: BaseItemClass): void {
       this.setState((prevState) => ({
         item_childs: prevState.item_childs.filter((c) => c !== child)
       }));
     }
     
-    removeParent(): void {
+    private removeParent(): void {
       this.setState({ item_parent: null });
     }
 
     abstract render(): JSX.Element;
     abstract get collision_width(): number;
     abstract get collision_height(): number;
+
+    abstract verticalResizing(newHeight: number): void;
+    abstract horizontalResizing(newWidth: number): void;
   }

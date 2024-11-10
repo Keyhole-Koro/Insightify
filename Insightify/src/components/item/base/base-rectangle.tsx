@@ -30,11 +30,19 @@ export class BaseRectangle<
   }
 
   get collision_width(): number {
-    return this.state.width * this.state.scale;
+    return this.state.width;
   }
 
   get collision_height(): number {
-    return this.state.height * this.state.scale;
+    return this.state.height;
+  }
+
+  verticalResizing(newHeight: number) {
+    this.setState({ height: newHeight });
+  }
+
+  horizontalResizing(newWidth: number) {
+    this.setState({ width: newWidth });
   }
 
   updateDimensions(width: number, height: number) {
@@ -42,16 +50,17 @@ export class BaseRectangle<
   }
 
   render(): JSX.Element {
-    const { x, y, scale, color, width, height, onMouseDown } = this.state;
+    const { x, y, color, width, height } = this.state;
+    const { mouseDownHandler } = this.props;
 
     return (
       <rect
         x={x}
         y={y}
-        width={width * scale}
-        height={height * scale}
+        width={width}
+        height={height}
         fill={rgb(color)}
-        onMouseDown={onMouseDown}
+        onMouseDown={mouseDownHandler}
         />
     );
   }

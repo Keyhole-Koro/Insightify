@@ -45,9 +45,25 @@ export abstract class BaseTextboxClass<
   }
 
   // scalable width and height of the textbox element
+  verticalResizing(newHeight: number) {
+    this.setState({ height: newHeight });
+  }
+
+  horizontalResizing(newWidth: number) {
+    this.setState({ width: newWidth });
+  }
+
+  get collision_width(): number {
+    return this.state.width;
+  }
+
+  get collision_height(): number {
+    return this.state.height;
+  }
 
   render(additionalProps: React.InputHTMLAttributes<HTMLInputElement> = {}): JSX.Element {
-    const { x, y, width, height, text, font_color, box_color, alignment, font_size, onMouseDown } = this.state;
+    const { x, y, width, height, text, font_color, box_color, alignment, font_size } = this.state;
+    const { mouseDownHandler } = this.props;
 
     return (
       <foreignObject
@@ -64,18 +80,10 @@ export abstract class BaseTextboxClass<
             backgroundColor: rgba(box_color),
             fontSize: font_size
           }}
-          onMouseDown={onMouseDown}
-          {...additionalProps}
+        onMouseDown={mouseDownHandler}
+        {...additionalProps}
         />
       </foreignObject>
     );
-  }
-
-  get collision_width(): number {
-    return this.state.width;
-  }
-
-  get collision_height(): number {
-    return this.state.height;
   }
 }
