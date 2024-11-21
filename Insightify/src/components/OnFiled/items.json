@@ -1,0 +1,33 @@
+[
+    {
+        "id": "rect1",
+        "className": "Rectangle",
+        "props": {
+            "x": 10,
+            "y": 10,
+            "width": 100,
+            "height": 100,
+            "color": {
+                "r": 255,
+                "g": 0,
+                "b": 0
+            }
+        }
+    },
+    {
+        "id": "circle1",
+        "className": "Circle",
+        "props": {
+            "x": 100,
+            "y": 100,
+            "rx": 50,
+            "ry": 50,
+            "r": 50,
+            "color": {
+                "r": 0,
+                "g": 255,
+                "b": 0
+            }
+        }
+    }
+]
