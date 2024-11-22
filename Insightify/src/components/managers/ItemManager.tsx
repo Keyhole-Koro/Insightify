@@ -1,59 +1,64 @@
 import React, { useState, useEffect, useRef, RefObject, createRef } from 'react';
 import { BaseItemClass, BaseItemProps } from '@base/base/base-item';
-
-export interface ItemComponent {
-  id: string;
-  Component: React.ComponentType<any>;
-  props: BaseItemProps;
-  parent_id?: string | null;
-  child_ids?: string[];
-}
+import { useFamilyManager } from '@components/managers/ItemFamilyManager';
+import { ItemComponent } from '@managers/interface/ItemComponent';
 
 export const useItemManager = () => {
   const [curId, setCurId] = useState(0);
-  const [componentItems, setComponentItems] = useState<ItemComponent[]>([]);
-  const [mountedComponents, setMountedComponents] = useState<{ [key: string]: boolean }>({});
-  const refs = useRef<{ [key: string]: RefObject<BaseItemClass> }>({}); // Use useRef for persistent refs
+  const [componentState, setComponentState] = useState<{ [key: string]: ItemComponent}>({});
+
+  const { linkItems } = useFamilyManager();
+
+  useEffect(() => {
+    if (!componentState) return; 
+  }, [componentState, linkItems]);
 
   const toggleMount = (id: string) => {
-    setMountedComponents((prev) => ({ ...prev, [id]: !prev[id] }));
+    setComponentState((prev) => {
+      if (!prev[id]) {
+        console.warn(`Component with ID "${id}" not found.`);
+        return prev; // Early return if the ID is invalid
+      }
+  
+      return {
+        ...prev,
+        [id]: {
+          ...prev[id],
+          mounted: !prev[id].mounted, // Toggle mounted state
+        },
+      };
+    });
   };
-
+  
   const addItem = (id: string, Component: React.ComponentType<any>, props: BaseItemProps) => {
-    let newId = 0;
     setCurId((prevId) => {
-      newId = prevId + 1;
-      setComponentItems((prevComponentItems) => {
-        const ItemComponent: ItemComponent = {
+      const newId = prevId + 1;
+      setComponentState((prevComponentState) => ({
+        ...prevComponentState,
+        [id]: {
           id: id,
           Component: Component,
           props: props,
-        };
-
-        // Create a ref for the new item
-        refs.current[newId] = createRef<BaseItemClass>();
-
-        return [...prevComponentItems, ItemComponent];
-      });
+          ref: createRef<BaseItemClass>(),
+          mounted: false
+        }
+      }));
       return newId;
     });
   };
 
   const itemButtons = () => {
-    return componentItems.map(({ id }) => (
+    return Object.keys(componentState).map((id) => (
       <button key={id} onClick={() => toggleMount(id)}>
         {`Toggle ${id}`}
       </button>
-    ))
+    ));
   };
 
   return {
-    componentItems,
-    setComponentItems,
-    mountedComponents,
-    refs,
     addItem,
     toggleMount,
     itemButtons,
+    componentState,
   };
 };

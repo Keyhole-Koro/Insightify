@@ -1,14 +1,9 @@
-import { BaseItemProps } from '@components/item/base/base/base-item';
-import { ItemComponent } from '@components/managers/ItemManager';
-import { DebugLogger } from '@utils/debug';
 import { useEffect, useState } from 'react';
 
-export interface ItemJSON {
-  id: string;
-  className: string;
-  props: BaseItemProps;
-  childs?: ItemJSON[];
-}
+import { ItemComponent } from '@managers/interface/ItemComponent';
+import { ItemJSON } from './interface/ItemJSON';
+
+import { DebugLogger } from '@utils/debug';
 
 type ClassMap = Record<string, React.ComponentType<any>>;
 
@@ -40,11 +35,11 @@ export const useItemJSONManager = () => {
 
   // Load the class map when the component using this hook mounts
   useEffect(() => {
-    DebugLogger.debug('Loading class map...');
+    DebugLogger.log('Loading class map...');
     const loadClassMap = async () => {
       try {
         const map = await buildClassMap();
-        DebugLogger.debug('Class map loaded:', map);
+        DebugLogger.log('Class map loaded:', map);
         setClassMap(map);
       } catch (error) {
         console.error(error);
@@ -67,26 +62,6 @@ export const useItemJSONManager = () => {
       return null;
     }
     return classMap[className] || null;
-  };
-
-  /**
-   * Fetches the JSON file and maps classes to the items.
-   * @param filePath The path to the JSON file.
-   */
-  const fetchItemJSON = async (filePath: string) => {
-    try {
-      DebugLogger.debug('Fetching JSON data...');
-      const response = await fetch(filePath);
-      DebugLogger.debug('Response:', response);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const items: ItemJSON[] = await response.json();
-
-      setItems(mapItemsFromJSON(items));
-    } catch (error) {
-      console.error('Error fetching JSON file:', error);
-    }
   };
 
   const mapItemsFromJSON = (items: ItemJSON[] = [], parent: string | null = null): ItemComponent[] => {
@@ -114,6 +89,7 @@ export const useItemJSONManager = () => {
       props: item.props,
       parent_id: parentId ?? null,
       child_ids: childIds,
+      mounted: false,
     };
   }
 

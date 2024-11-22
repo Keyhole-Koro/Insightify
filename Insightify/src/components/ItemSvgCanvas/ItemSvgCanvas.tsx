@@ -1,16 +1,17 @@
 import React, { createRef, useEffect, useState, useRef } from 'react';
-import { ItemComponent, useItemManager } from '@managers/ItemManager';
+import { useItemManager } from '@managers/ItemManager';
 import { BaseItemClass } from '@base/base/base-item';
 import { Point } from '@utils/math';
-import { Colors } from '@utils/color';
-import { Rectangle, RectangleProps, Circle, TextInput, CircleProps } from '@llitems/items';
-import { TextAlignment } from '@utils/alignment';
 import { useItemJSONManager } from '@managers/ItemJsonManager';
-import { ItemJSON } from '@managers/ItemJsonManager';
+
+import { ItemComponent } from '@managers/interface/ItemComponent';
+import { ItemJSON } from '@managers/interface/ItemJSON';
 
 import { DebugLogger } from '@utils/debug';
 
-import data from '../OnFiled/items.json';
+import { SharedItemCompnentStateContext, SharedMountedItemCompnentStateContext } from '@managers/service/shareItemComponent';
+
+import data from '../OnFieled/items.json';
 
 export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   height,
@@ -23,11 +24,8 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   const {
     addItem,
     toggleMount,
-    componentItems,
-    setComponentItems,
-    mountedComponents,
-    refs,
     itemButtons,
+    componentState,
   } = useItemManager();
 
   const {
@@ -35,41 +33,48 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
     mapItemsFromJSON
   } = useItemJSONManager();
 
+  const [itemsToMount, setItemsToMount] = useState<string[]>([]);
+
   useEffect(() => {
-    let items: ItemComponent[] = [];
-    if (!isClassMapLoading) {
-      items = mapItemsFromJSON(data as unknown as ItemJSON[]);
+    if (itemsToMount.length > 0) {
+      // Toggle mount for each item in the list
+      itemsToMount.forEach((id) => toggleMount(id));
+      setItemsToMount([]); // Clear the list after mounting
     }
+  }, [itemsToMount, toggleMount]); // Dependency ensures it runs when itemsToMount changes
 
-    DebugLogger.debug('Items:', items);
+  useEffect(() => {
+    if (!isClassMapLoading) {
+      const items = mapItemsFromJSON(data as unknown as ItemJSON[]);
+      DebugLogger.log('Items:', items);
 
-    items.map((item) => {
-      addItem(item.id, item.Component, item.props);
-      toggleMount(item.id);
-    });
+      items.forEach((item) => {
+        addItem(item.id, item.Component, item.props); // No need to pass id; auto-generated
+      });
+
+      // Queue items to be mounted after state updates
+      setItemsToMount(items.map(item => item.id)); 
+    }
   }, [isClassMapLoading]);
 
-  useEffect(() => {
-    Object.values(refs.current).forEach(ref => {
-      if (!ref.current) return;
-    });
-  }, [draggedItem]);
-
   const handleMouseDown = (id: string) => (event: MouseEvent) => {
-    const targetComponent = refs.current[id].current;
+    const targetRef: BaseItemClass | null = componentState[id]?.ref?.current || null;
 
-    if (!targetComponent) {
+    if (!targetRef) {
       DebugLogger.warn(`No component found with ID: ${id}`);
       return;
     }
 
-    setDraggedItem(targetComponent);
+    setDraggedItem(targetRef);
 
-    const offsetX = event.clientX - targetComponent.state.x;
-    const offsetY = event.clientY - targetComponent.state.y;
+    if (!targetRef) {
+      DebugLogger.warn(`Component ref is null for ID: ${id}`);
+      return;
+    }
+    const offsetX = event.clientX - targetRef.state.x;
+    const offsetY = event.clientY - targetRef.state.y;
     setOffset({ x: offsetX, y: offsetY });
-
-  }
+  };
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (draggedItem) {
@@ -93,30 +98,27 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   };
 
   const renderItems = () => {
-    return componentItems
-      .map(({ id, Component, props }) => {
-        if (!refs.current[id]) {
-          refs.current[id] = createRef();
-        }
-        return { id, Component, props, ref: refs.current[id] };
+    return Object.values(componentState) // Convert object to array
+      .map(({ id, Component, props, mounted, ref }) => {
+        return { id, Component, props, ref: ref, mounted: mounted };
       })
-      .filter(({ id }) => mountedComponents[id])
+      .filter(({ mounted }) => mounted) // Skip rendering if mounted is false
       .sort((a, b) => {
-        const layerA = a.ref.current?.state.generation ?? 0;
-        const layerB = b.ref.current?.state.generation ?? 0;
+        const layerA = a.ref?.current?.state?.generation ?? 0;
+        const layerB = b.ref?.current?.state?.generation ?? 0;
         return layerA - layerB;
       })
       .map(({ id, Component, props, ref }) => (
         <Component
-          key={"itemSvgCanvas_" + id}
+          key={`itemSvgCanvas_${id}`}
           id={id}
-          ref={ref}
+          ref={ref ?? createRef<BaseItemClass>()}
           {...props}
-          mouseDownHandler={handleMouseDown(id)}
+          mouseDownHandler={handleMouseDown(id)} // Ensure proper event handling
         />
       ));
   };
-
+  
   return (
     <div>
       <svg

@@ -2,7 +2,7 @@ export class DebugLogger {
   private static DEBUG_MODE = true; // Static property to control debug mode
 
   // Static method for logging debug messages
-  public static debug(...args: any[]): void {
+  public static log(...args: any[]): void {
     if (this.DEBUG_MODE) {
       console.trace('[DEBUG]', ...args);
     }
