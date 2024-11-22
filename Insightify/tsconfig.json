@@ -26,7 +26,8 @@
       "@managers/*": ["components/managers/*"],
       "@base/*": ["components/item/base/*"],
       "@item/*": ["components/item/*"],
-      "@llitems/*": ["components/item/low-level/*"]
+      "@llitems/*": ["components/item/low-level/*"],
+      "@onField/*": ["components/item/onField/*"]
     }
   },
   "include": [

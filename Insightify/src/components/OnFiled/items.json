@@ -12,14 +12,67 @@
                 "g": 0,
                 "b": 0
             }
-        }
+        },
+        "childs": [
+                {
+                    "id": "circle4",
+                    "className": "Circle",
+                    "props": {
+                        "x": 50,
+                        "y": 50,
+                        "rx": 50,
+                        "ry": 50,
+                        "r": 50,
+                        "color": {
+                            "r": 0,
+                            "g": 255,
+                            "b": 0
+                        }
+                    }
+                },
+                {
+                    "id": "circle2",
+                    "className": "Circle",
+                    "props": {
+                        "x": 100,
+                        "y": 100,
+                        "rx": 50,
+                        "ry": 50,
+                        "r": 50,
+                        "color": {
+                            "r": 0,
+                            "g": 0,
+                            "b": 225
+                        }
+                    },
+                    "childs": [
+                        {
+                            "id": "circle3",
+                            "className": "Circle",
+                            "props": {
+                                "x": 300,
+                                "y": 300,
+                                "rx": 50,
+                                "ry": 50,
+                                "r": 50,
+                                "color": {
+                                    "r": 0,
+                                    "g": 255,
+                                    "b": 0
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        
     },
     {
         "id": "circle1",
         "className": "Circle",
         "props": {
-            "x": 100,
-            "y": 100,
+            "x": 200,
+            "y": 200,
             "rx": 50,
             "ry": 50,
             "r": 50,

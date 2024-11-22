@@ -1,11 +1,16 @@
-import React, { createRef, useEffect, useState } from 'react';
-import { useItemManager } from '@managers/ItemManager';
+import React, { createRef, useEffect, useState, useRef } from 'react';
+import { ItemComponent, useItemManager } from '@managers/ItemManager';
 import { BaseItemClass } from '@base/base/base-item';
 import { Point } from '@utils/math';
-import { useCollisionManager } from '@managers/CollisionManager';
-import { CollisionDebug } from '@managers/debugCollision';
+import { Colors } from '@utils/color';
+import { Rectangle, RectangleProps, Circle, TextInput, CircleProps } from '@llitems/items';
+import { TextAlignment } from '@utils/alignment';
+import { useItemJSONManager } from '@managers/ItemJsonManager';
+import { ItemJSON } from '@managers/ItemJsonManager';
 
 import { DebugLogger } from '@utils/debug';
+
+import data from '../OnFiled/items.json';
 
 export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   height,
@@ -13,14 +18,11 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
 }) => {
   const [draggedItem, setDraggedItem] = useState<BaseItemClass | null>(null);
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
-  const [ dragStartPoint, setDragStartPoint ] = useState<Point>({ x: 0, y: 0 });
-  let collidingItem_: BaseItemClass;
-
-  const [ intervalId, setIntervalId ] = useState<NodeJS.Timeout | null>(null);
-  
-  const [ debugCollisionDetPoint, setDebugCollisionDetPoint ] = useState<Point>();
+  const [collidingItem_, setCollidingItem] = useState<BaseItemClass>();
 
   const {
+    addItem,
+    toggleMount,
     componentItems,
     setComponentItems,
     mountedComponents,
@@ -28,111 +30,58 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
     itemButtons,
   } = useItemManager();
 
-  
   const {
-    collidingItem,
-    collisionDetPoint
-  } = useCollisionManager();
-   
+    isClassMapLoading,
+    mapItemsFromJSON
+  } = useItemJSONManager();
 
   useEffect(() => {
-    if (!draggedItem) return;
-  
-    draggedItem.setRelevantGen();
-  
-  }, [collidingItem, draggedItem]);
+    let items: ItemComponent[] = [];
+    if (!isClassMapLoading) {
+      items = mapItemsFromJSON(data as unknown as ItemJSON[]);
+    }
 
-  const handleMouseDown = (id: number) => (event: MouseEvent) => {
+    DebugLogger.debug('Items:', items);
 
+    items.map((item) => {
+      addItem(item.id, item.Component, item.props);
+      toggleMount(item.id);
+    });
+  }, [isClassMapLoading]);
+
+  useEffect(() => {
+    Object.values(refs.current).forEach(ref => {
+      if (!ref.current) return;
+    });
+  }, [draggedItem]);
+
+  const handleMouseDown = (id: string) => (event: MouseEvent) => {
     const targetComponent = refs.current[id].current;
 
     if (!targetComponent) {
-      console.warn(`No component found with ID: ${id}`);
+      DebugLogger.warn(`No component found with ID: ${id}`);
       return;
     }
 
     setDraggedItem(targetComponent);
 
-    // Calculate the offset between the mouse position and the item's position
     const offsetX = event.clientX - targetComponent.state.x;
     const offsetY = event.clientY - targetComponent.state.y;
     setOffset({ x: offsetX, y: offsetY });
 
-    setDragStartPoint({x: targetComponent.state.x, y: targetComponent.state.y})
-    
   }
-
-  const approachSpeed = 0.1; // Adjust for faster or slower approach
-  const stoppingDistance = 60; // Minimum distance to keep from the target
-
-  useEffect(() => {
-    const animateApproach = () => {
-      setDragStartPoint(prevPoint => {
-        if (!draggedItem) return prevPoint;
-
-        const dx = draggedItem.state.x - prevPoint.x;
-        const dy = draggedItem.state.y - prevPoint.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        // If within stopping distance, maintain a gap; otherwise, approach
-        if (distance < stoppingDistance) {
-          return prevPoint;
-        } else {
-          return {
-            x: prevPoint.x + dx * approachSpeed,
-            y: prevPoint.y + dy * approachSpeed,
-          };
-        }
-      });
-
-      requestAnimationFrame(animateApproach);
-    };
-
-    // Start animation
-    animateApproach();
-
-    // Clean up on component unmount
-    return () => cancelAnimationFrame(requestAnimationFrame(animateApproach));
-  }, [draggedItem?.state.x, draggedItem?.state.y]);
 
   const handleMouseMove = (event: React.MouseEvent) => {
     if (draggedItem) {
-      // Update the item's position based on the initial offset
       draggedItem.setPosition(
         event.clientX - offset.x,
         event.clientY - offset.y
       );
-
-      const collisionPoint = collisionDetPoint(draggedItem, dragStartPoint);
-
-      setDebugCollisionDetPoint(collisionPoint);
-
-      const potentialCollidingItem = collidingItem(
-        collisionPoint
-      );
-      if (potentialCollidingItem) collidingItem_ = potentialCollidingItem;
     }
   };
 
   const handleMouseUp = () => {
     if (draggedItem) {
-      /*
-      const collidingItems = getCollidingItems(draggedItem);
-      
-      const parentCollidingItems = collidingItems.filter(
-        (item) => !isChildOf(draggedItem, item)
-      );
-      
-  
-      if (parentCollidingItems.length > 0) {
-        const collidingItem = parentCollidingItems[0];
-        draggedItem.beChildOf(collidingItem);
-      } else if (draggedItem.state.item_parent) {
-        draggedItem.stopBeingChildOf(draggedItem.state.item_parent);
-      }
-        */
-      
-      setIntervalId(null)
       setDraggedItem(null);
     }
   };
@@ -143,34 +92,30 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
     return isChildOf(parent, child.state.item_parent);
   };
 
-const renderItems = () => {
-  return componentItems
-    .map(({ id, Component, props }) => {
-      // Create a ref for each component if it doesn't already exist
-      if (!refs.current[id]) {
-        refs.current[id] = createRef();
-      }
-      // Return an object containing the component's id, Component, props, and ref
-      return { id, Component, props, ref: refs.current[id] };
-    })
-    .filter(({ id }) => mountedComponents[id]) // Filter out components that are not mounted
-    .sort((a, b) => {
-      // Sort components by their layer property
-      const layerA = a.ref.current?.state.generation ?? 0;
-      const layerB = b.ref.current?.state.generation ?? 0;
-      return layerA - layerB;
-    })
-    .map(({ id, Component, props, ref }) => (
-      // Render each component with its props and ref
-      <Component
-        key={"itemSvgCanvas_" + id}
-        id={id}
-        ref={ref}
-        {...props}
-        mouseDownHandler={handleMouseDown(id)}
-      />
-    ));
-};
+  const renderItems = () => {
+    return componentItems
+      .map(({ id, Component, props }) => {
+        if (!refs.current[id]) {
+          refs.current[id] = createRef();
+        }
+        return { id, Component, props, ref: refs.current[id] };
+      })
+      .filter(({ id }) => mountedComponents[id])
+      .sort((a, b) => {
+        const layerA = a.ref.current?.state.generation ?? 0;
+        const layerB = b.ref.current?.state.generation ?? 0;
+        return layerA - layerB;
+      })
+      .map(({ id, Component, props, ref }) => (
+        <Component
+          key={"itemSvgCanvas_" + id}
+          id={id}
+          ref={ref}
+          {...props}
+          mouseDownHandler={handleMouseDown(id)}
+        />
+      ));
+  };
 
   return (
     <div>
@@ -181,8 +126,6 @@ const renderItems = () => {
         onMouseUp={handleMouseUp}
       >
         {renderItems()}
-        <CollisionDebug point={dragStartPoint} color="blue"/>
-        <CollisionDebug point={debugCollisionDetPoint} color="red"/>
       </svg>
       {itemButtons()}
     </div>

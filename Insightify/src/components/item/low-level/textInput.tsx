@@ -1,7 +1,7 @@
 import React from 'react';
 import { BaseTextboxClass, BaseTextboxItemProps, BaseTextboxItemState } from '@base/base-textbox';
 
-interface TextboxProps extends BaseTextboxItemProps {}
+export interface TextboxProps extends BaseTextboxItemProps {}
 
 interface TextboxState extends BaseTextboxItemState {}
 

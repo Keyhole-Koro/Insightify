@@ -42,6 +42,7 @@ export class BaseRectangle<
   }
 
   horizontalResizing(newWidth: number) {
+    console.log("horizontal resizing");
     this.setState({ width: newWidth });
   }
 

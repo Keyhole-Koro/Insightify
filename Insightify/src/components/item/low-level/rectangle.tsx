@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { RGBAColor, rgb } from '@utils/color';
 import { BaseRectangle, BaseRectangleItemProps, BaseRectangleItemState } from '@base/base-rectangle';
 
-interface RectangleProps extends BaseRectangleItemProps {}
+export interface RectangleProps extends BaseRectangleItemProps {}
 
 interface RectangleState extends BaseRectangleItemState {}
 

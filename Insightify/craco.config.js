@@ -9,6 +9,7 @@ module.exports = {
       '@base': path.resolve(__dirname, 'src/components/item/base/'),
       '@item': path.resolve(__dirname, 'src/components/item/'),
       '@utils': path.resolve(__dirname, 'src/components/utils'),
+      '@onField': path.resolve(__dirname, 'src/components/onField'),
     },
   },
 };
