@@ -7,9 +7,10 @@ module.exports = {
       '@components': path.resolve(__dirname, 'src/components'),
       '@llitems': path.resolve(__dirname, 'src/components/item/low-level'),
       '@base': path.resolve(__dirname, 'src/components/item/base/'),
+      '@SvgCanvas': path.resolve(__dirname, 'src/components/SvgCanvas/'),
+      '@itemCreateMenu': path.resolve(__dirname, 'src/components/ItemCreateMenu/'),
       '@item': path.resolve(__dirname, 'src/components/item/'),
       '@utils': path.resolve(__dirname, 'src/components/utils'),
-      '@onField': path.resolve(__dirname, 'src/components/onField'),
     },
   },
 };

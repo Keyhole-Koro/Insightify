@@ -3,36 +3,22 @@ import { useItemManager } from '@managers/ItemManager';
 import { BaseItemClass } from '@base/base/base-item';
 import { Point } from '@utils/math';
 import { useItemJSONManager } from '@managers/ItemJsonManager';
-
-import { ItemComponent } from '@managers/interface/ItemComponent';
 import { ItemJSON } from '@managers/interface/ItemJSON';
-
 import { DebugLogger } from '@utils/debug';
+import data from '../ItemSample/items.json';
 
-import { SharedItemCompnentStateContext, SharedMountedItemCompnentStateContext } from '@managers/service/shareItemComponent';
-
-import data from '../OnFieled/items.json';
-
-export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
+export const ItemSvgCanvas: React.FC<{ height: string; width: string }> = ({
   height,
   width,
 }) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [draggedItem, setDraggedItem] = useState<BaseItemClass | null>(null);
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
   const [collidingItem_, setCollidingItem] = useState<BaseItemClass>();
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
-  const {
-    addItem,
-    toggleMount,
-    itemButtons,
-    componentState,
-  } = useItemManager();
-
-  const {
-    isClassMapLoading,
-    mapItemsFromJSON
-  } = useItemJSONManager();
-
+  const { addItem, toggleMount, itemButtons, componentState } = useItemManager();
+  const { isClassMapLoading, mapItemsFromJSON } = useItemJSONManager();
   const [itemsToMount, setItemsToMount] = useState<string[]>([]);
 
   useEffect(() => {
@@ -41,7 +27,7 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
       itemsToMount.forEach((id) => toggleMount(id));
       setItemsToMount([]); // Clear the list after mounting
     }
-  }, [itemsToMount, toggleMount]); // Dependency ensures it runs when itemsToMount changes
+  }, [itemsToMount, toggleMount]);
 
   useEffect(() => {
     if (!isClassMapLoading) {
@@ -53,9 +39,34 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
       });
 
       // Queue items to be mounted after state updates
-      setItemsToMount(items.map(item => item.id)); 
+      setItemsToMount(items.map((item) => item.id));
     }
   }, [isClassMapLoading]);
+
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      if (svgRef.current) {
+        setCanvasSize({
+          width: svgRef.current.clientWidth,
+          height: svgRef.current.clientHeight,
+        });
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(updateCanvasSize);
+    if (svgRef.current) {
+      resizeObserver.observe(svgRef.current);
+    }
+
+    // Initial size calculation
+    updateCanvasSize();
+
+    return () => {
+      if (svgRef.current) {
+        resizeObserver.unobserve(svgRef.current);
+      }
+    };
+  }, []);
 
   const handleMouseDown = (id: string) => (event: MouseEvent) => {
     const targetRef: BaseItemClass | null = componentState[id]?.ref?.current || null;
@@ -90,7 +101,7 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
       setDraggedItem(null);
     }
   };
-  
+
   const isChildOf = (parent: BaseItemClass, child: BaseItemClass): boolean => {
     if (child.state.item_parent === parent) return true;
     if (!child.state.item_parent) return false;
@@ -98,11 +109,11 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
   };
 
   const renderItems = () => {
-    return Object.values(componentState) // Convert object to array
+    return Object.values(componentState)
       .map(({ id, Component, props, mounted, ref }) => {
         return { id, Component, props, ref: ref, mounted: mounted };
       })
-      .filter(({ mounted }) => mounted) // Skip rendering if mounted is false
+      .filter(({ mounted }) => mounted)
       .sort((a, b) => {
         const layerA = a.ref?.current?.state?.generation ?? 0;
         const layerB = b.ref?.current?.state?.generation ?? 0;
@@ -118,19 +129,17 @@ export const ItemSvgCanvas: React.FC<{ height: number; width: number }> = ({
         />
       ));
   };
-  
+
   return (
-    <div>
-      <svg
-        width={width}
-        height={height}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-      >
-        {renderItems()}
-      </svg>
-      {itemButtons()}
-    </div>
+    <svg
+      ref={svgRef}
+      width={canvasSize.width}
+      height={canvasSize.height}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      {renderItems()}
+    </svg>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { ItemComponent } from '@managers/interface/ItemComponent';
 import { BaseItemClass } from '@base/base/base-item';
-import { SharedItemCompnentStateContext, SharedMountedItemCompnentStateContext } from '@managers/service/shareItemComponent';
+import { SharedItemCompnentStateContext, SharedMountedItemCompnentStateContext } from '@components/managers/context/shareItemComponent';
 
 import { DebugLogger } from '@utils/debug';
 import { link } from 'fs';

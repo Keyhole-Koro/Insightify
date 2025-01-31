@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import SvgCanvas from '@components/ItemSvgCanvas/ItemSvgCanvas';
+
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+
+import SvgCanvas from '@SvgCanvas/ItemSvgCanvas';
 
 import { useItemManager } from '@managers/ItemManager';
-import { Colors } from '@utils/color';
-import { TextAlignment } from '@utils/alignment';
 
-import { Rectangle, Circle, TextInput } from '@llitems/items';
+import ItemCreateMenu from '@components/ItemCreateMenu/ItemCreateMenu';
 
 const App: React.FC = () => {
 
@@ -17,10 +19,9 @@ const App: React.FC = () => {
 
   return (
     <div>
-      <h1>Vector Items with SVG</h1>
-      <SvgCanvas height={800} width={1000}/>
+      <ItemCreateMenu />
     </div>
   );
 };
-
+//<SvgCanvas height={800} width={1000}/>
 export default App;

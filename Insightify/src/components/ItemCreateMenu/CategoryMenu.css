@@ -1,0 +1,33 @@
+/* CategoryMenu.css */
+.category-container {
+    background-color: #f0f8ff; /* Pale blue background for category sidebar */
+    height: 100%;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .category-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .category-item {
+    padding: 10px;
+    margin: 5px 0;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-weight: bold;
+    border-radius: 5px;
+  }
+  
+  .category-item:hover {
+    background-color: #e0f7ff; /* Pale blue on hover */
+  }
+  
+  .category-item.selected {
+    background-color: #add8e6; /* Light blue color for selected category */
+    color: #ffffff;
+  }
+  
