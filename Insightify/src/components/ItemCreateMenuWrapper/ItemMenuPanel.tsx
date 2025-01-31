@@ -1,6 +1,6 @@
 // ItemMenu.tsx
 import React from 'react';
-import './ItemMenu.css';
+import './ItemMenuPanel.css';
 
 interface ItemMenuProps {
   selectedCategory: string;

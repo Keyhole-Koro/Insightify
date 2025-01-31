@@ -1,6 +1,6 @@
 // CategoryMenu.tsx
 import React from 'react';
-import './CategoryMenu.css';
+import './CategoryMenuPanel.css';
 
 interface CategoryMenuProps {
   categories: string[];

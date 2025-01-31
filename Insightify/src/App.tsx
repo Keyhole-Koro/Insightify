@@ -7,7 +7,7 @@ import SvgCanvas from '@SvgCanvas/ItemSvgCanvas';
 
 import { useItemManager } from '@managers/ItemManager';
 
-import ItemCreateMenu from '@components/ItemCreateMenu/ItemCreateMenu';
+import ItemCreateMenu from '@components/ItemCreateMenuWrapper/ItemCreateMenuWrapper';
 
 const App: React.FC = () => {
 

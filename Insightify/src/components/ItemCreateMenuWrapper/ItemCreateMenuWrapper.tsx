@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import './ItemCreateMenu.css';
+import './ItemCreateMenuWrapper.css';
 
 import { ResponsiveProps, WidthProviderProps, Responsive, WidthProvider } from "react-grid-layout";
 
-import CategoryMenu from './CategoryMenu';
-import ItemMenu from './ItemMenu';
+import CategoryMenu from './CategoryMenuPanel';
+import ItemMenu from './ItemMenuPanel';
 import ItemSvgCanvas from '@SvgCanvas/ItemSvgCanvas';
 import useScreenManager from '@managers/useScreenManager';
 
