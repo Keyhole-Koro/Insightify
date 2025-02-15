@@ -15,7 +15,8 @@ export const ItemSvgCanvas: React.FC<{ height: string; width: string }> = ({
   const [draggedItem, setDraggedItem] = useState<BaseItemClass | null>(null);
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
   const [collidingItem_, setCollidingItem] = useState<BaseItemClass>();
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [canvasWidth, setCanvasWidth] = useState(0);
+  const [canvasHeight, setCanvasHeight] = useState(0);
 
   const { addItem, toggleMount, itemButtons, componentState } = useItemManager();
   const { isClassMapLoading, mapItemsFromJSON } = useItemJSONManager();
@@ -44,27 +45,24 @@ export const ItemSvgCanvas: React.FC<{ height: string; width: string }> = ({
   }, [isClassMapLoading]);
 
   useEffect(() => {
-    const updateCanvasSize = () => {
+    // Update the canvas width and height based on the SVG element
+    const updateCanvasDimensions = () => {
       if (svgRef.current) {
-        setCanvasSize({
-          width: svgRef.current.clientWidth,
-          height: svgRef.current.clientHeight,
-        });
+        const { width, height } = svgRef.current.getBoundingClientRect();
+        setCanvasWidth(width);
+        setCanvasHeight(height);
       }
     };
 
-    const resizeObserver = new ResizeObserver(updateCanvasSize);
-    if (svgRef.current) {
-      resizeObserver.observe(svgRef.current);
-    }
+    // Listen for window resize to update the canvas size
+    window.addEventListener('resize', updateCanvasDimensions);
 
-    // Initial size calculation
-    updateCanvasSize();
+    // Initial update
+    updateCanvasDimensions();
 
+    // Cleanup the event listener when the component is unmounted
     return () => {
-      if (svgRef.current) {
-        resizeObserver.unobserve(svgRef.current);
-      }
+      window.removeEventListener('resize', updateCanvasDimensions);
     };
   }, []);
 
@@ -130,15 +128,63 @@ export const ItemSvgCanvas: React.FC<{ height: string; width: string }> = ({
       ));
   };
 
+  // Function to generate grid lines
+  const renderGrid = () => {
+    const gridSpacing = 20; // Set the grid spacing here
+    const widthNum = canvasWidth;
+    const heightNum = canvasHeight;
+    
+    const horizontalLines = [];
+    const verticalLines = [];
+
+    // Generate horizontal grid lines
+    for (let y = gridSpacing; y < heightNum; y += gridSpacing) {
+      horizontalLines.push(
+        <line
+          key={`horizontal-${y}`}
+          x1={0}
+          y1={y}
+          x2={widthNum}
+          y2={y}
+          stroke="#D3D3D3" // Thin gray color
+          strokeWidth={0.5}
+        />
+      );
+    }
+
+    // Generate vertical grid lines
+    for (let x = gridSpacing; x < widthNum; x += gridSpacing) {
+      verticalLines.push(
+        <line
+          key={`vertical-${x}`}
+          x1={x}
+          y1={0}
+          x2={x}
+          y2={heightNum}
+          stroke="#D3D3D3" // Thin gray color
+          strokeWidth={0.5}
+        />
+      );
+    }
+
+    return (
+      <>
+        {horizontalLines}
+        {verticalLines}
+      </>
+    );
+  };
+
   return (
     <svg
       ref={svgRef}
-      width={canvasSize.width}
-      height={canvasSize.height}
+      width={width} // Explicitly use the width passed as a prop (percentage-based)
+      height={height} // Explicitly use the height passed as a prop (percentage-based)
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {renderItems()}
+      {renderGrid()} {/* Render the grid first to ensure it's behind the items */}
+      {renderItems()} {/* Render the items on top of the grid */}
     </svg>
   );
 };

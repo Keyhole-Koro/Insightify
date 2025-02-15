@@ -44,4 +44,5 @@ function findClassesInheritingBaseItemClass(node: ts.Node): string[] {
 
 // Find and list the classes
 const classes = findClassesInheritingBaseItemClass(sourceFile);
+export default classes;
 console.log('Classes inheriting from BaseItemClass:', classes);

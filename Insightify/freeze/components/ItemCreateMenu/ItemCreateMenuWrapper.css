@@ -14,3 +14,15 @@
   grid-template-columns: repeat(12, 1fr); /* Grid layout for responsive layout */
   gap: 10px;
 }
+
+.gutter {
+  background-color: #ececec;
+}
+
+.category-sidebar {
+  transition: max-width 0.3s ease;
+}
+
+.category-sidebar:hover {
+  max-width: 300px; /* Adjust the expanded width as needed */
+}

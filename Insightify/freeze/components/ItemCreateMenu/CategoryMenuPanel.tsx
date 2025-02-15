@@ -8,7 +8,7 @@ interface CategoryMenuProps {
   onCategorySelect: (category: string) => void;
 }
 
-const CategoryMenu: React.FC<CategoryMenuProps> = ({ categories, selectedCategory, onCategorySelect }) => {
+const CategoryMenuPanel: React.FC<CategoryMenuProps> = ({ categories, selectedCategory, onCategorySelect }) => {
   return (
     <div className="category-container">
       <ul className="category-list">
@@ -26,4 +26,4 @@ const CategoryMenu: React.FC<CategoryMenuProps> = ({ categories, selectedCategor
   );
 };
 
-export default CategoryMenu;
+export default CategoryMenuPanel;
