@@ -3,19 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@blueprintjs/core": "^5.16.6",
     "@craco/craco": "^7.1.0",
+    "@fluentui/react": "^8.122.9",
+    "@monaco-editor/react": "^4.7.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^27.5.2",
     "@types/node": "^16.18.114",
+    "@types/prismjs": "^1.26.5",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "fs": "^0.0.1-security",
+    "prismjs": "^1.29.0",
     "react": "^18.3.1",
+    "react-complex-tree": "^2.4.6",
     "react-dom": "^18.3.1",
     "react-grid-layout": "^1.5.0",
     "react-scripts": "5.0.1",
+    "react-simple-code-editor": "^0.14.1",
+    "react-treebeard": "^3.2.4",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
@@ -43,7 +51,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
   }
 }

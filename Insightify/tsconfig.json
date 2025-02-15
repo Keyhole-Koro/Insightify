@@ -21,10 +21,15 @@
     "jsx": "react-jsx",
     "baseUrl": "src",
     "paths": {
+      "@components/*": ["components/*"],
     }
   },
   "include": [
-      "src"
-  , "craco.config.js"  ],
-    "exclude": ["node_modules", "freeze"]
+    "src",
+    "craco.config.js"
+, "components/FileTree.tsx", "components/ViewerPanel.tsx"  ],
+  "exclude": [
+    "node_modules",
+    "freeze"
+  ]
 }
