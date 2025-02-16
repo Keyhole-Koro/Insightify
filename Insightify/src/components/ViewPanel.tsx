@@ -1,26 +1,29 @@
-import React from 'react';
-import Editor from 'react-simple-code-editor';
-import { highlight, languages } from 'prismjs';
-import 'prismjs/components/prism-clike';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/themes/prism.css';
+import React, { useState } from 'react';
+import Script from '@components/Script';
 
 const ViewPanel: React.FC = () => {
-  const [code, setCode] = React.useState(
-    `function add(a, b) {\n  return a + b;\n}`
-  );
+  const sample1 = `function add(a, b) {\n  return a + b;\n}`;
+  const sample2 = `def add(a, b): \n  return a + b\n`;
+  
+  const [codes, setCodes] = useState([sample1, sample2]);
+
+  const handleCodeChange = (index: number, newCode: string) => {
+    setCodes(prevCodes => {
+      const newCodes = [...prevCodes];
+      newCodes[index] = newCode;
+      return newCodes;
+    });
+  };
 
   return (
-    <Editor
-      value={code}
-      onValueChange={code => setCode(code)}
-      highlight={code => highlight(code, languages.js, 'javascript')}
-      padding={10}
-      style={{
-        fontFamily: '"Fira code", "Fira Mono", monospace',
-        fontSize: 12,
-      }}
-    />
+    <div style={{ display: 'flex', height: '100%' }}>
+      <div style={{ flex: 1, margin: '10px' }}>
+        <Script code={codes[0]} setCode={(newCode) => handleCodeChange(0, newCode)} language="javascript" />
+      </div>
+      <div style={{ flex: 1, margin: '10px' }}>
+        <Script code={codes[1]} setCode={(newCode) => handleCodeChange(1, newCode)} language="python" />
+      </div>
+    </div>
   );
 };
 

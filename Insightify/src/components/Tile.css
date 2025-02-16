@@ -1,0 +1,15 @@
+.tile {
+    display: flex;
+    padding: 20px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    background-color: #f7f7f7;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    position: relative; /* Add this to position the handle */
+}
+
+.resize {
+    display: inline-block;
+    resize: both; /* Allow resizing in both directions */
+    overflow: hidden; /* Ensure content is scrollable if it overflows */
+}
