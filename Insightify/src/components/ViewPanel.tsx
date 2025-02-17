@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Script from '@components/Script';
+import { useItemContext } from '@contexts/ItemContext';
 
-const ViewPanel: React.FC = () => {
-  const initialCodes = [
-    { code: `function add(a, b) {\n  return a + b;\n}`, language: 'javascript', x: 50, y: 100 },
-    { code: `def add(a, b): \n  return a + b\n`, language: 'python', x: 200, y: 300 }
-  ];
+export interface CodeObj {
+  code: string;
+  x: number;
+  y: number;
+  language?: string;
+}
 
-  const [codes, setCodes] = useState(initialCodes);
+interface ViewerPanelProps {
+  codes: CodeObj[];
+  setCodes: React.Dispatch<React.SetStateAction<CodeObj[]>>;
+}
+
+const ViewPanel: React.FC<ViewerPanelProps> = ({ codes, setCodes }) => {
+  const { _items, addItem } = useItemContext();
 
   const handleCodeChange = (index: number, newCode: string) => {
     setCodes(prevCodes => {
@@ -28,7 +36,7 @@ const ViewPanel: React.FC = () => {
 
   return (
     <div style={{ position: 'relative', height: '100%' }}>
-      {codes.map((codeObj, index) => (
+      {_items.map((codeObj, index) => (
         <div
           key={index}
           style={{ position: 'absolute', left: codeObj.x, top: codeObj.y }}

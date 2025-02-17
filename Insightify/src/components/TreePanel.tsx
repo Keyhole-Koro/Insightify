@@ -1,21 +1,29 @@
-// src/components/TreePanel.tsx
-import React, { useState } from 'react';
-import { UncontrolledTreeEnvironment, Tree, StaticTreeDataProvider, TreeItem } from 'react-complex-tree';
+import React from 'react';
+import { UncontrolledTreeEnvironment, Tree, StaticTreeDataProvider, TreeItem, TreeItemIndex } from 'react-complex-tree';
 
 export interface CustomTreeItem extends TreeItem {
-  index: string;
-  isFolder?: boolean;
-  children: string[];
-  data: string;
+  content?: string;
+  isFolder?: boolean; // Add this property to indicate if the item is a folder
 }
 
 interface TreePanelProps {
-  items: Record<string, CustomTreeItem>
+  items: Record<string, CustomTreeItem>;
+  onFileSelect: (file: CustomTreeItem) => void;
 }
 
-const TreePanel: React.FC<TreePanelProps> = ({ items }) => {
-
+const TreePanel: React.FC<TreePanelProps> = ({ items, onFileSelect }) => {
   const dataProvider = new StaticTreeDataProvider(items, (item, newName) => ({ ...item, data: newName }));
+
+  const handleSelect = (items: TreeItemIndex[], treeId: string) => {
+    if (items.length > 0) {
+      const selectedItem = items[0];
+      dataProvider.getTreeItem(selectedItem).then(file => {
+        if (!file.isFolder) { // Check if the selected item is not a folder
+          onFileSelect(file as CustomTreeItem);  // <-- Passing selected file to the parent
+        }
+      }).catch(err => console.error('Error fetching selected item:', err));
+    }
+  };
 
   return (
     <UncontrolledTreeEnvironment
@@ -25,6 +33,7 @@ const TreePanel: React.FC<TreePanelProps> = ({ items }) => {
       canDragAndDrop={true}
       canDropOnFolder={true}
       canReorderItems={true}
+      onSelectItems={handleSelect}
     >
       <Tree treeId="tree-2" rootItem="root" treeLabel="Tree Example" />
     </UncontrolledTreeEnvironment>

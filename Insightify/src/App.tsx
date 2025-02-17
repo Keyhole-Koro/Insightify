@@ -1,41 +1,33 @@
+import React, { useEffect, useState } from 'react';
 import 'react-complex-tree/lib/style-modern.css';
 import "rc-dock/dist/rc-dock.css";
-
-import React from 'react';
 import TreePanel, { CustomTreeItem } from '@components/TreePanel';
-import ViewPanel from '@components/ViewPanel';
-
+import ViewPanel, { CodeObj } from '@components/ViewPanel';
 import { DockLayout as DockLayoutType } from 'rc-dock';
+import { initialCodes, items } from './presets';
+import { ItemProvider, useItemContext } from './contexts/ItemContext';
 
-// Cast DockLayout to any to bypass type checking
 const DockLayout = DockLayoutType as any;
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { _items, addItem } = useItemContext();
+  const [codes, setCodes] = useState<CodeObj[]>(initialCodes);
+  const [selectedFile, setSelectedFile] = useState<CustomTreeItem | null>(null);
 
-  const items: Record<string, CustomTreeItem> = {
-    root: {
-      index: 'root',
-      isFolder: true,
-      children: ['child1', 'child2'],
-      data: 'Root item',
-    },
-    child1: {
-      index: 'child1',
-      children: [],
-      data: 'Child item 1',
-    },
-    child2: {
-      index: 'child2',
-      isFolder: true,
-      children: ['child3'],
-      data: 'Child item 2',
-    },
-    child3: {
-      index: 'child3',
-      children: [],
-      data: 'Child item 3',
-    },
+  const handleFileSelect = (file: CustomTreeItem) => {
+    setSelectedFile(file);
   };
+
+  useEffect(() => {
+    initialCodes.forEach(addItem);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedFile) return;
+    const { data, content, isFolder } = selectedFile;
+    if (isFolder) return;
+    addItem({ code: content ?? "", x: 50, y: 50 });
+  }, [selectedFile]);
 
   const itemTree = {
     dockbox: {
@@ -50,10 +42,10 @@ const App: React.FC = () => {
                 {
                   id: 'tab1',
                   title: 'tab1',
-                  content: <TreePanel items={items} />,
-                  minWidth: 200, // Minimum width of the tab
-                  maxWidth: 400, // Maximum width of the tab
-                  preferredWidth: 200 // Preferred width of the tab
+                  content: <TreePanel items={items} onFileSelect={handleFileSelect} />,
+                  minWidth: 200,
+                  maxWidth: 400,
+                  preferredWidth: 200
                 }
               ]
             }
@@ -68,10 +60,7 @@ const App: React.FC = () => {
                 {
                   id: 'tab2',
                   title: 'tab2',
-                  content: <ViewPanel />,
-                  minWidth: 400, // Minimum width of the tab
-                  maxWidth: 800, // Maximum width of the tab
-                  preferredWidth: 700 // Preferred width of the tab
+                  content: <ViewPanel codes={codes} setCodes={setCodes} />,
                 }
               ]
             }
@@ -80,6 +69,7 @@ const App: React.FC = () => {
       ]
     }
   };
+
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
       <div style={{ flex: 1, margin: 10 }}>
@@ -92,6 +82,14 @@ const App: React.FC = () => {
         />
       </div>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ItemProvider>
+      <AppContent />
+    </ItemProvider>
   );
 };
 
