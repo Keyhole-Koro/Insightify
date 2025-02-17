@@ -2,27 +2,48 @@ import React, { useState } from 'react';
 import Script from '@components/Script';
 
 const ViewPanel: React.FC = () => {
-  const sample1 = `function add(a, b) {\n  return a + b;\n}`;
-  const sample2 = `def add(a, b): \n  return a + b\n`;
-  
-  const [codes, setCodes] = useState([sample1, sample2]);
+  const initialCodes = [
+    { code: `function add(a, b) {\n  return a + b;\n}`, language: 'javascript', x: 50, y: 100 },
+    { code: `def add(a, b): \n  return a + b\n`, language: 'python', x: 200, y: 300 }
+  ];
+
+  const [codes, setCodes] = useState(initialCodes);
 
   const handleCodeChange = (index: number, newCode: string) => {
     setCodes(prevCodes => {
       const newCodes = [...prevCodes];
-      newCodes[index] = newCode;
+      newCodes[index].code = newCode;
+      return newCodes;
+    });
+  };
+
+  const handleDrag = (index: number, newX: number, newY: number) => {
+    setCodes(prevCodes => {
+      const newCodes = [...prevCodes];
+      newCodes[index].x = newX;
+      newCodes[index].y = newY;
       return newCodes;
     });
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
-      <div style={{ flex: 1, margin: '10px' }}>
-        <Script code={codes[0]} setCode={(newCode) => handleCodeChange(0, newCode)} language="javascript" />
-      </div>
-      <div style={{ flex: 1, margin: '10px' }}>
-        <Script code={codes[1]} setCode={(newCode) => handleCodeChange(1, newCode)} language="python" />
-      </div>
+    <div style={{ position: 'relative', height: '100%' }}>
+      {codes.map((codeObj, index) => (
+        <div
+          key={index}
+          style={{ position: 'absolute', left: codeObj.x, top: codeObj.y }}
+        >
+          <Script
+            x={codeObj.x}
+            y={codeObj.y}
+            code={codeObj.code}
+            setCode={(newCode) => handleCodeChange(index, newCode)}
+            language={codeObj.language}
+            onDrag={(newX, newY) => handleDrag(index, newX, newY)}
+            children={null}
+          />
+        </div>
+      ))}
     </div>
   );
 };
