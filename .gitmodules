@@ -1,0 +1,6 @@
+[submodule "InsightifyCore"]
+	path = InsightifyCore
+	url = https://github.com/Keyhole-Koro/InsightifyCore.git
+[submodule "InsightifyWeb"]
+	path = InsightifyWeb
+	url = https://github.com/Keyhole-Koro/InsightifyWeb.git
