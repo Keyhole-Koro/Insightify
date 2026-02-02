@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package pipeline.v1;
+
+// Minimal progress stream (metadata later).
+message ProgressEvent {
+  oneof payload {
+    StatusPayload status = 1;
+    LogPayload log = 2;
+    ChunkPayload chunk = 3;
+  }
+}
+
+message StatusPayload {
+  string message = 1;
+}
+
+message LogPayload {
+  string level = 1;
+  string message = 2;
+}
+
+message ChunkPayload {
+  string text = 1;
+  bool is_final = 2;
+}

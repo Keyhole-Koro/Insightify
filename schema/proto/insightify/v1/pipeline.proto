@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package insightify.v1;
+
+import "pipeline/v1/client_view.proto";
+
+option go_package = "insightifyv1";
+
+service PipelineService {
+  // Start executing a plan.
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+
+  // Snapshot state for a run.
+  // rpc GetRun(GetRunRequest) returns (Run);
+
+  // Streaming progress for a run (fan out to UI).
+  // rpc WatchRun(WatchRunRequest) returns (stream RunEvent);
+}
+
+message StartRunRequest {
+  string pipeline_id = 1;
+  map<string, string> params = 2;
+}
+
+message StartRunResponse {
+  pipeline.v1.ClientView client_view = 1;
+}
+
+// message GetRunRequest {
+// }
+//
+// message Run {
+//   string run_id = 1;
+// }
+//
+// message RunEvent {
+//   RunStatus status = 1;
+//   string log_message = 2;
+// }
+//
+// message WatchRunRequest {
+// }
+// EOF

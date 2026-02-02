@@ -1,0 +1,55 @@
+{
+  "name": "Insightify Dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.22"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "bufbuild.vscode-buf",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "graphql.vscode-graphql",
+        "graphql.vscode-graphql-syntax"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "editor.formatOnSave": true,
+        "[go]": {
+          "editor.defaultFormatter": "golang.go"
+        },
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[proto3]": {
+          "editor.defaultFormatter": "bufbuild.vscode-buf"
+        }
+      }
+    }
+  },
+  "forwardPorts": [5173, 8080],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite Dev Server"
+    },
+    "8080": {
+      "label": "Go Backend"
+    }
+  },
+  "updateRemoteUserUID": false
+
+}

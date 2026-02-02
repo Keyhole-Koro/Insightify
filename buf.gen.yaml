@@ -1,0 +1,22 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: insightify/gen/go
+plugins:
+  # Go
+  - remote: buf.build/protocolbuffers/go
+    out: InsightifyCore/gen/go
+    opt: paths=source_relative
+  - remote: buf.build/connectrpc/go
+    out: InsightifyCore/gen/go
+    opt: paths=source_relative
+
+  # TypeScript
+  - remote: buf.build/bufbuild/es
+    out: gen/ts
+    opt: target=js
+  - remote: buf.build/connectrpc/es
+    out: gen/ts
+    opt: target=js

@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package pipeline.v1;
+
+message ClientView {
+  string phase = 1;
+  GraphView graph = 2;
+}
+
+message GraphView {
+  repeated GraphNode nodes = 1;
+  repeated GraphEdge edges = 2;
+}
+
+message GraphNode {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+}
+
+message GraphEdge {
+  string from = 1;
+  string to = 2;
+}
