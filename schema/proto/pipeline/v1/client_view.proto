@@ -13,9 +13,10 @@ message GraphView {
 }
 
 message GraphNode {
-  string id = 1;
+  string uid = 1;
   string label = 2;
   string description = 3;
+  string parent_uid = 4;
 }
 
 message GraphEdge {

@@ -7,6 +7,9 @@ import "pipeline/v1/client_view.proto";
 option go_package = "insightifyv1";
 
 service PipelineService {
+  // Initialize a run session from frontend-provided context.
+  rpc InitRun(InitRunRequest) returns (InitRunResponse);
+
   // Start executing a plan. Returns immediately with a run_id.
   rpc StartRun(StartRunRequest) returns (StartRunResponse);
 
@@ -14,9 +17,20 @@ service PipelineService {
   rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
 }
 
+message InitRunRequest {
+  string user_id = 1;
+  string repo_url = 2;
+}
+
+message InitRunResponse {
+  string session_id = 1;
+  string repo_name = 2;
+}
+
 message StartRunRequest {
-  string pipeline_id = 1;
-  map<string, string> params = 2;
+  string session_id = 1;
+  string pipeline_id = 2;
+  map<string, string> params = 3;
 }
 
 message StartRunResponse {
