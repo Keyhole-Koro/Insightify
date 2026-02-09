@@ -13,6 +13,9 @@ service PipelineService {
   // Start executing a plan. Returns immediately with a run_id.
   rpc StartRun(StartRunRequest) returns (StartRunResponse);
 
+  // Submit user input for an interactive run (e.g. init_purpose).
+  rpc SubmitRunInput(SubmitRunInputRequest) returns (SubmitRunInputResponse);
+
   // Streaming progress for a run (fan out to UI).
   rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
 }
@@ -25,6 +28,7 @@ message InitRunRequest {
 message InitRunResponse {
   string session_id = 1;
   string repo_name = 2;
+  string bootstrap_run_id = 3;
 }
 
 message StartRunRequest {
@@ -36,6 +40,16 @@ message StartRunRequest {
 message StartRunResponse {
   string run_id = 1;
   pipeline.v1.ClientView client_view = 2;
+}
+
+message SubmitRunInputRequest {
+  string session_id = 1;
+  string run_id = 2;
+  string input = 3;
+}
+
+message SubmitRunInputResponse {
+  string run_id = 1;
 }
 
 message WatchRunRequest {

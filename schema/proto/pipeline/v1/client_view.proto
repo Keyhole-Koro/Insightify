@@ -4,7 +4,10 @@ package pipeline.v1;
 
 message ClientView {
   string phase = 1;
-  GraphView graph = 2;
+  oneof content {
+    GraphView graph = 2;
+    string llm_response = 3;
+  }
 }
 
 message GraphView {
