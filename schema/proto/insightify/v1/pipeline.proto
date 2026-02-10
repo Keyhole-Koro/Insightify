@@ -13,8 +13,8 @@ service PipelineService {
   // Start executing a plan. Returns immediately with a run_id.
   rpc StartRun(StartRunRequest) returns (StartRunResponse);
 
-  // Submit user input for an interactive run (e.g. init_purpose).
-  rpc SubmitRunInput(SubmitRunInputRequest) returns (SubmitRunInputResponse);
+  // Respond to a pending user-input request for an interactive run.
+  rpc NeedUserInput(SubmitRunInputRequest) returns (SubmitRunInputResponse);
 
   // Streaming progress for a run (fan out to UI).
   rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
