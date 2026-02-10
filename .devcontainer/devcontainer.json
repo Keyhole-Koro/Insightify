@@ -1,8 +1,9 @@
 {
   "name": "Insightify Dev",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/Insightify",
+  "runServices": ["workspace", "postgres", "pgadmin"],
   "features": {
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.22"
@@ -41,7 +42,7 @@
       }
     }
   },
-  "forwardPorts": [5173, 8080],
+  "forwardPorts": [5173, 8080, 5050],
   "portsAttributes": {
     "5173": {
       "label": "Vite Dev Server"
