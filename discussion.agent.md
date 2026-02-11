@@ -106,3 +106,17 @@ Agents should reference it when proposing architecture and implementation strate
 - User intent: Conversation logs should be saved by `llmInteraction`, not directly in gateway.
 - Architectural adjustment: Gateway is now transport mapping only; interaction state (pending input + conversation event log) is centralized in `internal/llmInteraction`.
 - Resulting boundary: `gateway_llm_chat` calls service methods for conversation lifecycle and no longer owns chat log storage structs.
+
+## 2026-02-11 10:09:40 UTC
+- User intent: Introduce explicit `project` unit in Core, allow same user to select project in frontend, and provide a "new project" action.
+- Agreed migration style: Move to project-centric behavior now, while keeping existing session-shaped transport fields as compatibility aliases during transition.
+- Applied architecture:
+  - PipelineService gained project lifecycle RPCs (`ListProjects`, `CreateProject`, `SelectProject`).
+  - Core store now persists project metadata (`project_id`, `project_name`, `is_active`) per user.
+  - Frontend bootstrap flow became project-driven with selector + create button.
+- Follow-up direction: remove remaining session naming/paths after project-only clients are stable.
+
+## 2026-02-11 10:20:34 UTC
+- User intent: remove all compatibility-preserving code and stop carrying session-era fallback behavior.
+- Applied decision: runtime paths now treat project as the only context key in request preprocessing and frontend chat/run orchestration.
+- Effect: old cookie/session fallback and alias helpers were removed from active flow; project selection/creation remains the primary entry point.

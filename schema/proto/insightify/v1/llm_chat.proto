@@ -17,6 +17,7 @@ message WatchChatRequest {
   string run_id = 2;
   string conversation_id = 3;
   int64 from_seq = 4;
+  string project_id = 5;
 }
 
 message SendMessageRequest {
@@ -26,6 +27,7 @@ message SendMessageRequest {
   string input = 4;
   string client_msg_id = 5;
   string conversation_id = 6;
+  string project_id = 7;
 }
 
 message SendMessageResponse {
@@ -52,6 +54,7 @@ message ChatEvent {
   int64 seq = 6;
   string text = 7;
   string conversation_id = 8;
+  string project_id = 9;
   UiNode node = 20;
 }
 

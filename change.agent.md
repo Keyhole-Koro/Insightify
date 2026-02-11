@@ -621,3 +621,56 @@ This file is the agent change log. Append each new change as a new entry.
   - InsightifyCore/cmd/api/gateway_llm_chat.go
   - change.agent.md
 - Notes: `gateway_llm_chat` now delegates `EnsureConversation/ConversationIDByRun/RunIDByConversation/AppendChatEvent/SubscribeConversation` to `llmInteraction`. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/llmInteraction ./internal/runner`.
+
+## 2026-02-11 10:09:40 UTC
+- Timestamp: 2026-02-11 10:09:40 UTC
+- Agent: codex
+- Summary: Introduced project-centric workflow (list/create/select) in Core + Frontend, and migrated bootstrap UI to project selection with a new "New Project" action while keeping run/chat transport backward-compatible.
+- Changed Files:
+  - schema/proto/insightify/v1/pipeline.proto
+  - schema/proto/insightify/v1/llm_chat.proto
+  - InsightifyCore/gen/go/insightify/v1/pipeline.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/pipeline.connect.go
+  - InsightifyCore/gen/go/insightify/v1/llm_chat.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/llm_chat.connect.go
+  - InsightifyCore/cmd/api/gateway_state.go
+  - InsightifyCore/cmd/api/gateway_session_store.go
+  - InsightifyCore/cmd/api/gateway_session.go
+  - InsightifyCore/cmd/api/gateway_request_preprocess.go
+  - InsightifyCore/cmd/api/gateway_init.go
+  - InsightifyCore/cmd/api/gateway_start.go
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - InsightifyCore/cmd/api/gateway_project.go
+  - InsightifyCore/cmd/api/test_gateway_need_user_input_rpc.go
+  - InsightifyWeb/src/gen/insightify/v1/*.js
+  - InsightifyWeb/src/api/coreApi/types.ts
+  - InsightifyWeb/src/api/coreApi/index.ts
+  - InsightifyWeb/src/hooks/chat/useRunSession.ts
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/pages/Home.tsx
+  - InsightifyWeb/src/pages/home/ActionPanel.tsx
+  - change.agent.md
+- Notes: Existing run/chat execution still accepts `session_id` fallback for compatibility, but Home flow now operates on `project_id` semantics and project-level selection. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/runner ./internal/llmInteraction` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 10:20:34 UTC
+- Timestamp: 2026-02-11 10:20:34 UTC
+- Agent: codex
+- Summary: Removed project-migration compatibility paths and enforced project-only request flow across Core/Frontend runtime paths.
+- Changed Files:
+  - InsightifyCore/cmd/api/gateway_request_preprocess.go
+  - InsightifyCore/cmd/api/gateway_init.go
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - InsightifyCore/cmd/api/gateway_run_execute.go
+  - InsightifyCore/cmd/api/gateway_state.go
+  - InsightifyCore/cmd/api/gateway_session_store.go
+  - InsightifyCore/cmd/api/gateway_session.go (deleted)
+  - InsightifyWeb/src/api/coreApi/types.ts
+  - InsightifyWeb/src/api/coreApi/index.ts
+  - InsightifyWeb/src/hooks/chat/useRunSession.ts
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - InsightifyWeb/src/hooks/usePipelineRun.ts
+  - InsightifyWeb/src/hooks/useRunManager.ts
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - change.agent.md
+- Notes: Eliminated session/cookie fallback and alias methods in runtime flow; `project_id` is now required by preprocess and chat send/watch paths used by Home bootstrap. Verified with `go test` and `npm run build`.
