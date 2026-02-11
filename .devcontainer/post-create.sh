@@ -4,6 +4,7 @@ set -e
 echo "=== Installing Go protoc plugins ==="
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+go install github.com/air-verse/air@latest
 
 echo "=== Installing Node.js dependencies for code generation ==="
 npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
