@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package insightify.v1;
+
+option go_package = "insightifyv1";
+
+service LlmChatService {
+  // Watch chat-level events for a run.
+  rpc WatchChat(WatchChatRequest) returns (stream ChatEvent);
+
+  // Send user follow-up input to a waiting interactive run.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+}
+
+message WatchChatRequest {
+  string session_id = 1;
+  string run_id = 2;
+}
+
+message SendMessageRequest {
+  string session_id = 1;
+  string run_id = 2;
+  string interaction_id = 3;
+  string input = 4;
+  string client_msg_id = 5;
+}
+
+message SendMessageResponse {
+  bool accepted = 1;
+  string interaction_id = 2;
+}
+
+message ChatEvent {
+  enum EventType {
+    EVENT_TYPE_UNSPECIFIED = 0;
+    EVENT_TYPE_ASSISTANT_CHUNK = 1;
+    EVENT_TYPE_ASSISTANT_FINAL = 2;
+    EVENT_TYPE_NEED_INPUT = 3;
+    EVENT_TYPE_ERROR = 4;
+    EVENT_TYPE_COMPLETE = 5;
+  }
+
+  EventType event_type = 1;
+  string session_id = 2;
+  string run_id = 3;
+  string worker_key = 4;
+  string interaction_id = 5;
+  int64 seq = 6;
+  string text = 7;
+  UiNode node = 20;
+}
+
+enum UiNodeType {
+  UI_NODE_TYPE_UNSPECIFIED = 0;
+  UI_NODE_TYPE_LLM_CHAT = 1;
+  UI_NODE_TYPE_MARKDOWN = 2;
+  UI_NODE_TYPE_IMAGE = 3;
+  UI_NODE_TYPE_TABLE = 4;
+}
+
+message UiNodeMeta {
+  string title = 1;
+  string description = 2;
+  repeated string tags = 3;
+}
+
+message UiChatMessage {
+  enum Role {
+    ROLE_UNSPECIFIED = 0;
+    ROLE_USER = 1;
+    ROLE_ASSISTANT = 2;
+  }
+
+  string id = 1;
+  Role role = 2;
+  string content = 3;
+}
+
+message UiLlmChatState {
+  string model = 1;
+  bool is_responding = 2;
+  bool send_locked = 3;
+  string send_lock_hint = 4;
+  repeated UiChatMessage messages = 5;
+}
+
+message UiMarkdownState {
+  string markdown = 1;
+}
+
+message UiImageState {
+  string src = 1;
+  string alt = 2;
+}
+
+message UiTableState {
+  repeated string columns = 1;
+  repeated UiTableRow rows = 2;
+}
+
+message UiTableRow {
+  repeated string cells = 1;
+}
+
+message UiNode {
+  string id = 1;
+  UiNodeType type = 2;
+  UiNodeMeta meta = 3;
+  UiLlmChatState llm_chat = 10;
+  UiMarkdownState markdown = 11;
+  UiImageState image = 12;
+  UiTableState table = 13;
+}
