@@ -2,6 +2,106 @@
 
 This file is the agent change log. Append each new change as a new entry.
 
+## 2026-02-11 07:28:53 UTC
+- Timestamp: 2026-02-11 07:28:53 UTC
+- Agent: codex
+- Summary: Rewired frontend bootstrap entrypoint to `useBootstrap` and restored full bootstrap chat flow orchestration from Home page.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/pages/Home.tsx
+  - change.agent.md
+- Notes: `Home` now imports and uses `useBootstrap`; hook initializes session, starts bootstrap worker, watches chat events, and handles need-input/send loop. Verified with `npm run build` and core regression tests.
+
+## 2026-02-11 07:24:57 UTC
+- Timestamp: 2026-02-11 07:24:57 UTC
+- Agent: codex
+- Summary: Added explicit UI SDK interaction methods (`NeedUserInput` / `Followup`) and switched bootstrap worker node rendering to those SDK methods.
+- Changed Files:
+  - InsightifyCore/internal/ui/chat_interaction.go
+  - InsightifyCore/internal/ui/node_builders_chat.go
+  - InsightifyCore/internal/ui/sdk_test.go
+  - InsightifyCore/internal/workers/plan/bootstrap.go
+  - change.agent.md
+- Notes: Worker now constructs interaction state through UI SDK methods rather than ad-hoc node mutation logic in gateway. Core tests pass: `go test ./internal/ui ./internal/workers/plan ./cmd/api ./internal/runner`.
+
+## 2026-02-11 07:16:12 UTC
+- Timestamp: 2026-02-11 07:16:12 UTC
+- Agent: codex
+- Summary: Moved chat-node state ownership further into worker/UI SDK by making bootstrap build/send user+assistant node state and removing gateway-side user-reply node mutation.
+- Changed Files:
+  - InsightifyCore/internal/ui/node_builders_chat.go
+  - InsightifyCore/internal/workers/plan/bootstrap.go
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - InsightifyCore/cmd/api/gateway_run_execute.go
+  - change.agent.md
+- Notes: Added `ui.BuildChatNode(...)`; bootstrap now emits node state containing user message (when input exists) plus assistant message via `ui.SendUpsertNode`, and gateway no longer appends user messages directly. Verified with `go test ./cmd/api ./internal/runner ./internal/workers/plan ./internal/ui` and `npm run build`.
+
+## 2026-02-11 07:13:59 UTC
+- Timestamp: 2026-02-11 07:13:59 UTC
+- Agent: codex
+- Summary: Strengthened core-owned interaction flow by reflecting user replies into run node state before follow-up execution and pushing node update events from core.
+- Changed Files:
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - InsightifyCore/cmd/api/gateway_run_execute.go
+  - change.agent.md
+- Notes: After `waitPendingUserInput`, core now appends a `ROLE_USER` message to stored `UiNode` and emits `NODE_READY` before rerunning bootstrap follow-up, so frontend receives user-input/follow-up transition from core state. Verified with `go test ./cmd/api ./internal/runner ./internal/workers/plan ./internal/ui` and `npm run build`.
+
+## 2026-02-11 07:10:00 UTC
+- Timestamp: 2026-02-11 07:10:00 UTC
+- Agent: codex
+- Summary: Added UI SDK send primitive and switched bootstrap node delivery to emitter-based push from worker runtime context instead of relying only on returned output.
+- Changed Files:
+  - InsightifyCore/internal/ui/send.go
+  - InsightifyCore/internal/workers/plan/bootstrap.go
+  - InsightifyCore/cmd/api/gateway_run_execute.go
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - change.agent.md
+- Notes: `bootstrap.Run` now calls `ui.SendUpsertNode(ctx, node)` for initial and final node states; gateway now injects a UI emitter into execution context and translates UI upsert events into run-node store updates + `NODE_READY` progress events for chat stream consumers. Verified with `go test ./cmd/api ./internal/runner ./internal/workers/plan ./internal/ui` and `npm run build`.
+
+## 2026-02-11 07:06:46 UTC
+- Timestamp: 2026-02-11 07:06:46 UTC
+- Agent: codex
+- Summary: Removed `is_bootstrap` control path and switched bootstrap runs to immediate node-first interactive flow (node ready event at run start, then need-input/follow-up loop).
+- Changed Files:
+  - InsightifyCore/internal/workers/plan/bootstrap.go
+  - InsightifyCore/internal/workers/plan/bootstrap_test.go
+  - InsightifyCore/internal/runner/types.go
+  - InsightifyCore/internal/runner/registry_plan.go
+  - InsightifyCore/internal/runner/registry_testing.go
+  - InsightifyCore/internal/artifact/init_purpose.go
+  - InsightifyCore/cmd/api/gateway_request_preprocess.go
+  - InsightifyCore/cmd/api/gateway_start.go
+  - InsightifyCore/cmd/api/gateway_run_execute.go
+  - InsightifyCore/cmd/api/gateway_init.go
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - InsightifyWeb/src/pages/home/useInitPurposeNode.ts
+  - change.agent.md
+- Notes: `StartRun` no longer parses `params.is_bootstrap`; bootstrap worker now treats empty input as initial greeting unconditionally. Gateway emits `NODE_READY` progress at bootstrap run start so frontend can upsert the first LLM chat node immediately while the worker continues interactive wait/follow-up. Verified with `go test ./cmd/api ./internal/runner ./internal/workers/plan ./internal/artifact` and `npm run build`.
+
+## 2026-02-11 06:52:53 UTC
+- Timestamp: 2026-02-11 06:52:53 UTC
+- Agent: codex
+- Summary: Fully merged `source_scout` worker into bootstrap implementation and removed standalone scout worker/types.
+- Changed Files:
+  - InsightifyCore/internal/workers/plan/bootstrap.go
+  - InsightifyCore/internal/runner/registry_testing.go
+  - InsightifyCore/internal/workers/plan/source_scout.go (deleted)
+  - InsightifyCore/internal/artifact/plan_source_scout.go (deleted)
+  - change.agent.md
+- Notes: Bootstrap now owns scout prompt + execution internally; `BootstrapIn` no longer carries scout input. Verified with `go test ./internal/workers/plan ./internal/runner ./cmd/api` and `npm run build`.
+
+## 2026-02-11 06:48:14 UTC
+- Timestamp: 2026-02-11 06:48:14 UTC
+- Agent: codex
+- Summary: Merged source-scout behavior into bootstrap worker flow and simplified plan registry dependencies so interactive bootstrap owns scout+chat+followup loop.
+- Changed Files:
+  - InsightifyCore/internal/workers/plan/bootstrap.go
+  - InsightifyCore/internal/workers/plan/bootstrap_test.go
+  - InsightifyCore/internal/runner/registry_plan.go
+  - InsightifyCore/internal/runner/test_registry_plan_test.go
+  - change.agent.md
+- Notes: Removed `plan_source_scout` dependency from bootstrap specs; bootstrap now resolves scout internally before LLM follow-up decision. Kept `init_purpose` as compatibility alias while making `bootstrap` the primary worker key in DAG metadata/requirements. Verified with `go test ./internal/workers/plan ./internal/runner ./cmd/api` and `npm run build`.
+
 ## 2026-02-11 06:40:51 UTC
 - Timestamp: 2026-02-11 06:40:51 UTC
 - Agent: codex
@@ -348,3 +448,176 @@ This file is the agent change log. Append each new change as a new entry.
   - change.agent.md
   - discussion.agent.md
 - Notes: Initial template setup.
+
+## 2026-02-11 07:34:15 UTC
+- Timestamp: 2026-02-11 07:34:15 UTC
+- Agent: codex
+- Summary: Split `useBootstrap` responsibilities into dedicated hooks for session initialization, RPC node synchronization, and runtime interaction handling.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/pages/home/bootstrapConstants.ts
+  - InsightifyWeb/src/pages/home/useBootstrapSession.ts
+  - InsightifyWeb/src/pages/home/useBootstrapNodeSync.ts
+  - InsightifyWeb/src/pages/home/useBootstrapRuntime.ts
+  - change.agent.md
+- Notes: Behavior preserved while reducing hook size. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 08:46:34 UTC
+- Timestamp: 2026-02-11 08:46:34 UTC
+- Agent: codex
+- Summary: Generalized frontend runtime hooks so session management, RPC node sync, and run/send/stream control are reusable and no longer bootstrap-specific by naming/design.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/pages/home/useRunSession.ts
+  - InsightifyWeb/src/pages/home/useRpcChatNodeSync.ts
+  - InsightifyWeb/src/pages/home/useChatRunController.ts
+  - InsightifyWeb/src/pages/home/bootstrapConstants.ts (deleted)
+  - InsightifyWeb/src/pages/home/useBootstrapSession.ts (deleted)
+  - InsightifyWeb/src/pages/home/useBootstrapNodeSync.ts (deleted)
+  - InsightifyWeb/src/pages/home/useBootstrapRuntime.ts (deleted)
+  - change.agent.md
+- Notes: `useBootstrap` now composes generic hooks with bootstrap-specific constants only. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 08:50:26 UTC
+- Timestamp: 2026-02-11 08:50:26 UTC
+- Agent: codex
+- Summary: Moved generalized runtime hooks out of `pages/home` into shared `src/hooks/chat` so they are not Home-specific.
+- Changed Files:
+  - InsightifyWeb/src/hooks/chat/useRunSession.ts
+  - InsightifyWeb/src/hooks/chat/useRpcChatNodeSync.ts
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - change.agent.md
+- Notes: Updated imports in `useBootstrap` to shared hooks path. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 08:57:58 UTC
+- Timestamp: 2026-02-11 08:57:58 UTC
+- Agent: codex
+- Summary: Added detailed frontend diagnostic logging across session init, run start, stream lifecycle/events, RPC node upsert, and Home node state updates to debug missing LLM chat node after reload.
+- Changed Files:
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - InsightifyWeb/src/hooks/chat/useRpcChatNodeSync.ts
+  - InsightifyWeb/src/hooks/chat/useRunSession.ts
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/pages/Home.tsx
+  - change.agent.md
+- Notes: Logs are gated by existing local/dev logging path (`[bootstrap]`) or `import.meta.env.DEV` (`[home]`). Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 08:59:59 UTC
+- Timestamp: 2026-02-11 08:59:59 UTC
+- Agent: codex
+- Summary: Fixed chat event enum mapping mismatch for Buf v2 generated enums and added frontend fallback node creation at stream start to prevent blank graph on reload.
+- Changed Files:
+  - InsightifyWeb/src/api/coreApi/client.ts
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - change.agent.md
+- Notes: Root cause from logs: event type arrived effectively as enum values not matching old `EVENT_TYPE_*` constants; mapped to `UNSPECIFIED` and ignored. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 09:02:35 UTC
+- Timestamp: 2026-02-11 09:02:35 UTC
+- Agent: codex
+- Summary: Added run-context compatibility guard to rebuild stale session `RunCtx` when required workers (e.g., `bootstrap`) are missing from resolver.
+- Changed Files:
+  - InsightifyCore/cmd/api/gateway_session_store.go
+  - change.agent.md
+- Notes: Prevents "bootstrap worker is not registered" on old in-memory sessions after worker registry changes. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/runner`.
+
+## 2026-02-11 09:07:39 UTC
+- Timestamp: 2026-02-11 09:07:39 UTC
+- Agent: codex
+- Summary: Stabilized chat watch lifecycle around `NEED_INPUT` and preserved local user history during RPC node upserts.
+- Changed Files:
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - InsightifyWeb/src/hooks/chat/useRpcChatNodeSync.ts
+  - change.agent.md
+- Notes: `WatchChat` now pauses cleanly on `EVENT_TYPE_NEED_INPUT` (no reconnect error spam) and message sync now merges incoming RPC messages instead of replacing existing local history. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 09:11:44 UTC
+- Timestamp: 2026-02-11 09:11:44 UTC
+- Agent: codex
+- Summary: Ensured watch stream is always restarted after successful message submission to avoid missing follow-up assistant events.
+- Changed Files:
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - change.agent.md
+- Notes: Removed conditional branch that skipped restart when `streamingByNodeRef` was true. `stream()` already aborts previous watcher for same run, so forced restart is safe. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 09:14:43 UTC
+- Timestamp: 2026-02-11 09:14:43 UTC
+- Agent: codex
+- Summary: Added immediate chat-state snapshot emission in `WatchChat` so reconnecting clients can recover pending interaction/node state without relying on previously missed events.
+- Changed Files:
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - change.agent.md
+- Notes: On stream connect, server now sends pending `NEED_INPUT` snapshot (with interaction_id/prompt/node) or node snapshot when available. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/runner`.
+
+## 2026-02-11 09:17:27 UTC
+- Timestamp: 2026-02-11 09:17:27 UTC
+- Agent: codex
+- Summary: Removed redundant bootstrap `StartRun` on frontend mount; now prefers `bootstrapRunId` returned by `InitRun` to avoid duplicate bootstrap-run races.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - change.agent.md
+- Notes: Mount flow now watches server-created bootstrap run directly and only falls back to `StartRun(bootstrap)` when `bootstrapRunId` is empty. Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 09:19:17 UTC
+- Timestamp: 2026-02-11 09:19:17 UTC
+- Agent: codex
+- Summary: Hardened `InitRun` bootstrap-run reuse logic to avoid returning stale `ActiveRunID` that no longer emits events.
+- Changed Files:
+  - InsightifyCore/cmd/api/gateway_init.go
+  - change.agent.md
+- Notes: `InitRun` now reuses active run only when `Running=true` and run is verifiably active (`pending input` exists or run channel is present). Otherwise it launches a fresh bootstrap run. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/runner`.
+
+## 2026-02-11 09:28:39 UTC
+- Timestamp: 2026-02-11 09:28:39 UTC
+- Agent: codex
+- Summary: Cleaned bootstrap interaction architecture by removing implicit bootstrap run launch from `InitRun`, making frontend explicitly start bootstrap worker, and simplifying chat watch lifecycle to a single-pass stream model.
+- Changed Files:
+  - InsightifyCore/cmd/api/gateway_init.go
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - change.agent.md
+- Notes: This reduces cross-layer responsibility overlap (InitRun no longer orchestrates worker execution). Verified with `cd InsightifyCore && go test ./cmd/api ./internal/runner` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 09:34:30 UTC
+- Timestamp: 2026-02-11 09:34:30 UTC
+- Agent: codex
+- Summary: Further reduced frontend complexity by removing test-node UI path, removing debug logging plumbing, and simplifying bootstrap to a single explicit run path.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - InsightifyWeb/src/hooks/chat/useRpcChatNodeSync.ts
+  - InsightifyWeb/src/hooks/chat/useRunSession.ts
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - InsightifyWeb/src/pages/Home.tsx
+  - InsightifyWeb/src/pages/home/ActionPanel.tsx
+  - change.agent.md
+- Notes: Removed `testllmChar` action flow and most diagnostic-only branches. Verified with `cd InsightifyWeb && npm run build` and `cd InsightifyCore && go test ./cmd/api ./internal/runner`.
+
+## 2026-02-11 09:47:40 UTC
+- Timestamp: 2026-02-11 09:47:40 UTC
+- Agent: codex
+- Summary: Implemented conversation-scoped chat streaming (`conversation_id` + `from_seq`) and wired run-event publication into chat timeline so node-scoped subscriptions can resume/reconnect safely.
+- Changed Files:
+  - schema/proto/insightify/v1/llm_chat.proto
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - InsightifyCore/cmd/api/gateway_run_execute.go
+  - InsightifyWeb/src/api/coreApi/types.ts
+  - InsightifyWeb/src/api/coreApi/index.ts
+  - InsightifyWeb/src/hooks/useStreamWatch.ts
+  - InsightifyWeb/src/hooks/chat/useChatRunController.ts
+  - change.agent.md
+- Notes: Added migration-safe run->conversation rebinding in gateway (event history copy when conversation id changes), and frontend now binds each node to a stable conversation ID and passes it on watch/send. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/runner` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-11 09:51:07 UTC
+- Timestamp: 2026-02-11 09:51:07 UTC
+- Agent: codex
+- Summary: Moved conversation log persistence/subscription from gateway layer into `internal/llmInteraction` so chat history is managed by the interaction domain service.
+- Changed Files:
+  - InsightifyCore/internal/llmInteraction/handler.go
+  - InsightifyCore/internal/llmInteraction/conversation.go
+  - InsightifyCore/cmd/api/gateway_llm_chat.go
+  - change.agent.md
+- Notes: `gateway_llm_chat` now delegates `EnsureConversation/ConversationIDByRun/RunIDByConversation/AppendChatEvent/SubscribeConversation` to `llmInteraction`. Verified with `cd InsightifyCore && go test ./cmd/api ./internal/llmInteraction ./internal/runner`.
