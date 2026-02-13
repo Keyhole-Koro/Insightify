@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package insightify.v1;
+
+option go_package = "insightifyv1";
+
+// ProjectService manages project lifecycle.
+service ProjectService {
+  rpc InitRun(InitRunRequest) returns (InitRunResponse);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc SelectProject(SelectProjectRequest) returns (SelectProjectResponse);
+}
+
+message InitRunRequest {
+  string user_id = 1;
+  string repo_url = 2;
+  string project_id = 3;
+}
+
+message InitRunResponse {
+  string session_id = 1;
+  string repo_name = 2;
+  string bootstrap_run_id = 3;
+  string project_id = 4;
+}
+
+message Project {
+  string project_id = 1;
+  string user_id = 2;
+  string name = 3;
+  string repo_url = 4;
+  string purpose = 5;
+  string repo_name = 6;
+  bool is_active = 7;
+}
+
+message ListProjectsRequest {
+  string user_id = 1;
+}
+
+message ListProjectsResponse {
+  repeated Project projects = 1;
+  string active_project_id = 2;
+}
+
+message CreateProjectRequest {
+  string user_id = 1;
+  string name = 2;
+  string repo_url = 3;
+}
+
+message CreateProjectResponse {
+  Project project = 1;
+}
+
+message SelectProjectRequest {
+  string user_id = 1;
+  string project_id = 2;
+}
+
+message SelectProjectResponse {
+  Project project = 1;
+}

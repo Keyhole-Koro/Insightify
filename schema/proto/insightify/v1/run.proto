@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package insightify.v1;
+
+import "pipeline/v1/client_view.proto";
+import "insightify/v1/llm_chat.proto";
+
+option go_package = "insightifyv1";
+
+// RunService manages run execution and user interaction.
+service RunService {
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+  rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
+  rpc SubmitInput(SubmitInputRequest) returns (SubmitInputResponse);
+}
+
+message StartRunRequest {
+  string session_id = 1;
+  string pipeline_id = 2;
+  map<string, string> params = 3;
+  string project_id = 4;
+}
+
+message StartRunResponse {
+  string run_id = 1;
+  pipeline.v1.ClientView client_view = 2;
+}
+
+message WatchRunRequest {
+  string run_id = 1;
+}
+
+message WatchRunResponse {
+  enum EventType {
+    EVENT_TYPE_UNSPECIFIED = 0;
+    EVENT_TYPE_LOG = 1;
+    EVENT_TYPE_PROGRESS = 2;
+    EVENT_TYPE_COMPLETE = 3;
+    EVENT_TYPE_ERROR = 4;
+    EVENT_TYPE_INPUT_REQUIRED = 5;
+    EVENT_TYPE_NODE_READY = 6;
+  }
+  EventType event_type = 1;
+  string message = 2;
+  int32 progress_percent = 3;
+  pipeline.v1.ClientView client_view = 4;
+
+  // Set when event_type is INPUT_REQUIRED.
+  string input_request_id = 5;
+
+  // Set when event_type is NODE_READY.
+  UiNode node = 6;
+}
+
+// SubmitInput merges the former NeedUserInput and SendMessage RPCs.
+message SubmitInputRequest {
+  string project_id = 1;
+  string run_id = 2;
+  string input = 3;
+  string interaction_id = 4;
+  string conversation_id = 5;
+}
+
+message SubmitInputResponse {
+  bool accepted = 1;
+  string run_id = 2;
+  string interaction_id = 3;
+  string conversation_id = 4;
+}
