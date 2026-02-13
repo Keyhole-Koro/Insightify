@@ -4,3 +4,6 @@
 [submodule "InsightifyWeb"]
 	path = InsightifyWeb
 	url = https://github.com/Keyhole-Koro/InsightifyWeb.git
+[submodule "InsightifyTraceViewer"]
+	path = InsightifyTraceViewer
+	url = https://github.com/Keyhole-Koro/InsightifyTraceViewer.git
