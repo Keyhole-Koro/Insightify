@@ -2,31 +2,27 @@ syntax = "proto3";
 
 package insightify.v1;
 
-import "pipeline/v1/client_view.proto";
-import "insightify/v1/llm_chat.proto";
+import "worker/v1/client_view.proto";
+import "insightify/v1/ui.proto";
 
 option go_package = "insightifyv1";
 
-// RunService manages run execution and user interaction.
+// RunService manages run execution.
 service RunService {
   rpc StartRun(StartRunRequest) returns (StartRunResponse);
   rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
-  rpc WaitForInput(WaitForInputRequest) returns (WaitForInputResponse);
-  rpc SendUserMessage(SendUserMessageRequest) returns (SendUserMessageResponse);
-  rpc SendServerMessage(SendServerMessageRequest) returns (SendServerMessageResponse);
-  rpc CloseInteraction(CloseInteractionRequest) returns (CloseInteractionResponse);
 }
 
 message StartRunRequest {
   string session_id = 1;
-  string pipeline_id = 2;
+  string worker_id = 2;
   map<string, string> params = 3;
   string project_id = 4;
 }
 
 message StartRunResponse {
   string run_id = 1;
-  pipeline.v1.ClientView client_view = 2;
+  worker.v1.ClientView client_view = 2;
 }
 
 message WatchRunRequest {
@@ -45,66 +41,8 @@ message WatchRunResponse {
   EventType event_type = 1;
   string message = 2;
   int32 progress_percent = 3;
-  pipeline.v1.ClientView client_view = 4;
+  worker.v1.ClientView client_view = 4;
 
   // Set when event_type is NODE_READY.
   UiNode node = 5;
-}
-
-message WaitForInputRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string conversation_id = 3;
-  int32 timeout_ms = 4;
-}
-
-message WaitForInputResponse {
-  bool waiting = 1;
-  string run_id = 2;
-  string interaction_id = 3;
-  string conversation_id = 4;
-  string prompt = 5;
-  bool closed = 6;
-}
-
-message SendUserMessageRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string input = 3;
-  string interaction_id = 4;
-  string conversation_id = 5;
-}
-
-message SendUserMessageResponse {
-  bool accepted = 1;
-  string run_id = 2;
-  string interaction_id = 3;
-  string conversation_id = 4;
-}
-
-message SendServerMessageRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string conversation_id = 3;
-}
-
-message SendServerMessageResponse {
-  string run_id = 1;
-  string interaction_id = 2;
-  string conversation_id = 3;
-  string message = 4;
-  bool terminal = 5;
-}
-
-message CloseInteractionRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string conversation_id = 3;
-  string reason = 4;
-}
-
-message CloseInteractionResponse {
-  bool closed = 1;
-  string run_id = 2;
-  string conversation_id = 3;
 }

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package pipeline.v1;
+package worker.v1;
 
 message ClientView {
   string phase = 1;

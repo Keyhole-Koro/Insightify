@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package insightify.v1;
+
+option go_package = "insightifyv1";
+
+// UserInteractionService manages user/server message interaction for a run.
+service UserInteractionService {
+  rpc WaitForInput(WaitForInputRequest) returns (WaitForInputResponse);
+  rpc SendUserMessage(SendUserMessageRequest) returns (SendUserMessageResponse);
+  rpc SendServerMessage(SendServerMessageRequest) returns (SendServerMessageResponse);
+  rpc CloseInteraction(CloseInteractionRequest) returns (CloseInteractionResponse);
+}
+
+message WaitForInputRequest {
+  string project_id = 1;
+  string run_id = 2;
+  string conversation_id = 3;
+  int32 timeout_ms = 4;
+}
+
+message WaitForInputResponse {
+  bool waiting = 1;
+  string run_id = 2;
+  string interaction_id = 3;
+  string conversation_id = 4;
+  string prompt = 5;
+  bool closed = 6;
+}
+
+message SendUserMessageRequest {
+  string project_id = 1;
+  string run_id = 2;
+  string input = 3;
+  string interaction_id = 4;
+  string conversation_id = 5;
+}
+
+message SendUserMessageResponse {
+  bool accepted = 1;
+  string run_id = 2;
+  string interaction_id = 3;
+  string conversation_id = 4;
+}
+
+message SendServerMessageRequest {
+  string project_id = 1;
+  string run_id = 2;
+  string conversation_id = 3;
+}
+
+message SendServerMessageResponse {
+  string run_id = 1;
+  string interaction_id = 2;
+  string conversation_id = 3;
+  string message = 4;
+  bool terminal = 5;
+}
+
+message CloseInteractionRequest {
+  string project_id = 1;
+  string run_id = 2;
+  string conversation_id = 3;
+  string reason = 4;
+}
+
+message CloseInteractionResponse {
+  bool closed = 1;
+  string run_id = 2;
+  string conversation_id = 3;
+}
