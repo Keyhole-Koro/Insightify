@@ -31,6 +31,7 @@ message SendRequest {
 message SendResponse {
   bool accepted = 1;
   string interaction_id = 2;
+  string assistant_message = 3;
 }
 
 message CloseRequest {

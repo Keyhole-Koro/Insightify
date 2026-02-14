@@ -3,14 +3,12 @@ syntax = "proto3";
 package insightify.v1;
 
 import "worker/v1/client_view.proto";
-import "insightify/v1/ui.proto";
 
 option go_package = "insightifyv1";
 
 // RunService manages run execution.
 service RunService {
   rpc StartRun(StartRunRequest) returns (StartRunResponse);
-  rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
 }
 
 message StartRunRequest {
@@ -23,26 +21,4 @@ message StartRunRequest {
 message StartRunResponse {
   string run_id = 1;
   worker.v1.ClientView client_view = 2;
-}
-
-message WatchRunRequest {
-  string run_id = 1;
-}
-
-message WatchRunResponse {
-  enum EventType {
-    EVENT_TYPE_UNSPECIFIED = 0;
-    EVENT_TYPE_LOG = 1;
-    EVENT_TYPE_PROGRESS = 2;
-    EVENT_TYPE_COMPLETE = 3;
-    EVENT_TYPE_ERROR = 4;
-    EVENT_TYPE_NODE_READY = 5;
-  }
-  EventType event_type = 1;
-  string message = 2;
-  int32 progress_percent = 3;
-  worker.v1.ClientView client_view = 4;
-
-  // Set when event_type is NODE_READY.
-  UiNode node = 5;
 }

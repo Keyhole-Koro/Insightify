@@ -6,33 +6,26 @@ option go_package = "insightifyv1";
 
 // ProjectService manages project lifecycle.
 service ProjectService {
-  rpc InitRun(InitRunRequest) returns (InitRunResponse);
+  rpc EnsureProject(EnsureProjectRequest) returns (EnsureProjectResponse);
   rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
   rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
   rpc SelectProject(SelectProjectRequest) returns (SelectProjectResponse);
 }
 
-message InitRunRequest {
+message EnsureProjectRequest {
   string user_id = 1;
-  string repo_url = 2;
-  string project_id = 3;
+  string project_id = 2;
 }
 
-message InitRunResponse {
-  string session_id = 1;
-  string repo_name = 2;
-  string bootstrap_run_id = 3;
-  string project_id = 4;
+message EnsureProjectResponse {
+  string project_id = 1;
 }
 
 message Project {
   string project_id = 1;
   string user_id = 2;
   string name = 3;
-  string repo_url = 4;
-  string purpose = 5;
-  string repo_name = 6;
-  bool is_active = 7;
+  bool is_active = 4;
 }
 
 message ListProjectsRequest {
@@ -47,7 +40,6 @@ message ListProjectsResponse {
 message CreateProjectRequest {
   string user_id = 1;
   string name = 2;
-  string repo_url = 3;
 }
 
 message CreateProjectResponse {

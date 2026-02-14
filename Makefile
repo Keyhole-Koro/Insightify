@@ -11,14 +11,12 @@ ensure-llm-env:
 	fi
 
 # Run the Go backend server
-# Note: If your main entry point is inside a cmd directory (e.g., cmd/server),
-# please update the path below (e.g., 'go run ./cmd/server').
 run-core: ensure-llm-env
-	cd InsightifyCore && go run ./cmd/api
+	cd InsightifyCore && exec env PORT=8081 go run ./cmd/gateway
 
 # Run the Go backend with hot reload
 run-core-dev: ensure-llm-env-strict
-	cd InsightifyCore && air
+	cd InsightifyCore && exec env PORT=8081 air
 
 # Strict check for dev mode: fail fast if no provider key is set.
 ensure-llm-env-strict:
@@ -30,11 +28,11 @@ ensure-llm-env-strict:
 
 # Run the React frontend
 run-web:
-	cd InsightifyWeb && npm run dev
+	cd InsightifyWeb && exec npm run dev
 
 # Run the Trace Viewer frontend
 run-trace-viewer:
-	cd InsightifyTraceViewer && npm run dev
+	cd InsightifyTraceViewer && exec npm run dev
 
 # Generate code from Protocol Buffers (assuming buf is used)
 generate:
