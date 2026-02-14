@@ -13,8 +13,7 @@ service UserInteractionService {
 
 message WaitRequest {
   string run_id = 1;
-  string conversation_id = 2;
-  int32 timeout_ms = 3;
+  int32 timeout_ms = 2;
 }
 
 message WaitResponse {
@@ -32,7 +31,6 @@ message SendRequest {
 message SendResponse {
   bool accepted = 1;
   string interaction_id = 2;
-  string conversation_id = 3;
 }
 
 message CloseRequest {
