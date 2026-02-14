@@ -6,66 +6,41 @@ option go_package = "insightifyv1";
 
 // UserInteractionService manages user/server message interaction for a run.
 service UserInteractionService {
-  rpc WaitForInput(WaitForInputRequest) returns (WaitForInputResponse);
-  rpc SendUserMessage(SendUserMessageRequest) returns (SendUserMessageResponse);
-  rpc SendServerMessage(SendServerMessageRequest) returns (SendServerMessageResponse);
-  rpc CloseInteraction(CloseInteractionRequest) returns (CloseInteractionResponse);
+  rpc Wait(WaitRequest) returns (WaitResponse);
+  rpc Send(SendRequest) returns (SendResponse);
+  rpc Close(CloseRequest) returns (CloseResponse);
 }
 
-message WaitForInputRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string conversation_id = 3;
-  int32 timeout_ms = 4;
+message WaitRequest {
+  string run_id = 1;
+  string conversation_id = 2;
+  int32 timeout_ms = 3;
 }
 
-message WaitForInputResponse {
+message WaitResponse {
   bool waiting = 1;
-  string run_id = 2;
-  string interaction_id = 3;
-  string conversation_id = 4;
-  string prompt = 5;
-  bool closed = 6;
+  string interaction_id = 2;
+  bool closed = 3;
 }
 
-message SendUserMessageRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string input = 3;
-  string interaction_id = 4;
-  string conversation_id = 5;
-}
-
-message SendUserMessageResponse {
-  bool accepted = 1;
-  string run_id = 2;
-  string interaction_id = 3;
-  string conversation_id = 4;
-}
-
-message SendServerMessageRequest {
-  string project_id = 1;
-  string run_id = 2;
-  string conversation_id = 3;
-}
-
-message SendServerMessageResponse {
+message SendRequest {
   string run_id = 1;
   string interaction_id = 2;
-  string conversation_id = 3;
-  string message = 4;
-  bool terminal = 5;
+  string input = 3;
 }
 
-message CloseInteractionRequest {
-  string project_id = 1;
-  string run_id = 2;
+message SendResponse {
+  bool accepted = 1;
+  string interaction_id = 2;
   string conversation_id = 3;
-  string reason = 4;
 }
 
-message CloseInteractionResponse {
+message CloseRequest {
+  string run_id = 1;
+  string interaction_id = 2;
+  string reason = 3;
+}
+
+message CloseResponse {
   bool closed = 1;
-  string run_id = 2;
-  string conversation_id = 3;
 }
