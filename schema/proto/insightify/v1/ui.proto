@@ -6,6 +6,11 @@ option go_package = "insightifyv1";
 
 // UI node types and state — shared across services.
 
+service UiService {
+  rpc GetDocument(GetUiDocumentRequest) returns (GetUiDocumentResponse);
+  rpc ApplyOps(ApplyUiOpsRequest) returns (ApplyUiOpsResponse);
+}
+
 enum UiNodeType {
   UI_NODE_TYPE_UNSPECIFIED = 0;
   UI_NODE_TYPE_LLM_CHAT = 1;
@@ -67,3 +72,49 @@ message UiNode {
   UiImageState image = 12;
   UiTableState table = 13;
 }
+
+message UiDocument {
+  string run_id = 1;
+  int64 version = 2;
+  repeated UiNode nodes = 3;
+}
+
+message GetUiDocumentRequest {
+  string run_id = 1;
+}
+
+message GetUiDocumentResponse {
+  UiDocument document = 1;
+}
+
+message ApplyUiOpsRequest {
+  string run_id = 1;
+  int64 base_version = 2;
+  repeated UiOp ops = 3;
+  string actor = 4;
+}
+
+message ApplyUiOpsResponse {
+  UiDocument document = 1;
+  bool conflict = 2;
+  int64 current_version = 3;
+  string conflict_message = 4;
+}
+
+message UiOp {
+  oneof action {
+    UiUpsertNode upsert_node = 1;
+    UiDeleteNode delete_node = 2;
+    UiClearNodes clear_nodes = 3;
+  }
+}
+
+message UiUpsertNode {
+  UiNode node = 1;
+}
+
+message UiDeleteNode {
+  string node_id = 1;
+}
+
+message UiClearNodes {}
