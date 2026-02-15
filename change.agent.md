@@ -674,3 +674,238 @@ This file is the agent change log. Append each new change as a new entry.
   - InsightifyWeb/src/pages/home/useBootstrap.ts
   - change.agent.md
 - Notes: Eliminated session/cookie fallback and alias methods in runtime flow; `project_id` is now required by preprocess and chat send/watch paths used by Home bootstrap. Verified with `go test` and `npm run build`.
+
+## 2026-02-15 02:01:21 UTC
+- Timestamp: 2026-02-15 02:01:21 UTC
+- Agent: codex
+- Summary: Added an LLM-readable Core architecture document describing gateway composition, stateless worker runtime injection, and frontend communication split (Connect RPC vs interaction WebSocket with RPC schema alignment).
+- Changed Files:
+  - InsightifyCore/docs/core_architecture_for_llm.md
+  - change.agent.md
+- Notes: Document includes direct source-file references for each architectural statement.
+
+## 2026-02-15 02:04:35 UTC
+- Timestamp: 2026-02-15 02:04:35 UTC
+- Agent: codex
+- Summary: Reviewed and hardened PostgreSQL persistence for UI and artifact repositories: added stronger input validation, safer row-locking/update flow, cloned proto nodes to avoid shared mutable references, and improved artifact query error handling.
+- Changed Files:
+  - InsightifyCore/internal/gateway/repository/ui/postgres_store.go
+  - InsightifyCore/internal/gateway/repository/artifact/store.go
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/repository/ui ./internal/gateway/repository/artifact ./internal/gateway/service/ui ./internal/gateway/service/worker`.
+
+## 2026-02-15 03:08:58 UTC
+- Timestamp: 2026-02-15 03:08:58 UTC
+- Agent: codex
+- Summary: Added project UI layer model and proto support, wired run->project layer registration in Core, and implemented frontend restoration of the latest project layer nodes before bootstrap fallback.
+- Changed Files:
+  - schema/proto/insightify/v1/project.proto
+  - schema/proto/insightify/v1/ui.proto
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/service/project/adapter.go
+  - InsightifyCore/internal/gateway/service/worker/service.go
+  - InsightifyCore/internal/gateway/service/worker/run.go
+  - InsightifyCore/internal/gateway/service/ui/service.go
+  - InsightifyCore/internal/gateway/handler/rpc/mapper.go
+  - InsightifyCore/internal/gateway/handler/rpc/project.go
+  - InsightifyCore/internal/gateway/handler/rpc/ui.go
+  - InsightifyCore/internal/gateway/app/app.go
+  - InsightifyCore/gen/go/insightify/v1/project.pb.go
+  - InsightifyCore/gen/go/insightify/v1/ui.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/ui.connect.go
+  - InsightifyWeb/src/contracts/project.ts
+  - InsightifyWeb/src/contracts/ui.ts
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/features/interaction/hooks/useInteractionFlow.ts
+  - InsightifyWeb/src/pages/home/useHomeBootstrapRunner.ts
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/gen/insightify/v1/project_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 03:17:02 UTC
+- Timestamp: 2026-02-15 03:17:02 UTC
+- Agent: codex
+- Summary: Renamed project UI grouping concept from `layer` to `tab` across proto/Core/frontend, including RPC rename (`GetProjectTabDocument`) and compatibility migration from legacy layer columns/JSON keys in project store.
+- Changed Files:
+  - schema/proto/insightify/v1/project.proto
+  - schema/proto/insightify/v1/ui.proto
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/service/project/adapter.go
+  - InsightifyCore/internal/gateway/service/worker/service.go
+  - InsightifyCore/internal/gateway/service/worker/run.go
+  - InsightifyCore/internal/gateway/service/ui/service.go
+  - InsightifyCore/internal/gateway/handler/rpc/mapper.go
+  - InsightifyCore/internal/gateway/handler/rpc/project.go
+  - InsightifyCore/internal/gateway/handler/rpc/ui.go
+  - InsightifyCore/gen/go/insightify/v1/project.pb.go
+  - InsightifyCore/gen/go/insightify/v1/ui.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/ui.connect.go
+  - InsightifyWeb/src/contracts/project.ts
+  - InsightifyWeb/src/contracts/ui.ts
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/pages/home/useHomeBootstrapRunner.ts
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/gen/insightify/v1/project_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/project_connect.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 03:18:18 UTC
+- Timestamp: 2026-02-15 03:18:18 UTC
+- Agent: codex
+- Summary: Removed all legacy `ui layer` compatibility logic from project store persistence and normalization; project UI state now treats tab fields as the only supported schema.
+- Changed Files:
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/repository/projectstore ./internal/gateway/service/project ./internal/gateway/service/ui ./internal/gateway/service/worker ./internal/gateway/handler/rpc`.
+
+## 2026-02-15 04:41:59 UTC
+- Timestamp: 2026-02-15 04:41:59 UTC
+- Agent: codex
+- Summary: Removed redundant `CurrentUITabRunID`/`current_ui_tab_run_id` from project domain, proto, persistence queries, and frontend contracts; project UI head now uses only `current_ui_tab_id` + tab list.
+- Changed Files:
+  - schema/proto/insightify/v1/project.proto
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/handler/rpc/mapper.go
+  - InsightifyCore/internal/gateway/handler/rpc/project.go
+  - InsightifyCore/gen/go/insightify/v1/project.pb.go
+  - InsightifyWeb/src/contracts/project.ts
+  - InsightifyWeb/src/gen/insightify/v1/project_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/project_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 04:50:40 UTC
+- Timestamp: 2026-02-15 04:50:40 UTC
+- Agent: codex
+- Summary: Added optional `tab_id` request hint for project-tab UI restoration and wired frontend localStorage tab selection per project (`project_id -> tab_id`) with server-side validation/fallback to current tab.
+- Changed Files:
+  - schema/proto/insightify/v1/ui.proto
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/service/ui/service.go
+  - InsightifyCore/gen/go/insightify/v1/ui.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/ui.connect.go
+  - InsightifyWeb/src/contracts/ui.ts
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/pages/home/useHomeBootstrapRunner.ts
+  - InsightifyWeb/src/gen/insightify/v1/ui_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 04:53:33 UTC
+- Timestamp: 2026-02-15 04:53:33 UTC
+- Agent: codex
+- Summary: Removed `CurrentUITabID` entirely from Core domain/storage/RPC and project proto; current tab fallback now derives from the latest tab in `ui_tabs` only.
+- Changed Files:
+  - schema/proto/insightify/v1/project.proto
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/handler/rpc/mapper.go
+  - InsightifyCore/internal/gateway/handler/rpc/project.go
+  - InsightifyCore/gen/go/insightify/v1/project.pb.go
+  - InsightifyWeb/src/contracts/project.ts
+  - InsightifyWeb/src/gen/insightify/v1/project_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/project_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 05:16:21 UTC
+- Timestamp: 2026-02-15 05:16:21 UTC
+- Agent: codex
+- Summary: Implemented Core-side UI Workspace architecture: separated project metadata from UI tab state, added workspace/tab persistence and service, expanded UiService RPCs for workspace/tab operations, and switched run->tab binding to workspace service.
+- Changed Files:
+  - schema/proto/insightify/v1/project.proto
+  - schema/proto/insightify/v1/ui.proto
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - InsightifyCore/internal/gateway/repository/uiworkspace/store.go
+  - InsightifyCore/internal/gateway/repository/uiworkspace/memory_store.go
+  - InsightifyCore/internal/gateway/repository/uiworkspace/postgres_store.go
+  - InsightifyCore/internal/gateway/service/uiworkspace/service.go
+  - InsightifyCore/internal/gateway/service/ui/service.go
+  - InsightifyCore/internal/gateway/service/worker/service.go
+  - InsightifyCore/internal/gateway/service/worker/run.go
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/service/project/adapter.go
+  - InsightifyCore/internal/gateway/handler/rpc/ui.go
+  - InsightifyCore/internal/gateway/handler/rpc/project.go
+  - InsightifyCore/internal/gateway/handler/rpc/mapper.go
+  - InsightifyCore/internal/gateway/app/app.go
+  - InsightifyCore/gen/go/insightify/v1/project.pb.go
+  - InsightifyCore/gen/go/insightify/v1/ui.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/ui.connect.go
+  - InsightifyWeb/src/contracts/project.ts
+  - InsightifyWeb/src/contracts/ui.ts
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/gen/insightify/v1/project_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/project_connect.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 05:20:50 UTC
+- Timestamp: 2026-02-15 05:20:50 UTC
+- Agent: codex
+- Summary: Split workspace RPCs into a dedicated `UiWorkspaceService` and rewired backend/frontend handlers and clients accordingly. Also completed project-domain cleanup by removing project-level `ui_tabs` exposure from proto and handlers.
+- Changed Files:
+  - schema/proto/insightify/v1/ui.proto
+  - schema/proto/insightify/v1/project.proto
+  - InsightifyCore/internal/gateway/handler/rpc/ui.go
+  - InsightifyCore/internal/gateway/handler/rpc/ui_workspace.go
+  - InsightifyCore/internal/gateway/server/routes.go
+  - InsightifyCore/internal/gateway/app/app.go
+  - InsightifyCore/internal/gateway/service/ui/service.go
+  - InsightifyCore/internal/gateway/service/project/service.go
+  - InsightifyCore/internal/gateway/service/project/adapter.go
+  - InsightifyCore/internal/gateway/service/worker/service.go
+  - InsightifyCore/internal/gateway/service/worker/run.go
+  - InsightifyCore/internal/gateway/repository/projectstore/model.go
+  - InsightifyCore/internal/gateway/repository/projectstore/postgres_backend.go
+  - InsightifyCore/internal/gateway/handler/rpc/project.go
+  - InsightifyCore/internal/gateway/handler/rpc/mapper.go
+  - InsightifyCore/gen/go/insightify/v1/project.pb.go
+  - InsightifyCore/gen/go/insightify/v1/ui.pb.go
+  - InsightifyCore/gen/go/insightify/v1/insightifyv1connect/ui.connect.go
+  - InsightifyWeb/src/rpc/clients.ts
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/contracts/project.ts
+  - InsightifyWeb/src/gen/insightify/v1/ui_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/ui_connect.js
+  - InsightifyWeb/src/gen/insightify/v1/project_pb.js
+  - InsightifyWeb/src/gen/insightify/v1/project_connect.js
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 05:50:52 UTC
+- Timestamp: 2026-02-15 05:50:52 UTC
+- Agent: codex
+- Summary: Removed backward-compatibility code introduced in recent workspace migration: dropped legacy project tab migration path from `uiworkspace` postgres store and removed compatibility alias comment in frontend project contract.
+- Changed Files:
+  - InsightifyCore/internal/gateway/repository/uiworkspace/postgres_store.go
+  - InsightifyWeb/src/contracts/project.ts
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./internal/gateway/... ./cmd/gateway` and `cd InsightifyWeb && npm run build`.
+
+## 2026-02-15 09:00:45 UTC
+- Timestamp: 2026-02-15 09:00:45 UTC
+- Agent: codex
+- Summary: Added MinIO service to local docker compose setup so artifacts can be persisted in object storage alongside PostgreSQL metadata.
+- Changed Files:
+  - docker-compose.yml
+  - change.agent.md
+- Notes: Added container/ports/credentials/data volume/healthcheck for MinIO. `docker compose config` validation was not runnable here because `docker` command is unavailable in this environment.

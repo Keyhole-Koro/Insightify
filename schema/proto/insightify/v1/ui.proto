@@ -8,7 +8,15 @@ option go_package = "insightifyv1";
 
 service UiService {
   rpc GetDocument(GetUiDocumentRequest) returns (GetUiDocumentResponse);
+  rpc GetProjectTabDocument(GetProjectUiDocumentRequest) returns (GetProjectUiDocumentResponse);
   rpc ApplyOps(ApplyUiOpsRequest) returns (ApplyUiOpsResponse);
+}
+
+service UiWorkspaceService {
+  rpc GetWorkspace(GetUiWorkspaceRequest) returns (GetUiWorkspaceResponse);
+  rpc ListTabs(ListUiTabsRequest) returns (ListUiTabsResponse);
+  rpc CreateTab(CreateUiTabRequest) returns (CreateUiTabResponse);
+  rpc SelectTab(SelectUiTabRequest) returns (SelectUiTabResponse);
 }
 
 enum UiNodeType {
@@ -85,6 +93,75 @@ message GetUiDocumentRequest {
 
 message GetUiDocumentResponse {
   UiDocument document = 1;
+}
+
+message GetProjectUiDocumentRequest {
+  string project_id = 1;
+  string tab_id = 2;
+}
+
+message GetProjectUiDocumentResponse {
+  bool found = 1;
+  string project_id = 2;
+  string tab_id = 3;
+  string run_id = 4;
+  UiDocument document = 5;
+}
+
+message UiWorkspace {
+  string workspace_id = 1;
+  string project_id = 2;
+  string name = 3;
+  string active_tab_id = 4;
+}
+
+message UiWorkspaceTab {
+  string tab_id = 1;
+  string workspace_id = 2;
+  string title = 3;
+  string run_id = 4;
+  int32 order_index = 5;
+  bool is_pinned = 6;
+  int64 created_at_unix_ms = 7;
+}
+
+message GetUiWorkspaceRequest {
+  string project_id = 1;
+}
+
+message GetUiWorkspaceResponse {
+  UiWorkspace workspace = 1;
+  repeated UiWorkspaceTab tabs = 2;
+}
+
+message ListUiTabsRequest {
+  string project_id = 1;
+}
+
+message ListUiTabsResponse {
+  UiWorkspace workspace = 1;
+  repeated UiWorkspaceTab tabs = 2;
+}
+
+message CreateUiTabRequest {
+  string project_id = 1;
+  string title = 2;
+}
+
+message CreateUiTabResponse {
+  UiWorkspace workspace = 1;
+  UiWorkspaceTab tab = 2;
+  repeated UiWorkspaceTab tabs = 3;
+}
+
+message SelectUiTabRequest {
+  string project_id = 1;
+  string tab_id = 2;
+}
+
+message SelectUiTabResponse {
+  UiWorkspace workspace = 1;
+  repeated UiWorkspaceTab tabs = 2;
 }
 
 message ApplyUiOpsRequest {

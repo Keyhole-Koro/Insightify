@@ -3,7 +3,7 @@
   "dockerComposeFile": ["../docker-compose.yml"],
   "service": "workspace",
   "workspaceFolder": "/workspaces/Insightify",
-  "runServices": ["workspace", "postgres", "pgadmin"],
+  "runServices": ["workspace", "postgres", "pgadmin", "minio"],
   "features": {
     "ghcr.io/devcontainers/features/go:1": {
       "version": "1.22"

@@ -120,3 +120,61 @@ Agents should reference it when proposing architecture and implementation strate
 - User intent: remove all compatibility-preserving code and stop carrying session-era fallback behavior.
 - Applied decision: runtime paths now treat project as the only context key in request preprocessing and frontend chat/run orchestration.
 - Effect: old cookie/session fallback and alias helpers were removed from active flow; project selection/creation remains the primary entry point.
+
+## 2026-02-15 02:01:21 UTC
+- User intent: Make Core architecture easy for LLMs to read, explicitly covering gateway structure, worker stateless/runtime-injection model, and frontend transport split where interaction uses WebSocket + RPC schema.
+- Applied change: Added a dedicated architecture markdown under `InsightifyCore/docs` with source references and a section proposing additional documentation topics.
+
+## 2026-02-15 02:04:35 UTC
+- User intent: Revisit the implementation quality of UI and artifact PostgreSQL persistence.
+- Applied change:
+  - UI Postgres store now validates `run_id`, prevents first-write race via `INSERT ... ON CONFLICT DO NOTHING` + `SELECT ... FOR UPDATE`, enforces op validation symmetry with memory store, and returns cloned `UiNode` values.
+  - Artifact Postgres store now validates identifiers, normalizes nil content handling, uses a typed not-found error (`ErrNotFound`), and checks `rows.Err()` in list flow.
+
+## 2026-02-15 03:08:58 UTC
+- User intent: Introduce project-level layers so frontend can restore the last layer's nodes after reload, and include layer semantics in proto.
+- Applied architecture:
+  - Added `ui_layers` + current layer/run pointers to project state.
+  - Added proto fields for project layer metadata and a UI RPC (`GetProjectDocument`) to resolve current layer document by `project_id`.
+  - Frontend bootstrap now tries project-layer restoration first, then falls back to running bootstrap worker when no layer document exists.
+
+## 2026-02-15 03:17:02 UTC
+- User intent: Use `tab` terminology instead of `layer` for project UI grouping to improve clarity.
+- Applied change: Renamed API/domain fields and RPC naming to `tab` while keeping persistence compatibility by migrating from legacy `layer` columns/JSON keys where present.
+
+## 2026-02-15 03:18:18 UTC
+- User intent: Remove all UI layer compatibility paths completely.
+- Applied change: Deleted legacy layer JSON fields and SQL migration/read-compat blocks (`ui_layers`, `current_ui_layer_id`, `current_ui_run_id`) from project store model and postgres backend.
+
+## 2026-02-15 04:41:59 UTC
+- User intent: Remove all unnecessary fields and compatibility baggage; specifically drop `CurrentUITabRunID` entirely.
+- Applied change: Eliminated redundant run pointer from proto/domain/storage/frontend contracts and switched current-tab resolution to rely only on `current_ui_tab_id` + `ui_tabs`.
+
+## 2026-02-15 04:50:40 UTC
+- User intent: Keep current tab id on frontend localStorage and request restore by that tab id.
+- Applied change: Added `tab_id` to project-tab document request, frontend now sends stored tab hint per project, and Core resolves preferred tab if valid or falls back to current tab.
+
+## 2026-02-15 04:53:33 UTC
+- User intent: Remove `CurrentUITabID` from Core and update proto as needed.
+- Applied change: Deleted current-tab pointer field from project state/proto/RPC, leaving tab selection to explicit requested `tab_id` or fallback to latest tab in `ui_tabs`.
+
+## 2026-02-15 05:16:21 UTC
+- User intent: Execute full migration to a Core-owned UI workspace model.
+- Applied architecture:
+  - Removed UI tab state from project domain/proto.
+  - Added dedicated workspace/tab repository + service with PostgreSQL and memory backends.
+  - Added UiService RPCs for workspace and tab lifecycle (`GetWorkspace`, `ListTabs`, `CreateTab`, `SelectTab`) and kept project-tab document restore path with optional `tab_id` hint.
+  - Worker run completion now binds run IDs to the current workspace tab via workspace service.
+
+## 2026-02-15 05:20:50 UTC
+- User intent: Explicitly separate workspace RPC boundary as `UiWorkspaceService`.
+- Applied change: Moved workspace/tab lifecycle RPCs out of `UiService` into `UiWorkspaceService`, added dedicated handler wiring, and split frontend client usage (`uiClient` vs `uiWorkspaceClient`).
+
+## 2026-02-15 05:50:52 UTC
+- User intent: Remove all backward compatibility from recent fixes.
+- Applied change: Deleted legacy migration logic from workspace persistence (`project_states.ui_tabs` ingestion path) and removed remaining explicit compatibility annotation from frontend project contract.
+
+## 2026-02-15 09:00:45 UTC
+- User intent: Keep artifact URLs permanent (no TTL) and proceed with MinIO-backed artifact storage.
+- Applied change: Added MinIO service to `docker-compose.yml` to provide local object storage infrastructure for the gateway artifact flow.
+- Constraint note: Compose validation command could not be executed in this runtime due to missing Docker CLI.

@@ -3,6 +3,13 @@ services:
     image: mcr.microsoft.com/devcontainers/base:jammy
     command: sleep infinity
     working_dir: /workspaces/Insightify
+    environment:
+      APP_ENV: local
+      PROJECT_STORE_PG_DSN: postgres://insightify:insightify@postgres:5432/insightify?sslmode=disable
+      ARTIFACT_MINIO_ENDPOINT: minio:9000
+      ARTIFACT_S3_BUCKET: insightify-artifacts
+      ARTIFACT_S3_ACCESS_KEY: insightify
+      ARTIFACT_S3_SECRET_KEY: insightify123
     volumes:
       - ./:/workspaces/Insightify
     ports:
@@ -44,6 +51,26 @@ services:
       - pgadmin_data:/var/lib/pgadmin
       - ./.docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
 
+  minio:
+    image: minio/minio:latest
+    container_name: insightify-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: insightify
+      MINIO_ROOT_PASSWORD: insightify123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   pgadmin_data:
+  minio_data:
