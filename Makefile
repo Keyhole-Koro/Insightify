@@ -1,4 +1,4 @@
-.PHONY: run-core run-web run-trace-viewer generate install run-core-dev ensure-llm-env ensure-llm-env-strict build-web build-trace-viewer build
+.PHONY: run run-core run-web run-trace-viewer generate install ensure-llm-env ensure-llm-env-strict build-web build-trace-viewer build
 
 # Ensure at least one LLM provider key exists before running backend.
 ensure-llm-env:
@@ -10,19 +10,28 @@ ensure-llm-env:
 		InsightifyCore/scripts/setup_llm_env.sh; \
 	fi
 
-# Run the Go backend server
-run-core: ensure-llm-env
-	cd InsightifyCore && exec env PORT=8081 go run ./cmd/gateway
+# Run backend + frontend together (Ctrl+C stops both)
+run: ensure-llm-env
+	@set -e; \
+	cleanup() { \
+		kill $$core_pid $$web_pid 2>/dev/null || true; \
+		wait $$core_pid $$web_pid 2>/dev/null || true; \
+	}; \
+	trap cleanup INT TERM EXIT; \
+	( $(MAKE) --no-print-directory run-core ) & core_pid=$$!; \
+	( cd InsightifyWeb && npm run dev ) & web_pid=$$!; \
+	wait $$core_pid $$web_pid
 
 # Run the Go backend with hot reload
-run-core-dev: ensure-llm-env-strict
+run-core: ensure-llm-env-strict
 	cd InsightifyCore && exec env PORT=8081 air
 
 # Strict check for dev mode: fail fast if no provider key is set.
 ensure-llm-env-strict:
 	@set -e; \
+	if [ -f InsightifyCore/.env ]; then set -a; . InsightifyCore/.env; set +a; fi; \
 	if [ -z "$$GEMINI_API_KEY" ] && [ -z "$$GROQ_API_KEY" ]; then \
-		echo "API key is required for run-core-dev (export GEMINI_API_KEY or GROQ_API_KEY in your shell)."; \
+		echo "API key is required for run-core (export GEMINI_API_KEY or GROQ_API_KEY in your shell)."; \
 		exit 1; \
 	fi
 

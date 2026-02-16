@@ -26,6 +26,15 @@ message Project {
   string user_id = 2;
   string name = 3;
   bool is_active = 4;
+  repeated Artifact artifacts = 5;
+}
+
+message Artifact {
+  string id = 1;
+  string run_id = 2;
+  string path = 3;
+  string url = 4;
+  string created_at = 5;
 }
 
 message ListProjectsRequest {
