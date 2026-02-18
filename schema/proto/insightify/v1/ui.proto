@@ -8,7 +8,6 @@ option go_package = "insightifyv1";
 
 service UiService {
   rpc GetDocument(GetUiDocumentRequest) returns (GetUiDocumentResponse);
-  rpc GetProjectTabDocument(GetProjectUiDocumentRequest) returns (GetProjectUiDocumentResponse);
   rpc ApplyOps(ApplyUiOpsRequest) returns (ApplyUiOpsResponse);
 }
 
@@ -17,6 +16,7 @@ service UiWorkspaceService {
   rpc ListTabs(ListUiTabsRequest) returns (ListUiTabsResponse);
   rpc CreateTab(CreateUiTabRequest) returns (CreateUiTabResponse);
   rpc SelectTab(SelectUiTabRequest) returns (SelectUiTabResponse);
+  rpc Restore(RestoreUiRequest) returns (RestoreUiResponse);
 }
 
 enum UiNodeType {
@@ -95,19 +95,6 @@ message GetUiDocumentResponse {
   UiDocument document = 1;
 }
 
-message GetProjectUiDocumentRequest {
-  string project_id = 1;
-  string tab_id = 2;
-}
-
-message GetProjectUiDocumentResponse {
-  bool found = 1;
-  string project_id = 2;
-  string tab_id = 3;
-  string run_id = 4;
-  UiDocument document = 5;
-}
-
 message UiWorkspace {
   string workspace_id = 1;
   string project_id = 2;
@@ -162,6 +149,29 @@ message SelectUiTabRequest {
 message SelectUiTabResponse {
   UiWorkspace workspace = 1;
   repeated UiWorkspaceTab tabs = 2;
+}
+
+enum UiRestoreReason {
+  UI_RESTORE_REASON_UNSPECIFIED = 0;
+  UI_RESTORE_REASON_RESOLVED = 1;
+  UI_RESTORE_REASON_NO_TAB = 2;
+  UI_RESTORE_REASON_NO_RUN = 3;
+  UI_RESTORE_REASON_ERROR = 4;
+}
+
+message RestoreUiRequest {
+  string project_id = 1;
+  string tab_id = 2;
+}
+
+message RestoreUiResponse {
+  bool found = 1;
+  bool restored = 2;
+  UiRestoreReason reason = 3;
+  string project_id = 4;
+  string tab_id = 5;
+  string run_id = 6;
+  UiDocument document = 7;
 }
 
 message ApplyUiOpsRequest {
