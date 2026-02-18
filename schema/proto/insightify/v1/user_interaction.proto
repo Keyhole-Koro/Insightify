@@ -4,12 +4,7 @@ package insightify.v1;
 
 option go_package = "insightifyv1";
 
-// UserInteractionService manages user/server message interaction for a run.
-service UserInteractionService {
-  rpc Wait(WaitRequest) returns (WaitResponse);
-  rpc Send(SendRequest) returns (SendResponse);
-  rpc Close(CloseRequest) returns (CloseResponse);
-}
+// Interaction message contracts used by websocket gateway flow.
 
 message WaitRequest {
   string run_id = 1;

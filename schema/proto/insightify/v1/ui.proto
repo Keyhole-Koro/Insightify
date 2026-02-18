@@ -13,7 +13,6 @@ service UiService {
 
 service UiWorkspaceService {
   rpc GetWorkspace(GetUiWorkspaceRequest) returns (GetUiWorkspaceResponse);
-  rpc ListTabs(ListUiTabsRequest) returns (ListUiTabsResponse);
   rpc CreateTab(CreateUiTabRequest) returns (CreateUiTabResponse);
   rpc SelectTab(SelectUiTabRequest) returns (SelectUiTabResponse);
   rpc Restore(RestoreUiRequest) returns (RestoreUiResponse);
@@ -117,15 +116,6 @@ message GetUiWorkspaceRequest {
 }
 
 message GetUiWorkspaceResponse {
-  UiWorkspace workspace = 1;
-  repeated UiWorkspaceTab tabs = 2;
-}
-
-message ListUiTabsRequest {
-  string project_id = 1;
-}
-
-message ListUiTabsResponse {
   UiWorkspace workspace = 1;
   repeated UiWorkspaceTab tabs = 2;
 }
