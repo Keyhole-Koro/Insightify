@@ -158,22 +158,17 @@ message RestoreUiResponse {
   // reason is the primary restore decision key for clients.
   UiRestoreReason reason = 1;
 
-  // found/restored are compatibility flags derived from reason.
-  // true only when reason == UI_RESTORE_REASON_RESOLVED.
-  bool found = 2;
-  bool restored = 3;
-
   // project_id always echoes the request target.
-  string project_id = 4;
+  string project_id = 2;
   // tab_id is set when a tab can be resolved.
-  string tab_id = 5;
-  // run_id is required when found=true; empty when found=false.
-  string run_id = 6;
-  // document is returned for found=true (nodes may be empty).
-  UiDocument document = 7;
-  // document_hash is a sha256 hash over sorted node ids in the resolved document.
+  string tab_id = 3;
+  // run_id is required when reason==UI_RESTORE_REASON_RESOLVED; otherwise empty.
+  string run_id = 4;
+  // document is returned when reason==UI_RESTORE_REASON_RESOLVED (nodes may be empty).
+  UiDocument document = 5;
+  // document_hash is a sha256 hash over canonical node data in the resolved document.
   // It can be used by clients to compare local cache with server state.
-  string document_hash = 8;
+  string document_hash = 6;
 }
 
 message ApplyUiOpsRequest {
