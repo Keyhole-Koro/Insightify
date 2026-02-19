@@ -1,0 +1,60 @@
+name: UI E2E
+
+on:
+  pull_request:
+    paths:
+      - "InsightifyWeb/**"
+      - "tests/e2e/**"
+      - ".github/workflows/ui-e2e.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "InsightifyWeb/**"
+      - "tests/e2e/**"
+      - ".github/workflows/ui-e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            InsightifyWeb/package-lock.json
+            tests/e2e/package-lock.json
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: InsightifyWeb
+
+      - name: Install E2E dependencies
+        run: npm ci
+        working-directory: tests/e2e
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: tests/e2e
+
+      - name: Run Playwright E2E
+        run: npm test
+        working-directory: tests/e2e
+        env:
+          CI: "true"
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: tests/e2e/test-results
+          if-no-files-found: ignore
