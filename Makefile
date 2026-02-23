@@ -1,4 +1,4 @@
-.PHONY: run run-core run-web run-trace-viewer generate install ensure-llm-env ensure-llm-env-strict build-web build-trace-viewer build
+.PHONY: run run-core run-web run-trace-viewer run-log-mcp generate install ensure-llm-env ensure-llm-env-strict build-web build-trace-viewer build
 
 # Ensure at least one LLM provider key exists before running backend.
 ensure-llm-env:
@@ -14,13 +14,14 @@ ensure-llm-env:
 run: ensure-llm-env
 	@set -e; \
 	cleanup() { \
-		kill $$core_pid $$web_pid 2>/dev/null || true; \
-		wait $$core_pid $$web_pid 2>/dev/null || true; \
+		kill $$core_pid $$web_pid $$viewer_pid 2>/dev/null || true; \
+		wait $$core_pid $$web_pid $$viewer_pid 2>/dev/null || true; \
 	}; \
 	trap cleanup INT TERM EXIT; \
 	( $(MAKE) --no-print-directory run-core ) & core_pid=$$!; \
 	( cd InsightifyWeb && npm run dev ) & web_pid=$$!; \
-	wait $$core_pid $$web_pid
+	( cd InsightifyTraceViewer && npm run dev ) & viewer_pid=$$!; \
+	wait $$core_pid $$web_pid $$viewer_pid
 
 # Run the Go backend with hot reload
 run-core: ensure-llm-env-strict
@@ -43,6 +44,10 @@ run-web:
 run-trace-viewer:
 	cd InsightifyTraceViewer && exec npm run dev
 
+# Run the local log MCP server (stdio transport).
+run-log-mcp:
+	cd InsightifyLogMCP && exec npm start
+
 # Generate code from Protocol Buffers (assuming buf is used)
 generate:
 	buf generate
@@ -52,6 +57,7 @@ install:
 	cd InsightifyCore && go mod download
 	cd InsightifyWeb && npm install
 	cd InsightifyTraceViewer && npm install
+	cd InsightifyLogMCP && npm install
 
 # Build the React frontend
 build-web:

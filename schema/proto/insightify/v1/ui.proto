@@ -16,6 +16,7 @@ service UiWorkspaceService {
   rpc CreateTab(CreateUiTabRequest) returns (CreateUiTabResponse);
   rpc SelectTab(SelectUiTabRequest) returns (SelectUiTabResponse);
   rpc Restore(RestoreUiRequest) returns (RestoreUiResponse);
+  rpc CreateNodeInTab(CreateNodeInTabRequest) returns (CreateNodeInTabResponse);
 }
 
 enum UiNodeType {
@@ -169,6 +170,24 @@ message RestoreUiResponse {
   // document_hash is a sha256 hash over canonical node data in the resolved document.
   // It can be used by clients to compare local cache with server state.
   string document_hash = 6;
+}
+
+message CreateNodeInTabRequest {
+  string project_id = 1;
+  string tab_id = 2;
+  UiNode node = 3;
+  string actor = 4;
+}
+
+message CreateNodeInTabResponse {
+  // reason follows the same decision semantics as Restore.
+  UiRestoreReason reason = 1;
+  string project_id = 2;
+  string tab_id = 3;
+  string run_id = 4;
+  string node_id = 5;
+  UiDocument document = 6;
+  string document_hash = 7;
 }
 
 message ApplyUiOpsRequest {
