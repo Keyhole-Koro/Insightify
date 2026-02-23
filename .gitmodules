@@ -7,3 +7,6 @@
 [submodule "InsightifyTraceViewer"]
 	path = InsightifyTraceViewer
 	url = https://github.com/Keyhole-Koro/InsightifyTraceViewer.git
+[submodule "InsightifyLogMCP"]
+	path = InsightifyLogMCP
+	url = https://github.com/Keyhole-Koro/InsightifyLogMCP.git
