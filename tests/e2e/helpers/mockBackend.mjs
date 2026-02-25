@@ -1,6 +1,6 @@
 const PROJECT_ID = 'project-e2e-1';
 const TAB_ID = 'tab-e2e-1';
-const UI_NODE_TYPE_LLM_CHAT = 1;
+const UI_NODE_TYPE_ACT = 5;
 const UI_RESTORE_REASON_NO_RUN = 3;
 
 export const constants = {
@@ -9,21 +9,29 @@ export const constants = {
 };
 
 export function buildChatNode({
-  nodeId = 'llm-chat-node-1',
-  title = 'LLM Chat',
+  nodeId = 'act-node-1',
+  title = 'Act',
   messages = [],
   isResponding = false,
 } = {}) {
+  const timeline = messages.map((message, index) => ({
+    id: `evt-${index + 1}`,
+    createdAtUnixMs: Date.now() - (messages.length - index) * 1000,
+    kind: message.role === 'assistant' ? 'worker_output' : 'user_input',
+    summary: message.content,
+  }));
+
   return {
     id: nodeId,
-    type: UI_NODE_TYPE_LLM_CHAT,
+    type: UI_NODE_TYPE_ACT,
     meta: { title },
-    llmChat: {
-      model: 'Low',
-      isResponding,
-      sendLocked: false,
-      sendLockHint: '',
-      messages,
+    act: {
+      actId: nodeId,
+      status: isResponding ? 5 : 6,
+      mode: isResponding ? 'running_worker' : 'needs_user_action',
+      goal: title,
+      pendingActions: [],
+      timeline,
     },
   };
 }

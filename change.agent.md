@@ -974,3 +974,69 @@ This file is the agent change log. Append each new change as a new entry.
   - discussion.agent.md
   - change.agent.md
 - Notes: Verified with `cd InsightifyWeb && npm run build`. Playwright runtime not executed here due missing browser binaries in environment.
+
+## 2026-02-25 12:58:00 UTC
+- Timestamp: 2026-02-25 12:58:00 UTC
+- Agent: antigravity
+- Summary: TICKET-ACT-003 — Removed direct LLM Chat node creation UI and backing code. Deleted "Add LLM Chat" button from ActionPanel, removed `onCreateChatNode` from useBootstrap/Home chain, and deleted `useHomeChatNodeCreator.ts` entirely.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/ActionPanel.tsx
+  - InsightifyWeb/src/pages/Home.tsx
+  - InsightifyWeb/src/pages/home/useBootstrap.ts
+  - InsightifyWeb/src/pages/home/useHomeBootstrapRunner.ts
+  - InsightifyWeb/src/pages/home/useHomeChatNodeCreator.ts (deleted)
+  - change.agent.md
+- Notes: New input is now exclusively routed via the Act input flow (`onSendToAct`). Verified with `cd InsightifyWeb && npm run build` and `grep -r` confirming zero remaining references.
+
+## 2026-02-25 13:03:00 UTC
+- Timestamp: 2026-02-25 13:03:00 UTC
+- Agent: antigravity
+- Summary: TICKET-ACT-004 — Added Act orchestrator service and extended domain act package with state transition, timeline append, and status-to-mode mapping functions.
+- Changed Files:
+  - InsightifyCore/internal/domain/act/act.go
+  - InsightifyCore/internal/domain/act/act_test.go
+  - InsightifyCore/internal/domain/act/mapper.go
+  - InsightifyCore/internal/gateway/service/act/service.go (new)
+  - InsightifyCore/internal/gateway/app/app.go
+  - change.agent.md
+- Notes: Domain `act` package now provides `Transition`, `AppendTimeline`, `StatusToMode`. Gateway `service/act` owns orchestration via `TransitionAct`, `AppendTimeline`, `SetGoal` methods using UI document store. Fixed pre-existing `go vet` copy-lock warnings in `mapper.go`. Verified with `go build ./...`, `go vet` (zero warnings for new code), and 8 unit tests passing.
+
+## 2026-02-25 13:10:00 UTC
+- Timestamp: 2026-02-25 13:10:00 UTC
+- Agent: antigravity
+- Summary: TICKET-ACT-005 — Implemented worker routing policy with keyword-based classifier, confidence scoring, fallback to autonomous_executor, and allowed_workers constraint checking.
+- Changed Files:
+  - InsightifyCore/internal/domain/act/route.go (new)
+  - InsightifyCore/internal/domain/act/route_test.go (new)
+  - InsightifyCore/internal/gateway/service/act/service.go
+  - change.agent.md
+- Notes: `RouteInput` classifies goal text into suggest/search/run_worker modes with confidence scores. `ShouldFallback` triggers autonomous_executor below 0.5 confidence. `IsWorkerAllowed` enforces allowed_workers constraints. `ProcessInput` on orchestrator service integrates classification → fallback → allowed check → status transition → timeline append. Verified with `go build`, `go vet` (clean), and 14 unit tests passing.
+
+## 2026-02-25 13:15:00 UTC
+- Timestamp: 2026-02-25 13:15:00 UTC
+- Agent: antigravity
+- Summary: TICKET-ACT-006 — Added actor policy enforcement to `ApplyOps` (matching `CreateNodeInTab`) and structured audit logging via logctx to both node-mutation paths.
+- Changed Files:
+  - InsightifyCore/internal/gateway/service/ui/service.go
+  - change.agent.md
+- Notes: `ApplyOps` now validates actor using `IsNodeCreateActorAllowed`; empty actor defaults to `"system"` for internal-call compatibility. Both `ApplyOps` and `CreateNodeInTab` log actor, target identifiers, and op count. Verified with `go build` and `go vet` (both clean).
+
+## 2026-02-25 13:27:00 UTC
+- Timestamp: 2026-02-25 13:27:00 UTC
+- Agent: antigravity
+- Summary: TICKET-ACT-007 — Verified act payload restore compatibility with round-trip tests and added NormalizeActState to the restore path.
+- Changed Files:
+  - InsightifyCore/internal/gateway/repository/ui/test_act_roundtrip_test.go (new)
+  - InsightifyCore/internal/gateway/service/ui/conversation_history.go
+  - change.agent.md
+- Notes: Created 3 round-trip tests proving act payload (status, mode, goal, timeline, pending_actions, worker_key) survives protojson serialize/deserialize. Added `NormalizeActState` to `withConversationHistory` for whitespace safety. Verified with `go build`, `go vet` (clean), and 3 tests passing.
+
+## 2026-02-25 13:35:00 UTC
+- Timestamp: 2026-02-25 13:35:00 UTC
+- Agent: antigravity
+- Summary: TICKET-ACT-008 — Updated spec docs, documented remaining LLM Chat paths and all completed tickets.
+- Changed Files:
+  - InsightifyCore/docs/act_contract.md
+  - InsightifyCore/docs/act_mvp_spec.md
+  - change.agent.md
+- Notes: Added ApplyOps actor policy and LLM Chat compatibility section to `act_contract.md`. Added implementation status table (all 8 tickets) and remaining LLM Chat path explanation to `act_mvp_spec.md`. LLM Chat rendering/interaction code cannot be removed yet — `useInteractionFlow.ts` actively uses shadow llmChat nodes for worker chat. Verified with `go build` and `npm run build` (both clean).

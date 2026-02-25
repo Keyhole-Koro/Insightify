@@ -21,36 +21,17 @@ service UiWorkspaceService {
 
 enum UiNodeType {
   UI_NODE_TYPE_UNSPECIFIED = 0;
-  UI_NODE_TYPE_LLM_CHAT = 1;
+  reserved 1;
   UI_NODE_TYPE_MARKDOWN = 2;
   UI_NODE_TYPE_IMAGE = 3;
   UI_NODE_TYPE_TABLE = 4;
+  UI_NODE_TYPE_ACT = 5;
 }
 
 message UiNodeMeta {
   string title = 1;
   string description = 2;
   repeated string tags = 3;
-}
-
-message UiChatMessage {
-  enum Role {
-    ROLE_UNSPECIFIED = 0;
-    ROLE_USER = 1;
-    ROLE_ASSISTANT = 2;
-  }
-
-  string id = 1;
-  Role role = 2;
-  string content = 3;
-}
-
-message UiLlmChatState {
-  string model = 1;
-  bool is_responding = 2;
-  bool send_locked = 3;
-  string send_lock_hint = 4;
-  repeated UiChatMessage messages = 5;
 }
 
 message UiMarkdownState {
@@ -71,14 +52,52 @@ message UiTableRow {
   repeated string cells = 1;
 }
 
+enum UiActStatus {
+  UI_ACT_STATUS_UNSPECIFIED = 0;
+  UI_ACT_STATUS_IDLE = 1;
+  UI_ACT_STATUS_PLANNING = 2;
+  UI_ACT_STATUS_SUGGESTING = 3;
+  UI_ACT_STATUS_SEARCHING = 4;
+  UI_ACT_STATUS_RUNNING_WORKER = 5;
+  UI_ACT_STATUS_NEEDS_USER_ACTION = 6;
+  UI_ACT_STATUS_DONE = 7;
+  UI_ACT_STATUS_FAILED = 8;
+}
+
+message UiActPendingAction {
+  string id = 1;
+  string label = 2;
+  string description = 3;
+}
+
+message UiActTimelineEvent {
+  string id = 1;
+  int64 created_at_unix_ms = 2;
+  string kind = 3;
+  string summary = 4;
+  string detail = 5;
+  string worker_key = 6;
+}
+
+message UiActState {
+  string act_id = 1;
+  UiActStatus status = 2;
+  string mode = 3;
+  string goal = 4;
+  string selected_worker = 5;
+  repeated UiActPendingAction pending_actions = 6;
+  repeated UiActTimelineEvent timeline = 7;
+}
+
 message UiNode {
   string id = 1;
   UiNodeType type = 2;
   UiNodeMeta meta = 3;
-  UiLlmChatState llm_chat = 10;
+  reserved 10;
   UiMarkdownState markdown = 11;
   UiImageState image = 12;
   UiTableState table = 13;
+  UiActState act = 14;
 }
 
 message UiDocument {
