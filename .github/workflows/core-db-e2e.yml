@@ -1,0 +1,59 @@
+name: Core DB E2E
+
+on:
+  pull_request:
+    paths:
+      - "InsightifyCore/**"
+      - ".github/workflows/core-db-e2e.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "InsightifyCore/**"
+      - ".github/workflows/core-db-e2e.yml"
+  workflow_dispatch:
+
+jobs:
+  db-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: insightify
+          POSTGRES_PASSWORD: insightify
+          POSTGRES_DB: insightify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U insightify -d insightify"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: InsightifyCore/go.mod
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            pg_isready -h 127.0.0.1 -p 5432 -U insightify -d insightify && exit 0
+            sleep 1
+          done
+          exit 1
+        env:
+          PGPASSWORD: insightify
+
+      - name: Run DB cache pipeline integration test
+        working-directory: InsightifyCore
+        env:
+          RUN_DB_E2E: "1"
+          TEST_DATABASE_URL: postgres://insightify:insightify@127.0.0.1:5432/insightify?sslmode=disable
+        run: go test ./internal/gateway/integration -v

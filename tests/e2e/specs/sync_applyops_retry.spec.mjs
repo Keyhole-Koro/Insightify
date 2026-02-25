@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { buildChatNode, installBaseRpcMocks, installMockInteractionSocket } from '../helpers/mockBackend.mjs';
+const UI_RESTORE_REASON_RESOLVED = 1;
+const ROLE_ASSISTANT = 2;
 
 test('sync retries apply ops and converges after transient failures', async ({ page }) => {
   await installMockInteractionSocket(page);
@@ -7,7 +9,7 @@ test('sync retries apply ops and converges after transient failures', async ({ p
   let applyOpsCalls = 0;
   await installBaseRpcMocks(page, {
     restoreResponse: {
-      reason: 'UI_RESTORE_REASON_RESOLVED',
+      reason: UI_RESTORE_REASON_RESOLVED,
       projectId: 'project-e2e-1',
       tabId: 'tab-e2e-1',
       runId: 'run-sync-1',
@@ -17,7 +19,7 @@ test('sync retries apply ops and converges after transient failures', async ({ p
         nodes: [
           buildChatNode({
             nodeId: 'node-sync-1',
-            messages: [{ id: 'a1', role: 'ROLE_ASSISTANT', content: 'hello' }],
+            messages: [{ id: 'a1', role: ROLE_ASSISTANT, content: 'hello' }],
           }),
         ],
       },

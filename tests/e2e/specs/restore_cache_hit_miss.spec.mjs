@@ -4,34 +4,22 @@ import { buildChatNode, installBaseRpcMocks, installMockInteractionSocket, seedR
 const runId = 'run-cache-1';
 const tabId = 'tab-e2e-1';
 const projectId = 'project-e2e-1';
+const UI_RESTORE_REASON_RESOLVED = 1;
+const ROLE_ASSISTANT = 2;
 
 test.describe('restore cache source selection', () => {
-  test('uses local cache when runId/hash match', async ({ page }) => {
-    const cachedDoc = {
-      runId,
-      version: 9,
-      nodes: [
-        buildChatNode({
-          nodeId: 'node-cache-hit',
-          messages: [
-            { id: 'c1', role: 'ROLE_ASSISTANT', content: 'cache document' },
-          ],
-        }),
-      ],
-    };
-
+  test('uses server document even when local meta matches', async ({ page }) => {
     await seedRestoreCache(page, {
       projectId,
       tabId,
       runId,
       documentHash: 'hash-cache-1',
-      document: cachedDoc,
     });
 
     await installMockInteractionSocket(page);
     await installBaseRpcMocks(page, {
       restoreResponse: {
-        reason: 'UI_RESTORE_REASON_RESOLVED',
+        reason: UI_RESTORE_REASON_RESOLVED,
         projectId,
         tabId,
         runId,
@@ -42,7 +30,7 @@ test.describe('restore cache source selection', () => {
             buildChatNode({
               nodeId: 'node-server-doc',
               messages: [
-                { id: 's1', role: 'ROLE_ASSISTANT', content: 'server document' },
+                { id: 's1', role: ROLE_ASSISTANT, content: 'server document' },
               ],
             }),
           ],
@@ -52,36 +40,22 @@ test.describe('restore cache source selection', () => {
     });
 
     await page.goto('/');
-    await expect(page.getByText(/Restore succeeded \(cache\)/)).toBeVisible();
-    await expect(page.getByText('cache document')).toBeVisible();
+    await expect(page.getByText(/Restore succeeded \(server\)/)).toBeVisible();
+    await expect(page.getByText('server document')).toBeVisible();
   });
 
-  test('uses server when hash mismatches', async ({ page }) => {
-    const cachedDoc = {
-      runId,
-      version: 9,
-      nodes: [
-        buildChatNode({
-          nodeId: 'node-cache-miss',
-          messages: [
-            { id: 'c2', role: 'ROLE_ASSISTANT', content: 'stale cache document' },
-          ],
-        }),
-      ],
-    };
-
+  test('uses server when local meta hash mismatches', async ({ page }) => {
     await seedRestoreCache(page, {
       projectId,
       tabId,
       runId,
       documentHash: 'hash-old',
-      document: cachedDoc,
     });
 
     await installMockInteractionSocket(page);
     await installBaseRpcMocks(page, {
       restoreResponse: {
-        reason: 'UI_RESTORE_REASON_RESOLVED',
+        reason: UI_RESTORE_REASON_RESOLVED,
         projectId,
         tabId,
         runId,
@@ -92,7 +66,7 @@ test.describe('restore cache source selection', () => {
             buildChatNode({
               nodeId: 'node-server-win',
               messages: [
-                { id: 's2', role: 'ROLE_ASSISTANT', content: 'fresh server document' },
+                { id: 's2', role: ROLE_ASSISTANT, content: 'fresh server document' },
               ],
             }),
           ],

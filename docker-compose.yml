@@ -1,7 +1,8 @@
 services:
   workspace:
-    image: mcr.microsoft.com/devcontainers/base:jammy
-    command: sleep infinity
+    build:
+      context: .
+      dockerfile: .docker/workspace/Dockerfile
     working_dir: /workspaces/Insightify
     environment:
       APP_ENV: local

@@ -178,3 +178,31 @@ Agents should reference it when proposing architecture and implementation strate
 - User intent: Keep artifact URLs permanent (no TTL) and proceed with MinIO-backed artifact storage.
 - Applied change: Added MinIO service to `docker-compose.yml` to provide local object storage infrastructure for the gateway artifact flow.
 - Constraint note: Compose validation command could not be executed in this runtime due to missing Docker CLI.
+
+## 2026-02-24 11:44:04 UTC
+- User intent: Eliminate ambiguity around cache/db state by enforcing a safe development pipeline and adding end-to-end verification.
+- Applied decisions:
+  - Treat PostgreSQL tables (`workspace_tabs`, `user_interactions`) as the only source of truth and localStorage as non-authoritative cache.
+  - Enforce explicit `DATABASE_URL` for local run commands to avoid split-brain DB targets.
+  - Add DB identity visibility at startup and make-time inspection.
+  - Add CI integration coverage for tab/run/node persistence and restore across process restart.
+
+## 2026-02-24 13:35:05 UTC
+- User intent: Drop localStorage node-document caching entirely (no backward compatibility), keep restore semantics simple and server-authoritative.
+- Applied decisions:
+  - Frontend restore always uses server `document`; local storage keeps only metadata (`runId`, `documentHash`, `savedAt`) plus active `tab_id`.
+  - Removed `local_cache` restore source path from UI status/type contracts.
+  - Updated E2E tests and docs to reflect metadata-only cache behavior.
+
+## 2026-02-24 14:15:54 UTC
+- User intent: Stabilize enum handling by normalizing wire-format values to frontend string enums.
+- Applied decisions:
+  - Added API-boundary normalization for incoming `UiNode.type`, chat `role`, and restore `reason`.
+  - Kept app-internal checks string-enum based after boundary normalization.
+
+## 2026-02-24 14:23:58 UTC
+- User intent: Move frontend fully to numeric enum constants and remove string-enum backward compatibility.
+- Applied decisions:
+  - Introduced numeric enum constants in contracts and switched internal comparisons to constants.
+  - Removed string enum acceptance from restore reason parsing and node-role/type handling.
+  - Updated E2E mocks/specs to numeric enum payloads only.

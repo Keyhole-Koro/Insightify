@@ -909,3 +909,68 @@ This file is the agent change log. Append each new change as a new entry.
   - docker-compose.yml
   - change.agent.md
 - Notes: Added container/ports/credentials/data volume/healthcheck for MinIO. `docker compose config` validation was not runnable here because `docker` command is unavailable in this environment.
+
+## 2026-02-24 11:44:04 UTC
+- Timestamp: 2026-02-24 11:44:04 UTC
+- Agent: codex
+- Summary: Hardened local cache/db development pipeline by enforcing explicit `DATABASE_URL`, adding DB identity visibility, adding DB-backed restore integration tests, and wiring CI to run the new integration suite.
+- Changed Files:
+  - Makefile
+  - InsightifyCore/internal/gateway/config/config.go
+  - InsightifyCore/internal/gateway/config/local.go
+  - InsightifyCore/internal/gateway/app/app.go
+  - InsightifyCore/internal/gateway/integration/cache_pipeline_test.go
+  - .github/workflows/core-db-e2e.yml
+  - InsightifyCore/docs/cache_safety_pipeline.md
+  - README.md
+  - discussion.agent.md
+  - change.agent.md
+- Notes: Verified with `cd InsightifyCore && go test ./...`, `make verify-cache-pipeline`, and `make list-uiworkspace-nodes`. `verify-cache-pipeline` runs DB integration only when `RUN_DB_E2E=1` is set by the make target/CI.
+
+## 2026-02-24 13:35:05 UTC
+- Timestamp: 2026-02-24 13:35:05 UTC
+- Agent: codex
+- Summary: Removed browser-side node document caching; restore now always uses server document and localStorage stores metadata only.
+- Changed Files:
+  - InsightifyWeb/src/pages/home/useUiRestoreCache.ts
+  - InsightifyWeb/src/pages/home/useHomeRestoreRunner.ts
+  - InsightifyWeb/src/pages/home/useUiRestore.ts
+  - InsightifyWeb/src/pages/home/homeBootstrapTypes.ts
+  - tests/e2e/helpers/mockBackend.mjs
+  - tests/e2e/specs/restore_cache_hit_miss.spec.mjs
+  - tests/e2e/README.md
+  - InsightifyCore/docs/cache_safety_pipeline.md
+  - InsightifyCore/docs/ui_restore_cache_flow.md
+  - discussion.agent.md
+  - change.agent.md
+- Notes: Verified with `cd InsightifyWeb && npm run build` and `cd InsightifyCore && go test ./internal/gateway/integration ./internal/gateway/service/restore ./internal/gateway/service/ui`. Playwright E2E execution requires browser install (`npx playwright install`).
+
+## 2026-02-24 14:15:54 UTC
+- Timestamp: 2026-02-24 14:15:54 UTC
+- Agent: codex
+- Summary: Added frontend API-layer enum normalization for incoming UI payloads so app logic always sees string enums (`UiNode.type`, chat roles, restore reason).
+- Changed Files:
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/pages/home/useHomeChatNodeCreator.ts
+  - discussion.agent.md
+  - change.agent.md
+- Notes: Verified with `cd InsightifyWeb && npm run build`.
+
+## 2026-02-24 14:23:58 UTC
+- Timestamp: 2026-02-24 14:23:58 UTC
+- Agent: codex
+- Summary: Migrated frontend enum handling to numeric constants end-to-end and removed string enum compatibility paths.
+- Changed Files:
+  - InsightifyWeb/src/contracts/ui.ts
+  - InsightifyWeb/src/pages/home/restoreReason.ts
+  - InsightifyWeb/src/features/ui/api.ts
+  - InsightifyWeb/src/features/ui/hooks/useUiNodeSync.ts
+  - InsightifyWeb/src/features/interaction/hooks/useInteractionFlow.ts
+  - InsightifyWeb/src/pages/home/useHomeChatNodeCreator.ts
+  - tests/e2e/helpers/mockBackend.mjs
+  - tests/e2e/specs/restore_reason.spec.mjs
+  - tests/e2e/specs/restore_cache_hit_miss.spec.mjs
+  - tests/e2e/specs/sync_applyops_retry.spec.mjs
+  - discussion.agent.md
+  - change.agent.md
+- Notes: Verified with `cd InsightifyWeb && npm run build`. Playwright runtime not executed here due missing browser binaries in environment.

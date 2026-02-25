@@ -13,7 +13,7 @@ Location:
 These E2E tests validate the frontend behavior for three critical flows:
 
 1. Restore decision logic (`Restore` reason + run identity)
-2. Cache selection logic (server document vs local cache document)
+2. Cache metadata handling logic (server document is always authoritative)
 3. UI sync reliability (`ApplyOps` retry and eventual convergence)
 
 The tests run against the real app UI (`InsightifyWeb`) with mocked RPC/WebSocket
@@ -72,30 +72,30 @@ Typical failure signals:
 
 ### `specs/restore_cache_hit_miss.spec.mjs`
 
-#### `uses local cache when runId/hash match`
+#### `uses server document even when local meta matches`
 
 What it verifies:
 
 - Browser cache exists for the project/tab
-- Cached `runId` and `documentHash` both match server metadata
-- Frontend restores from local cache source
+- Cached metadata (`runId`, `documentHash`) can exist without changing restore authority
+- Frontend still restores from server source
 
 Why this exists:
 
-- Confirms the fast-path restore contract and avoids unnecessary server rendering delays.
+- Protects against regressions that accidentally trust browser document payload over server state.
 
 Typical failure signals:
 
 - Cache read/parse regression
-- Hash/run comparison bug
 - Local storage key mismatch
+- Server document unexpectedly bypassed
 
-#### `uses server when hash mismatches`
+#### `uses server when local meta hash mismatches`
 
 What it verifies:
 
 - Browser cache exists but `documentHash` does not match the server hash
-- Frontend rejects stale cache and uses server document
+- Frontend uses server document
 - UI shows server-origin restore state
 
 Why this exists:
@@ -147,5 +147,6 @@ These tests collectively enforce the following contracts:
 
 - Restore eligibility is decided by `reason` and `runId`.
 - Cache usage requires exact `runId + documentHash` match.
+- Browser cache stores metadata only; server document is always authoritative.
 - Temporary `ApplyOps` failures must not lose final UI state.
 - Restore outcome must be explicit and user-visible in the frontend.

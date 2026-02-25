@@ -1,5 +1,7 @@
 const PROJECT_ID = 'project-e2e-1';
 const TAB_ID = 'tab-e2e-1';
+const UI_NODE_TYPE_LLM_CHAT = 1;
+const UI_RESTORE_REASON_NO_RUN = 3;
 
 export const constants = {
   PROJECT_ID,
@@ -14,7 +16,7 @@ export function buildChatNode({
 } = {}) {
   return {
     id: nodeId,
-    type: 'UI_NODE_TYPE_LLM_CHAT',
+    type: UI_NODE_TYPE_LLM_CHAT,
     meta: { title },
     llmChat: {
       model: 'Low',
@@ -209,7 +211,7 @@ export async function installBaseRpcMocks(page, options = {}) {
     if (pathname.endsWith('/insightify.v1.UiWorkspaceService/Restore')) {
       return json(
         restoreResponse || {
-          reason: 'UI_RESTORE_REASON_NO_RUN',
+          reason: UI_RESTORE_REASON_NO_RUN,
           projectId: PROJECT_ID,
           tabId: TAB_ID,
           runId: '',
@@ -255,17 +257,15 @@ export async function seedRestoreCache(page, {
   tabId = TAB_ID,
   runId,
   documentHash,
-  document,
 }) {
   await page.addInitScript(
-    ({ projectIdArg, tabIdArg, runIdArg, hashArg, docArg }) => {
+    ({ projectIdArg, tabIdArg, runIdArg, hashArg }) => {
       localStorage.setItem(`insightify.ui_tab_id.${projectIdArg}`, tabIdArg);
       localStorage.setItem(
-        `insightify.ui_doc_cache.${projectIdArg}.${tabIdArg}`,
+        `insightify.ui_doc_meta.${projectIdArg}.${tabIdArg}`,
         JSON.stringify({
           runId: runIdArg,
           documentHash: hashArg,
-          document: docArg,
           savedAt: Date.now(),
         }),
       );
@@ -275,7 +275,6 @@ export async function seedRestoreCache(page, {
       tabIdArg: tabId,
       runIdArg: runId,
       hashArg: documentHash,
-      docArg: document,
     },
   );
 }
