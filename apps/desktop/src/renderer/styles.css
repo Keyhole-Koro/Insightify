@@ -309,3 +309,110 @@ button { color: inherit; }
 .send-button { color: #11130e; background: #c9ff63; }
 .send-button:disabled { cursor: not-allowed; opacity: .35; }
 .stop-button { color: #ffc1c1; background: #4a2929; }
+
+/* Synthify-inspired Error Components & States */
+.inline-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: #ff7b7b;
+  font-size: 10px;
+  font-weight: 500;
+}
+.inline-error .error-icon {
+  flex-shrink: 0;
+}
+
+.panel-error-card {
+  margin-bottom: 13px;
+  padding: 12px 14px;
+  border: 1px solid #6b3535;
+  border-radius: 12px;
+  background: #241414;
+}
+.panel-error-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff9494;
+  font-size: 11px;
+}
+.panel-error-header strong {
+  font-weight: 650;
+}
+.panel-error-header .error-icon {
+  color: #ff6b6b;
+}
+.panel-error-message {
+  margin: 6px 0 0;
+  color: #e5b0b0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.panel-error-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+}
+.panel-error-actions .retry-button {
+  padding: 5px 9px;
+  border: 1px solid #7c4444;
+  border-radius: 6px;
+  color: #ffe0e0;
+  background: #3d1c1c;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+}
+.panel-error-actions .retry-button:hover {
+  background: #4d2323;
+}
+.panel-error-actions .dismiss-button {
+  padding: 5px 9px;
+  border: 1px solid #4a3030;
+  border-radius: 6px;
+  color: #b09595;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.fatal-error-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 24px;
+  text-align: center;
+  background: #0c0d10;
+}
+.fatal-error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 20px;
+  border-radius: 50%;
+  color: #ff6b6b;
+  background: #2b1616;
+}
+.fatal-error-view h1 {
+  margin: 0 0 10px;
+  color: #eeeeea;
+  font-size: 20px;
+}
+.fatal-error-view p {
+  max-width: 440px;
+  margin: 0 0 24px;
+  color: #888b94;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.fatal-error-actions {
+  display: flex;
+  gap: 10px;
+}
