@@ -12,8 +12,11 @@ export type GraphUpdate = (current: GeneratedFlowGraph) => GeneratedFlowGraph;
 export type ProjectGraphStore = {
   projects: ProjectSummary[];
   project: ProjectSummary | null;
+  /** The saved document, or the proposal while one is being previewed. */
   graph: GeneratedFlowGraph | null;
   graphLoading: boolean;
+  /** True while a generated layout is on screen but not yet accepted. */
+  previewing: boolean;
   /** Reads the newest graph synchronously, for pointer handlers that cannot wait for a render. */
   currentGraph: () => GeneratedFlowGraph | null;
   /** Opens the picker and registers the choice. Returns null when cancelled. */
@@ -21,6 +24,12 @@ export type ProjectGraphStore = {
   selectProject: (selected: ProjectSummary) => void;
   /** Accepts a generated graph, ignoring one that arrives for a project the user has left. */
   receiveGraph: (value: GeneratedFlowGraph) => boolean;
+  /** Shows a generated document without saving it. */
+  proposeGraph: (value: GeneratedFlowGraph) => boolean;
+  /** Writes the proposal to disk. */
+  acceptProposal: () => void;
+  /** Drops the proposal and returns to the saved document. */
+  discardProposal: () => void;
   /** Applies an edit and writes it back to disk. */
   editGraph: (update: GraphUpdate) => void;
   /** Applies an edit without saving — for the frames of a drag. */
@@ -35,6 +44,9 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [graph, setGraphState] = useState<GeneratedFlowGraph | null>(null);
+  // A proposal is never written to graphRef: edits and drags keep working
+  // against the saved document, and accepting is the only way to replace it.
+  const [proposal, setProposal] = useState<GeneratedFlowGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const projectIdRef = useRef<string | null>(null);
   const graphRef = useRef<GeneratedFlowGraph | null>(null);
@@ -44,6 +56,7 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
   const setGraph = useCallback((value: GeneratedFlowGraph | null) => {
     graphRef.current = value;
     setGraphState(value);
+    setProposal(null);
   }, []);
 
   const loadGraph = useCallback(
@@ -117,6 +130,18 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
     [setGraph]
   );
 
+  const proposeGraph = useCallback((value: GeneratedFlowGraph) => {
+    if (value.projectId !== projectIdRef.current) return false;
+    setProposal(value);
+    return true;
+  }, []);
+
+  const acceptProposal = useCallback(() => {
+    if (proposal) persistGraph(proposal);
+  }, [persistGraph, proposal]);
+
+  const discardProposal = useCallback(() => setProposal(null), []);
+
   const editGraph = useCallback(
     (update: GraphUpdate) => {
       const current = graphRef.current;
@@ -140,12 +165,16 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
   return {
     projects,
     project,
-    graph,
+    graph: proposal ?? graph,
     graphLoading,
+    previewing: proposal !== null,
     currentGraph: () => graphRef.current,
     pickProject,
     selectProject,
     receiveGraph,
+    proposeGraph,
+    acceptProposal,
+    discardProposal,
     editGraph,
     previewEdit,
     commitPreview,

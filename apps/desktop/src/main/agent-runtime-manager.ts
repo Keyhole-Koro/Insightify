@@ -389,9 +389,9 @@ export class AgentRuntimeManager {
     if (resolveRoomLayoutRules(current.graph, layoutPlan) === defaultRoomLayoutRules) {
       throw new Error("The plan did not describe any node of this graph");
     }
-    const value = withLayoutPlan(current, layoutPlan);
-    this.#projects.saveGraph(value);
-    this.#sendGraphEvent({ status: "completed", mode: "layout", value });
+    // A relayout is a proposal, not a fact: it is sent to the renderer and only
+    // written once the user accepts it. Quitting without deciding loses nothing.
+    this.#sendGraphEvent({ status: "completed", mode: "layout", value: withLayoutPlan(current, layoutPlan) });
   }
 
   #failGeneration(generation: GraphGeneration, message: string): void {

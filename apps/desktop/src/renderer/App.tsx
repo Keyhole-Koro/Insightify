@@ -35,7 +35,7 @@ import { useAgentSession } from "./hooks/useAgentSession.js";
 import { DIVE_SCALE_IN, DIVE_SCALE_OUT, useCanvasView } from "./hooks/useCanvasView.js";
 import { useFlowProjection } from "./hooks/useFlowProjection.js";
 import { useNodeDrag } from "./hooks/useNodeDrag.js";
-import { useProjectGraph } from "./hooks/useProjectGraph.js";
+import { useProjectGraph, type GraphUpdate } from "./hooks/useProjectGraph.js";
 import { ErrorBoundary } from "./components/error/ErrorBoundary.js";
 import { ProjectRail } from "./components/ProjectRail.js";
 import { TopBar } from "./components/TopBar.js";
@@ -75,23 +75,44 @@ export function App() {
     project,
     graph,
     graphLoading,
+    previewing,
     currentGraph,
     receiveGraph,
-    editGraph,
+    proposeGraph,
+    acceptProposal,
+    discardProposal,
+    editGraph: writeGraph,
     pickProject: promptForProject,
     selectProject: openProject,
   } = projectStore;
+
+  // A proposed layout is not the saved document. Editing while one is on screen
+  // would write to whichever of the two happened to be underneath, so the user
+  // decides on the proposal first.
+  const editGraph = useCallback(
+    (update: GraphUpdate) => {
+      if (previewing) {
+        reportError("Apply or discard the proposed layout before editing the graph.");
+        return;
+      }
+      writeGraph(update);
+    },
+    [previewing, reportError, writeGraph]
+  );
 
   // A generated graph that arrives for a project the user has left is dropped by
   // the store. Only a brand new graph returns the canvas to the top scope: after
   // an expansion or a relayout the user stays in the Room they were standing in.
   const handleGraphGenerated = useCallback(
     (value: GeneratedFlowGraph, _scopeNodeId: string | null, mode: GenerationMode) => {
+      // A relayout is a proposal the user still has to accept; a graph or an
+      // expansion is already saved by the time it reaches here.
+      if (mode === "layout") return proposeGraph(value);
       const applied = receiveGraph(value);
       if (applied && mode === "graph") setScope(null);
       return applied;
     },
-    [receiveGraph, setScope]
+    [proposeGraph, receiveGraph, setScope]
   );
 
   const session = useAgentSession({
@@ -167,7 +188,7 @@ export function App() {
   } = view;
 
   const drag = useNodeDrag({
-    disabled: busy,
+    disabled: busy || previewing,
     canvasRef,
     stage,
     stageZoom,
@@ -404,7 +425,7 @@ export function App() {
                   </button>
                   <button
                     type="button"
-                    disabled={busy || !provider?.installed}
+                    disabled={busy || previewing || !provider?.installed}
                     onClick={() => void regenerateLayout()}
                     title="Graphはそのまま、配置だけをAIに作り直させる"
                   >
@@ -419,6 +440,23 @@ export function App() {
                     🗺️ Areas {showDebugAreas ? "ON" : "OFF"}
                   </button>
                 </div>
+                {previewing && (
+                  <div className="layout-proposal-bar" role="status">
+                    <span className="layout-proposal-mark" aria-hidden="true">◇</span>
+                    <div className="layout-proposal-text">
+                      <strong>Proposed layout</strong>
+                      <span>
+                        固定したAreaと手動配置はそのままです。採用するまで保存されません。
+                      </span>
+                    </div>
+                    <button type="button" className="ghost-button" onClick={discardProposal}>
+                      Discard
+                    </button>
+                    <button type="button" className="primary-button" onClick={acceptProposal}>
+                      Apply layout
+                    </button>
+                  </div>
+                )}
                 <div className="scope-label">
                   <span>ROOM</span> {scopeNode?.title ?? graph.graph.title}
                 </div>
