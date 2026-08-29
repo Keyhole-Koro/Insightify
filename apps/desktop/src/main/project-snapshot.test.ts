@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildFlowGraphExpansionPrompt, buildFlowGraphPrompt, buildProjectSnapshot } from "./project-snapshot.js";
+import { buildFlowGraphExpansionPrompt, buildLayoutPlanPrompt, buildFlowGraphPrompt, buildProjectSnapshot } from "./project-snapshot.js";
 
 const cleanup: string[] = [];
 
@@ -41,5 +41,37 @@ describe("buildProjectSnapshot", () => {
       nodes: [{ id: "root", title: "Root", summary: "Root summary", kind: "room", parentId: null, evidence: [] }],
       edges: [],
     }, "root")).toContain("layoutScopes");
+  });
+
+  it("shows a layout run the nodes to arrange and nothing more", () => {
+    const prompt = buildLayoutPlanPrompt({
+      title: "Graph",
+      summary: "Graph summary",
+      nodes: [
+        {
+          id: "root",
+          title: "Root",
+          summary: "Root summary",
+          kind: "room",
+          parentId: null,
+          evidence: ["src/secret-path.ts"],
+          codeSnippet: "const apiKey = process.env.KEY",
+        },
+        { id: "leaf", title: "Leaf", summary: "Leaf summary", kind: "api", parentId: "root", evidence: [] },
+      ],
+      edges: [{ source: "root", target: "leaf", label: "calls" }],
+    });
+
+    // What it needs to group nodes.
+    expect(prompt).toContain("\"id\":\"root\"");
+    expect(prompt).toContain("\"parentId\":\"root\"");
+    expect(prompt).toContain("calls");
+    // A layout run reads no project files, so none of that reaches the model.
+    expect(prompt).not.toContain("src/secret-path.ts");
+    expect(prompt).not.toContain("apiKey");
+    expect(prompt).not.toContain("Root summary");
+    expect(prompt).not.toContain("PROJECT_SNAPSHOT_JSON");
+    // And it must not be able to change the graph.
+    expect(prompt).toContain("never change the graph");
   });
 });

@@ -6,7 +6,7 @@ import React, {
   type CSSProperties,
 } from "react";
 import { roomsInScope, type FlowNode, type GeneratedFlowGraph } from "@insightify/graph-domain";
-import type { ProjectSummary } from "@insightify/desktop-bridge";
+import type { GenerationMode, ProjectSummary } from "@insightify/desktop-bridge";
 import { type AppError } from "./lib/errors.js";
 import { toAppError } from "./lib/error-normalize.js";
 import {
@@ -81,11 +81,12 @@ export function App() {
   } = projectStore;
 
   // A generated graph that arrives for a project the user has left is dropped by
-  // the store; only an accepted root graph returns the canvas to the top scope.
+  // the store. Only a brand new graph returns the canvas to the top scope: after
+  // an expansion or a relayout the user stays in the Room they were standing in.
   const handleGraphGenerated = useCallback(
-    (value: GeneratedFlowGraph, scopeNodeId: string | null) => {
+    (value: GeneratedFlowGraph, _scopeNodeId: string | null, mode: GenerationMode) => {
       const applied = receiveGraph(value);
-      if (applied && !scopeNodeId) setScope(null);
+      if (applied && mode === "graph") setScope(null);
       return applied;
     },
     [receiveGraph, setScope]
@@ -108,10 +109,12 @@ export function App() {
     run,
     busy,
     generatingGraph,
+    regeneratingLayout,
     expandingScopeId,
     cancelRun,
     clearEvents,
     generateGraph,
+    regenerateLayout,
     respondApproval,
   } = session;
 
@@ -390,6 +393,14 @@ export function App() {
                     title={expandedScopeIds.size > 0 ? "すべてのRoomを折りたたむ" : "すべてのRoomをインライン展開"}
                   >
                     🚪 Rooms {expandedScopeIds.size > 0 ? `(${expandedScopeIds.size} open)` : "⊞ Expand"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || !provider?.installed}
+                    onClick={() => void regenerateLayout()}
+                    title="Graphはそのまま、配置だけをAIに作り直させる"
+                  >
+                    {regeneratingLayout ? "◴ Arranging…" : "⇄ Relayout"}
                   </button>
                   <button
                     type="button"

@@ -8,6 +8,7 @@ export const IPC_CHANNELS = {
   projectGraphGet: "insightify:project:graph:get",
   projectGraphSave: "insightify:project:graph:save",
   graphGenerate: "insightify:graph:generate",
+  layoutGenerate: "insightify:layout:generate",
   graphGeneration: "insightify:graph:generation",
   providersProbe: "insightify:providers:probe",
   agentStartRun: "insightify:agent:run:start",
@@ -44,6 +45,11 @@ export const projectGraphInputSchema = z.object({ projectId: projectIdSchema });
 export const saveProjectGraphInputSchema = generatedFlowGraphSchema.extend({
   provider: executableAgentProviderSchema,
 });
+export const regenerateLayoutInputSchema = z.object({
+  provider: executableAgentProviderSchema,
+  projectId: projectIdSchema,
+});
+
 export const generateFlowGraphInputSchema = z.object({
   provider: executableAgentProviderSchema,
   projectId: projectIdSchema,
@@ -68,10 +74,23 @@ export type StartAgentRunInput = z.infer<typeof startAgentRunInputSchema>;
 export type CancelAgentRunInput = z.infer<typeof cancelAgentRunInputSchema>;
 export type ApprovalResponse = z.infer<typeof approvalResponseSchema> & { decision: ApprovalDecision };
 export type GenerateFlowGraphInput = z.infer<typeof generateFlowGraphInputSchema>;
+export type RegenerateLayoutInput = z.infer<typeof regenerateLayoutInputSchema>;
+
+// What a finished run produced. The renderer reacts differently to each: a new
+// graph returns the canvas to the root, while an expansion or a relayout leaves
+// the user where they were standing.
+export type GenerationMode = "graph" | "expansion" | "layout";
 
 export type GraphGenerationEvent =
-  | { status: "completed"; value: GeneratedFlowGraph; scopeNodeId?: string }
-  | { status: "failed"; projectId: string; provider: ExecutableAgentProvider; scopeNodeId?: string; message: string };
+  | { status: "completed"; mode: GenerationMode; value: GeneratedFlowGraph; scopeNodeId?: string }
+  | {
+      status: "failed";
+      mode: GenerationMode;
+      projectId: string;
+      provider: ExecutableAgentProvider;
+      scopeNodeId?: string;
+      message: string;
+    };
 
 export type ProjectSummary = {
   id: string;
@@ -94,6 +113,7 @@ export interface InsightifyDesktopApi {
   probeProviders(): Promise<ProviderInstallation[]>;
   startAgentRun(input: StartAgentRunInput): Promise<StartRunResult>;
   generateFlowGraph(input: GenerateFlowGraphInput): Promise<StartRunResult>;
+  regenerateLayout(input: RegenerateLayoutInput): Promise<StartRunResult>;
   cancelAgentRun(input: CancelAgentRunInput): Promise<void>;
   respondToAgentApproval(input: ApprovalResponse): Promise<void>;
   onAgentEvent(listener: (event: AgentEvent) => void): () => void;

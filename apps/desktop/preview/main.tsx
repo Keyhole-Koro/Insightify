@@ -32,6 +32,7 @@ const api: InsightifyDesktopApi = {
   probeProviders: async () => [installed("antigravity-cli"), installed("codex")],
   startAgentRun: async () => ({ threadId: "preview-thread", runId: "preview-run" }),
   generateFlowGraph: async () => ({ threadId: "preview-thread", runId: "preview-run" }),
+  regenerateLayout: async () => ({ threadId: "preview-thread", runId: "preview-run" }),
   cancelAgentRun: async () => {},
   respondToAgentApproval: async () => {},
   onAgentEvent: () => () => {},

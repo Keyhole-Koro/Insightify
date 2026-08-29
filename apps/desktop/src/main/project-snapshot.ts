@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import type { FlowGraph, SemanticLayoutPlan } from "@insightify/graph-domain";
+import type { FlowGraph, FlowNode, SemanticLayoutPlan } from "@insightify/graph-domain";
 
 const MAX_FILES = 600;
 const MAX_EXCERPTS = 28;
@@ -76,6 +76,50 @@ export function buildFlowGraphPrompt(snapshot: ProjectSnapshot): string {
     "PROJECT_SNAPSHOT_JSON",
     JSON.stringify(snapshot),
   ].join("\n");
+}
+
+/**
+ * Regenerating a layout needs the graph, not the project. The model is shown the
+ * nodes it has to arrange and nothing else, which makes this run far cheaper
+ * than a full generation and keeps the graph itself out of reach of the change.
+ */
+export function buildLayoutPlanPrompt(
+  graph: FlowGraph,
+  currentLayoutPlan?: SemanticLayoutPlan
+): string {
+  return [
+    "Produce a semantic layout plan for the existing FlowFold graph below.",
+    "Do not use tools, run commands, edit files, or access the network.",
+    "Return only the layout plan object required by the supplied JSON schema.",
+    "Create a layout scope for the root (roomId null) and for every Room that has direct children.",
+    "A layout scope groups only its direct child node ids into 1-4 meaningful areas. Assign each direct child exactly once.",
+    "Group by architectural role and by the direction of the flow, not by name similarity.",
+    "Choose row or column for the order between areas and row, column, or grid inside each area.",
+    "Never invent node ids, never change the graph, and never repeat a node id across two areas of one scope.",
+    "Layout areas express architecture and flow meaning only. Never generate coordinates, padding, gaps, percentages, regexes, or visual measurements.",
+    "Improve on the current plan where the grouping is unclear. Keep what already reads well.",
+    "",
+    "GRAPH_NODES_JSON",
+    JSON.stringify(graph.nodes.map(describeNodeForLayout)),
+    "",
+    "GRAPH_EDGES_JSON",
+    JSON.stringify(graph.edges),
+    "",
+    "CURRENT_LAYOUT_PLAN_JSON",
+    JSON.stringify(currentLayoutPlan ?? null),
+  ].join("\n");
+}
+
+// Evidence and code snippets say nothing about where a node belongs on a canvas.
+function describeNodeForLayout(node: FlowNode) {
+  return {
+    id: node.id,
+    title: node.title,
+    kind: node.kind,
+    parentId: node.parentId,
+    ...(node.tags?.length ? { tags: node.tags } : {}),
+    ...(node.technology ? { technology: node.technology } : {}),
+  };
 }
 
 export function buildFlowGraphExpansionPrompt(

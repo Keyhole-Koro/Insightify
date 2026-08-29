@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AgentEvent, ProviderInstallation } from "@insightify/agent-runtime";
 import type {
   ExecutableAgentProvider,
+  GenerationMode,
   GraphGenerationEvent,
   StartRunResult,
 } from "@insightify/desktop-bridge";
@@ -19,7 +20,11 @@ const MAX_RETAINED_EVENTS = 500;
 type AgentSessionOptions = {
   projectId: string | null;
   /** Returns true when the graph belonged to the project the user is still looking at. */
-  onGraphGenerated: (value: GeneratedFlowGraph, scopeNodeId: string | null) => boolean;
+  onGraphGenerated: (
+    value: GeneratedFlowGraph,
+    scopeNodeId: string | null,
+    mode: GenerationMode
+  ) => boolean;
   onError: (reason: unknown) => void;
   clearError: () => void;
 };
@@ -37,9 +42,11 @@ export type AgentSession = {
   run: StartRunResult | null;
   busy: boolean;
   generatingGraph: boolean;
+  regeneratingLayout: boolean;
   expandingScopeId: string | null;
   startRun: (prompt: string) => Promise<void>;
   generateGraph: (scopeNodeId?: string) => Promise<void>;
+  regenerateLayout: () => Promise<void>;
   cancelRun: () => Promise<void>;
   respondApproval: (requestId: string, decision: "accept" | "decline") => Promise<void>;
 };
@@ -53,6 +60,7 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
   const [run, setRun] = useState<StartRunResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [generatingGraph, setGeneratingGraph] = useState(false);
+  const [regeneratingLayout, setRegeneratingLayout] = useState(false);
   const [expandingScopeId, setExpandingScopeId] = useState<string | null>(null);
   // The event subscription outlives any single project or callback identity, so
   // it reads both through refs instead of resubscribing on every change.
@@ -88,12 +96,13 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
 
     const offGraph = bridge.onGraphGeneration((event: GraphGenerationEvent) => {
       setGeneratingGraph(false);
+      setRegeneratingLayout(false);
       setExpandingScopeId(null);
       setBusy(false);
       setRun(null);
       setEvents([]);
       if (event.status === "completed") {
-        generatedRef.current(event.value, event.scopeNodeId ?? null);
+        generatedRef.current(event.value, event.scopeNodeId ?? null, event.mode);
       } else if (event.projectId === projectIdRef.current) {
         onError(event.message);
       }
@@ -159,6 +168,23 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
     [bridge, clearError, onError, projectId, provider?.installed, providerKind]
   );
 
+  // Rebuilding the arrangement needs no project snapshot, so it is a much
+  // shorter run than a generation and cannot change the graph.
+  const regenerateLayout = useCallback(async () => {
+    if (!projectId || !provider?.installed) return;
+    setBusy(true);
+    setRegeneratingLayout(true);
+    clearError();
+    setEvents([]);
+    try {
+      setRun(await bridge.regenerateLayout({ provider: providerKind, projectId }));
+    } catch (reason) {
+      setBusy(false);
+      setRegeneratingLayout(false);
+      onError(reason);
+    }
+  }, [bridge, clearError, onError, projectId, provider?.installed, providerKind]);
+
   const startRun = useCallback(
     async (prompt: string) => {
       if (!projectId || !prompt.trim()) return;
@@ -219,9 +245,11 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
     run,
     busy,
     generatingGraph,
+    regeneratingLayout,
     expandingScopeId,
     startRun,
     generateGraph,
+    regenerateLayout,
     cancelRun,
     respondApproval,
   };

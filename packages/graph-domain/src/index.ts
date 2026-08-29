@@ -240,6 +240,14 @@ export function parseFlowGraphGenerationText(text: string): FlowGraphGeneration 
   return parseFlowGraphGeneration(JSON.parse(unfenceJson(text)));
 }
 
+export function parseSemanticLayoutPlan(value: unknown): SemanticLayoutPlan {
+  return semanticLayoutPlanSchema.parse(value);
+}
+
+export function parseSemanticLayoutPlanText(text: string): SemanticLayoutPlan {
+  return parseSemanticLayoutPlan(JSON.parse(unfenceJson(text)));
+}
+
 export function parseGeneratedFlowGraph(value: unknown): GeneratedFlowGraph {
   return generatedFlowGraphSchema.parse(value);
 }
@@ -332,6 +340,24 @@ function scopeRepresentative(graph: FlowGraph, scopeId: string | null): (nodeId:
  * The compiler that turns a semantic layout plan into coordinates. Bump this
  * whenever a change to the compiler would place existing nodes differently.
  */
+/**
+ * Swaps in a newly generated layout plan without touching the graph. Generated
+ * coordinates are rebuilt from the new plan; `layoutOverrides` is the user's own
+ * work and is never discarded by a relayout.
+ */
+export function withLayoutPlan(
+  document: GeneratedFlowGraph,
+  layoutPlan: SemanticLayoutPlan
+): GeneratedFlowGraph {
+  const rules = resolveRoomLayoutRules(document.graph, layoutPlan);
+  return {
+    ...document,
+    layoutPlan,
+    layout: createDefaultGraphLayout(document.graph, {}, rules),
+    layoutEngineVersion: LAYOUT_ENGINE_VERSION,
+  };
+}
+
 export const LAYOUT_ENGINE_VERSION = 3;
 
 /**

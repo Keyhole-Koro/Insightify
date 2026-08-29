@@ -5,9 +5,19 @@ import path from "node:path";
 import { AntigravityCliClient, probeAntigravity } from "@insightify/agent-antigravity-cli";
 import { CodexAppServerClient, probeCodex } from "@insightify/agent-codex";
 import type { AgentEvent, ApprovalDecision, ProviderInstallation } from "@insightify/agent-runtime";
-import { IPC_CHANNELS, type ExecutableAgentProvider, type StartRunResult } from "@insightify/desktop-bridge";
+import {
+  IPC_CHANNELS,
+  type ExecutableAgentProvider,
+  type GenerationMode,
+  type StartRunResult,
+} from "@insightify/desktop-bridge";
 import {
   FLOW_GRAPH_GENERATION_JSON_SCHEMA,
+  SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
+  defaultRoomLayoutRules,
+  parseSemanticLayoutPlan,
+  parseSemanticLayoutPlanText,
+  withLayoutPlan,
   isRoom,
   LAYOUT_ENGINE_VERSION,
   FLOW_GRAPH_GENERATION_EXPANSION_JSON_SCHEMA,
@@ -25,11 +35,17 @@ import {
   type SemanticLayoutPlan,
 } from "@insightify/graph-domain";
 import type { ProjectRepository } from "./project-repository.js";
-import { buildFlowGraphExpansionPrompt, buildFlowGraphPrompt, buildProjectSnapshot } from "./project-snapshot.js";
+import {
+  buildFlowGraphExpansionPrompt,
+  buildFlowGraphPrompt,
+  buildLayoutPlanPrompt,
+  buildProjectSnapshot,
+} from "./project-snapshot.js";
 
 type CodexSession = { client: CodexAppServerClient; unsubscribe: () => void };
 type AntigravitySession = { client: AntigravityCliClient; unsubscribe: () => void };
 type GraphGeneration = {
+  mode: GenerationMode;
   projectId: string;
   provider: ExecutableAgentProvider;
   runId: string | null;
@@ -85,6 +101,7 @@ export class AgentRuntimeManager {
       : buildFlowGraphPrompt(snapshot);
     const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "insightify-graph-"));
     const generation: GraphGeneration = {
+      mode: scopeNodeId ? "expansion" : "graph",
       projectId,
       provider,
       runId: null,
@@ -121,9 +138,68 @@ export class AgentRuntimeManager {
       this.#removeGeneration(generation);
       this.#sendGraphEvent({
         status: "failed",
+        mode: generation.mode,
         projectId,
         provider,
         ...(scopeNodeId ? { scopeNodeId } : {}),
+        message: toMessage(error),
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Rebuilds only the arrangement. The graph, its evidence and every hand-placed
+   * position are left alone, so this run is cheap and cannot lose work: it needs
+   * no project snapshot, only the nodes it has to group.
+   */
+  async regenerateLayout(provider: ExecutableAgentProvider, projectId: string): Promise<StartRunResult> {
+    if (this.#graphGenerations.some((item) => item.projectId === projectId)) {
+      throw new Error("A graph generation is already running for this project");
+    }
+    this.#requireProject(projectId);
+    const currentDocument = this.#projects.getGraph(projectId);
+    if (!currentDocument) throw new Error("Generate the FlowFold Graph before regenerating its layout");
+
+    const prompt = buildLayoutPlanPrompt(currentDocument.graph, currentDocument.layoutPlan);
+    const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "insightify-layout-"));
+    const generation: GraphGeneration = {
+      mode: "layout",
+      projectId,
+      provider,
+      runId: null,
+      snapshotHash: currentDocument.snapshotHash,
+      transcript: "",
+      structuredOutput: null,
+      temporaryDirectory,
+      scopeNodeId: null,
+      existingGraph: currentDocument.graph,
+      existingLayout: currentDocument.layout,
+      existingLayoutOverrides: currentDocument.layoutOverrides,
+      existingLayoutPlan: currentDocument.layoutPlan,
+    };
+    this.#graphGenerations.push(generation);
+
+    try {
+      const handle = provider === "codex"
+        ? await (await this.#codexFor(projectId)).startRun(prompt, {
+            outputSchema: SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
+            readOnly: true,
+            cwd: temporaryDirectory,
+          })
+        : await (await this.#antigravityFor(projectId)).startRun(prompt, {
+            cwd: temporaryDirectory,
+            jsonSchema: SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
+          });
+      generation.runId = handle.runId;
+      return handle;
+    } catch (error) {
+      this.#removeGeneration(generation);
+      this.#sendGraphEvent({
+        status: "failed",
+        mode: "layout",
+        projectId,
+        provider,
         message: toMessage(error),
       });
       throw error;
@@ -232,6 +308,10 @@ export class AgentRuntimeManager {
       return;
     }
     try {
+      if (generation.mode === "layout") {
+        this.#completeLayoutGeneration(generation);
+        return;
+      }
       let generatedGraph: FlowGraph;
       let layoutPlan: SemanticLayoutPlan;
       if (generation.scopeNodeId && generation.existingGraph) {
@@ -276,23 +356,48 @@ export class AgentRuntimeManager {
         layoutEngineVersion: LAYOUT_ENGINE_VERSION,
       };
       this.#projects.saveGraph(value);
-      this.#sendGraphEvent({ status: "completed", value, ...(generation.scopeNodeId ? { scopeNodeId: generation.scopeNodeId } : {}) });
+      this.#sendGraphEvent({
+        status: "completed",
+        mode: generation.mode,
+        value,
+        ...(generation.scopeNodeId ? { scopeNodeId: generation.scopeNodeId } : {}),
+      });
     } catch (error) {
       this.#sendGraphEvent({
         status: "failed",
+        mode: generation.mode,
         projectId: generation.projectId,
         provider: generation.provider,
         ...(generation.scopeNodeId ? { scopeNodeId: generation.scopeNodeId } : {}),
-        message: `The provider returned an invalid FlowFold graph: ${toMessage(error)}`,
+        message: generation.mode === "layout"
+          ? `The provider returned an invalid layout plan: ${toMessage(error)}`
+          : `The provider returned an invalid FlowFold graph: ${toMessage(error)}`,
       });
     } finally {
       this.#removeGeneration(generation);
     }
   }
 
+  #completeLayoutGeneration(generation: GraphGeneration): void {
+    const current = this.#projects.getGraph(generation.projectId);
+    if (!current) throw new Error("The project graph disappeared while its layout was being generated");
+    const layoutPlan = generation.structuredOutput === null
+      ? parseSemanticLayoutPlanText(generation.transcript)
+      : parseSemanticLayoutPlan(generation.structuredOutput);
+    // A plan that names no node of this graph would silently fall back to the
+    // built-in rules, which is not what the user asked for.
+    if (resolveRoomLayoutRules(current.graph, layoutPlan) === defaultRoomLayoutRules) {
+      throw new Error("The plan did not describe any node of this graph");
+    }
+    const value = withLayoutPlan(current, layoutPlan);
+    this.#projects.saveGraph(value);
+    this.#sendGraphEvent({ status: "completed", mode: "layout", value });
+  }
+
   #failGeneration(generation: GraphGeneration, message: string): void {
     this.#sendGraphEvent({
       status: "failed",
+      mode: generation.mode,
       projectId: generation.projectId,
       provider: generation.provider,
       ...(generation.scopeNodeId ? { scopeNodeId: generation.scopeNodeId } : {}),

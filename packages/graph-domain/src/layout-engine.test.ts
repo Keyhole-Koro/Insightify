@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   LAYOUT_ENGINE_VERSION,
+  parseSemanticLayoutPlanText,
+  withLayoutPlan,
   isExpandedRoom,
   isRoom,
   parseFlowGraph,
@@ -79,5 +81,49 @@ describe("Room predicates", () => {
     expect([...roomIds(graph)].sort()).toEqual(["gateway", "inner"]);
     expect(roomsInScope(graph, null).map((node) => node.id)).toEqual(["gateway"]);
     expect(roomsInScope(graph, "gateway").map((node) => node.id)).toEqual(["inner"]);
+  });
+});
+
+describe("withLayoutPlan", () => {
+  const plan = parseSemanticLayoutPlanText(`\`\`\`json
+    {
+      "version": 1,
+      "scopes": [
+        {
+          "roomId": null,
+          "direction": "row",
+          "areas": [
+            { "id": "entry", "label": "Entry", "direction": "column", "nodeIds": ["gateway"] },
+            { "id": "state", "label": "State", "direction": "column", "nodeIds": ["store"] }
+          ]
+        }
+      ]
+    }
+  \`\`\``);
+
+  it("reads a plan the model wrapped in a code fence", () => {
+    expect(plan.scopes[0]!.areas.map((area) => area.id)).toEqual(["entry", "state"]);
+  });
+
+  it("leaves the graph exactly as it was", () => {
+    const before = document();
+    const after = withLayoutPlan(before, plan);
+    expect(after.graph).toBe(before.graph);
+    expect(after.snapshotHash).toBe(before.snapshotHash);
+  });
+
+  it("rebuilds the generated coordinates from the new plan", () => {
+    const after = withLayoutPlan(document(), plan);
+    expect(after.layoutPlan).toEqual(plan);
+    expect(after.layout.gateway).not.toEqual({ x: 11, y: 11 });
+    // The plan puts the two nodes in separate areas of a row, left before right.
+    expect(after.layout.gateway!.x).toBeLessThan(after.layout.store!.x);
+    expect(after.layoutEngineVersion).toBe(LAYOUT_ENGINE_VERSION);
+  });
+
+  it("never discards a position the user placed by hand", () => {
+    const overrides = { store: { x: 20, y: 80 } };
+    const after = withLayoutPlan(document({ layoutOverrides: overrides }), plan);
+    expect(after.layoutOverrides).toEqual(overrides);
   });
 });

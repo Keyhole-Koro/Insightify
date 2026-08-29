@@ -3,6 +3,7 @@ import {
   approvalResponseSchema,
   cancelAgentRunInputSchema,
   generateFlowGraphInputSchema,
+  regenerateLayoutInputSchema,
   IPC_CHANNELS,
   startAgentRunInputSchema,
   projectGraphInputSchema,
@@ -55,6 +56,10 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
   ipcMain.handle(IPC_CHANNELS.graphGenerate, async (_event, raw: unknown) => {
     const input = generateFlowGraphInputSchema.parse(raw);
     return options.agents.generateGraph(input.provider, input.projectId, input.scopeNodeId);
+  });
+  ipcMain.handle(IPC_CHANNELS.layoutGenerate, async (_event, raw: unknown) => {
+    const input = regenerateLayoutInputSchema.parse(raw);
+    return options.agents.regenerateLayout(input.provider, input.projectId);
   });
   ipcMain.handle(IPC_CHANNELS.agentCancelRun, async (_event, raw: unknown) => {
     const input = cancelAgentRunInputSchema.parse(raw);

@@ -10,6 +10,7 @@ const api: InsightifyDesktopApi = {
   probeProviders: () => ipcRenderer.invoke(IPC_CHANNELS.providersProbe),
   startAgentRun: (input) => ipcRenderer.invoke(IPC_CHANNELS.agentStartRun, input),
   generateFlowGraph: (input) => ipcRenderer.invoke(IPC_CHANNELS.graphGenerate, input),
+  regenerateLayout: (input) => ipcRenderer.invoke(IPC_CHANNELS.layoutGenerate, input),
   cancelAgentRun: (input) => ipcRenderer.invoke(IPC_CHANNELS.agentCancelRun, input),
   respondToAgentApproval: (input) => ipcRenderer.invoke(IPC_CHANNELS.agentApprovalRespond, input),
   onAgentEvent: (listener) => {
