@@ -16,6 +16,7 @@
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test",
     "lint": "bun run --filter '*' lint",
+    "seed": "node scripts/seed.mjs",
     "build:renderer": "bun run --filter @insightify/desktop build:renderer"
   }
 }

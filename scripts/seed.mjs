@@ -1,7 +1,9 @@
-import { createDefaultGraphLayout, parseFlowGraph, type FlowGraph, type GeneratedFlowGraph } from "@insightify/graph-domain";
+import { homedir } from "node:os";
+import path from "node:path";
+import { existsSync, mkdirSync } from "node:fs";
 
-// Rich multi-cloud & multi-kind architectural fixture: "NovaFlow AI Platform"
-const source: FlowGraph = {
+// Comprehensive architectural sample: "NovaFlow AI Platform"
+const novaFlowGraphSource = {
   title: "NovaFlow Architecture",
   summary:
     "Full-stack AI workflow orchestration platform spanning Web, APIs, Microservices, Cloud Stores, and AI Agents.",
@@ -243,15 +245,110 @@ const source: FlowGraph = {
   ],
 };
 
-export const previewGraph: GeneratedFlowGraph = (() => {
-  const graph = parseFlowGraph(source);
-  return {
-    projectId: "0b6f4d3e-3f2a-4b7c-8d1e-9a0c5f2b7d41",
-    provider: "codex",
-    snapshotHash: "preview",
-    generatedAt: new Date("2026-08-29T00:00:00.000Z").toISOString(),
-    graph,
-    layout: createDefaultGraphLayout(graph),
-    layoutVersion: 2,
-  };
-})();
+async function runSeed() {
+  console.log("🌱 Seeding Insightify with rich multi-cloud & architectural sample...");
+
+  const platformDir =
+    process.platform === "darwin"
+      ? path.join(homedir(), "Library", "Application Support", "insightify")
+      : process.platform === "win32"
+      ? path.join(process.env.APPDATA || path.join(homedir(), "AppData", "Roaming"), "insightify")
+      : path.join(homedir(), ".config", "insightify");
+
+  const fallbackDir = path.join(homedir(), ".insightify");
+  const targetDir = existsSync(platformDir) ? platformDir : fallbackDir;
+  mkdirSync(targetDir, { recursive: true });
+
+  const dbPath = path.join(targetDir, "insightify.sqlite3");
+  console.log(`📁 Database path: ${dbPath}`);
+
+  // Dynamic import DatabaseSync from node:sqlite
+  const { DatabaseSync } = await import("node:sqlite");
+  const { cpSync, realpathSync } = await import("node:fs");
+  const { randomUUID } = await import("node:crypto");
+
+  const db = new DatabaseSync(dbPath);
+  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS projects (
+      id TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      canonical_path TEXT NOT NULL UNIQUE,
+      last_opened_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS project_graphs (
+      project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      snapshot_hash TEXT NOT NULL,
+      generated_at TEXT NOT NULL,
+      graph_json TEXT NOT NULL,
+      layout_json TEXT NOT NULL DEFAULT '{}'
+    );
+  `);
+
+  const samplePath = realpathSync.native(process.cwd());
+  const now = new Date().toISOString();
+  const existing = db.prepare("SELECT id FROM projects WHERE canonical_path = ?").get(samplePath);
+  const projectId = existing?.id ?? randomUUID();
+  const displayName = "NovaFlow Platform";
+
+  db.prepare(`
+    INSERT INTO projects (id, display_name, canonical_path, last_opened_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(canonical_path) DO UPDATE SET
+      display_name = excluded.display_name,
+      last_opened_at = excluded.last_opened_at
+  `).run(projectId, displayName, samplePath, now);
+
+  const sandboxBaseDir = path.join(targetDir, "sandboxes", projectId);
+  mkdirSync(sandboxBaseDir, { recursive: true });
+
+  // Compute Layout
+  const nodes = novaFlowGraphSource.nodes;
+  const layout = {};
+  const visible = nodes.filter((n) => n.parentId === null);
+  const total = visible.length;
+  visible.forEach((node, i) => {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    layout[node.id] = {
+      x: 18 + col * 22,
+      y: 24 + row * 38,
+    };
+  });
+
+  db.prepare(`
+    INSERT INTO project_graphs (project_id, provider, snapshot_hash, generated_at, graph_json, layout_json)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(project_id) DO UPDATE SET
+      provider = excluded.provider,
+      snapshot_hash = excluded.snapshot_hash,
+      generated_at = excluded.generated_at,
+      graph_json = excluded.graph_json,
+      layout_json = excluded.layout_json
+  `).run(
+    projectId,
+    "codex",
+    "seed-hash-novaflow-v1",
+    now,
+    JSON.stringify(novaFlowGraphSource),
+    JSON.stringify(layout)
+  );
+
+  console.log(`✅ Project seeded: "${displayName}" (ID: ${projectId})`);
+  console.log(`🛡️ Sandbox copy location: ${sandboxBaseDir}`);
+  console.log(`🚀 Seeded ${nodes.length} nodes across AWS, GCP, Docker, Kubernetes, Postgres, Redis, OpenAI, Stripe, and React.`);
+
+  db.close();
+  console.log("✨ Seeding complete! Run `bun dev` or `bun preview` to view the live diagram.");
+}
+
+runSeed().catch((err) => {
+  console.error("❌ Seeding failed:", err);
+  process.exit(1);
+});
