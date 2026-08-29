@@ -5,7 +5,7 @@ import React, {
   useState,
   type CSSProperties,
 } from "react";
-import type { GeneratedFlowGraph, FlowNode } from "@insightify/graph-domain";
+import { roomsInScope, type FlowNode, type GeneratedFlowGraph } from "@insightify/graph-domain";
 import type { ProjectSummary } from "@insightify/desktop-bridge";
 import { type AppError } from "./lib/errors.js";
 import { toAppError } from "./lib/error-normalize.js";
@@ -202,11 +202,7 @@ export function App() {
 
   const expandAllRooms = useCallback(() => {
     if (!graph) return;
-    expandRooms(
-      graph.graph.nodes
-        .filter((node) => node.kind === "room" && node.parentId === activeScopeId)
-        .map((node) => node.id)
-    );
+    expandRooms(roomsInScope(graph.graph, activeScopeId).map((node) => node.id));
   }, [graph, activeScopeId, expandRooms]);
   const collapseAllRooms = view.collapseRooms;
   const expandAllNodes = useCallback(
@@ -232,7 +228,9 @@ export function App() {
   function navigateToScope(scopeId: string | null) {
     if (busy) return;
     const ownerId = ancestorWithin(graph, activeScopeId, scopeId);
-    const owner = ownerId ? graph?.layout[ownerId] : undefined;
+    const owner = ownerId
+      ? graph?.layoutOverrides?.[ownerId] ?? graph?.layout[ownerId]
+      : undefined;
     diveTo(DIVE_SCALE_OUT, owner?.x ?? 50, owner?.y ?? 50, () => {
       view.enterScope(scopeId, ownerId);
       clearEvents();

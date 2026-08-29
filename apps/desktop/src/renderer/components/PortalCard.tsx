@@ -1,5 +1,5 @@
 import React, { useState, type PointerEvent as ReactPointerEvent } from "react";
-import type { FlowNode, PortalPreview } from "@insightify/graph-domain";
+import { isRoom, type FlowNode, type PortalPreview } from "@insightify/graph-domain";
 import type { SemanticLevel } from "../semantic-zoom.js";
 import { copyToClipboard } from "../lib/clipboard.js";
 import { NodeIcon } from "./NodeIcon.js";
@@ -50,7 +50,7 @@ export function PortalCard({
   onPointerMove,
   onPointerUp,
 }: PortalCardProps) {
-  const isPortal = preview.childCount > 0 || node.kind === "room";
+  const isPortal = preview.childCount > 0 || isRoom(node);
   const [copied, setCopied] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");

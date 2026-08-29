@@ -1,4 +1,13 @@
-import type { FlowEdge, FlowNode, FlowNodeKind, PositionedFlowNode } from "./index.js";
+import type {
+  FlowEdge,
+  FlowGraph,
+  FlowNode,
+  FlowNodeKind,
+  PositionedFlowNode,
+  SemanticLayoutPlan,
+  SemanticScopeLayout,
+} from "./index.js";
+import { roomIds } from "./room.js";
 
 export type AreaDirection = "row" | "column" | "grid";
 
@@ -66,8 +75,13 @@ export interface ExpandedRoomFrame {
 /**
  * Built-in standard architectural DSL layout rules.
  */
+// The fallback used when a graph has no semantic layout plan, or when a plan
+// says nothing about a particular Room. It matches on architectural role only —
+// kinds and tags — never on node ids: a rule naming a specific id would change
+// the layout of an unrelated project that happened to reuse that name, and the
+// difference would be impossible to reproduce. Ids come from a plan, which is
+// authored against the graph it belongs to.
 export const defaultRoomLayoutRules: RoomLayoutRule[] = [
-  // 1. Root Level 3-Tier Architecture Pipeline
   {
     roomId: null,
     area: {
@@ -77,29 +91,24 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
       splitRatio: [30, 34, 36],
       padding: { top: 6, right: 6, bottom: 6, left: 6 },
       subAreas: [
-        // Left Column: Ingress / Frontend / Gateway
         {
           id: "tier-ingress",
           name: "Ingress & Client Layer",
           direction: "column",
           match: {
-            nodeIds: ["frontend-portal", "api-gateway"],
             tags: ["frontend", "react", "gateway", "ingress", "client", "spa"],
             kinds: ["ui"],
           },
         },
-        // Center Column: Core Coordination & Services
         {
           id: "tier-core",
           name: "Services & Coordination Layer",
           direction: "column",
           match: {
-            nodeIds: ["auth-guard", "workflow-engine"],
             tags: ["security", "guard", "engine", "orchestration", "service", "docker"],
             kinds: ["auth", "service", "decision", "process"],
           },
         },
-        // Right Column: Persistence & External Cloud
         {
           id: "tier-state-cloud",
           name: "Infrastructure Layer",
@@ -111,8 +120,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
               name: "Persistence & Buffering",
               direction: "row",
               match: {
-                nodeIds: ["event-bus", "primary-db"],
-                tags: ["postgres", "redis", "acid", "pubsub"],
+                tags: ["postgres", "redis", "acid", "pubsub", "queue", "cache"],
                 kinds: ["database", "queue", "data"],
               },
             },
@@ -121,8 +129,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
               name: "External Cloud & AI",
               direction: "grid",
               match: {
-                nodeIds: ["ai-synthesizer", "cloud-storage", "payment-hub", "analytics-lake"],
-                tags: ["openai", "aws", "stripe", "gcp", "azure"],
+                tags: ["openai", "aws", "stripe", "gcp", "azure", "saas"],
                 kinds: ["external"],
               },
             },
@@ -131,109 +138,97 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
       ],
     },
   },
-
-  // 2. API Gateway Room: Left Vertical Core REST Column + Right Async/Stream/GraphQL Column
-  {
-    roomId: "api-gateway",
-    area: {
-      id: "gateway-canvas",
-      name: "API Gateway Scope",
-      direction: "row",
-      splitRatio: [48, 52],
-      padding: { top: 6, right: 6, bottom: 6, left: 6 },
-      subAreas: [
-        // Left Column: Core REST Endpoints stacked vertically
-        {
-          id: "gw-rest-endpoints",
-          name: "REST Lane",
-          direction: "column",
-          match: {
-            nodeIds: [
-              "api-auth-login",
-              "api-workflows-create",
-              "api-workflows-get",
-              "api-workflows-run",
-            ],
-            tags: ["auth", "workflow", "read", "create", "execute", "login"],
-            pattern: /auth|login|workflows/i,
-          },
-        },
-        // Right Column: AI Streaming, Webhooks & GraphQL (Vertical Stack)
-        {
-          id: "gw-async-endpoints",
-          name: "Async / Webhook Lane",
-          direction: "column",
-          match: {
-            nodeIds: ["api-ai-synthesize", "api-stripe-webhook", "api-graphql"],
-            tags: ["openai", "stream", "webhook", "stripe", "graphql", "federation"],
-            pattern: /ai|synthesize|webhook|stripe|graphql/i,
-          },
-        },
-      ],
-    },
-  },
-
-  // 3. Workflow Engine Room: Horizontal Pipeline
-  {
-    roomId: "workflow-engine",
-    area: {
-      id: "engine-canvas",
-      name: "Workflow Engine Scope",
-      direction: "row",
-      splitRatio: [26, 48, 26],
-      padding: { top: 8, right: 6, bottom: 8, left: 6 },
-      subAreas: [
-        {
-          id: "engine-ingress",
-          name: "Dispatcher Ingress",
-          direction: "column",
-          match: { nodeIds: ["dispatch-service"], tags: ["dispatcher", "ingress"] },
-        },
-        {
-          id: "engine-execution",
-          name: "Execution & Branching",
-          direction: "row",
-          match: {
-            nodeIds: ["branch-evaluator", "k8s-runner"],
-            tags: ["decision", "branching", "k8s", "containers"],
-          },
-        },
-        {
-          id: "engine-state",
-          name: "State Checkpoint",
-          direction: "column",
-          match: { nodeIds: ["state-checkpoint"], tags: ["checkpoint", "wal"] },
-        },
-      ],
-    },
-  },
-
-  // 4. Frontend Portal Room: 2-Column Grid
-  {
-    roomId: "frontend-portal",
-    area: {
-      id: "frontend-canvas",
-      name: "Frontend Portal Scope",
-      direction: "row",
-      splitRatio: [50, 50],
-      padding: { top: 8, right: 8, bottom: 8, left: 8 },
-      subAreas: [
-        {
-          id: "ui-web-lane",
-          name: "Web Apps & Editors",
-          direction: "column",
-          match: { nodeIds: ["web-dashboard", "canvas-editor"], tags: ["dashboard", "canvas"] },
-        },
-        {
-          id: "ui-aux-lane",
-          name: "Mobile & Security Views",
-          direction: "column",
-          match: { nodeIds: ["mobile-client", "auth-modal"], tags: ["mobile", "modal"] },
-        },
-      ],
-    },
-  },
 ];
+
+/**
+ * Compiles the JSON-safe semantic plan produced by a model into the internal
+ * Area DSL. Unknown nodes, duplicate assignments and invalid Room references
+ * are ignored; built-in rules remain available as a deterministic fallback.
+ */
+export function compileSemanticLayoutPlan(
+  graph: FlowGraph,
+  plan?: SemanticLayoutPlan
+): RoomLayoutRule[] {
+  if (!plan) return defaultRoomLayoutRules;
+  const rooms = roomIds(graph);
+  const seenScopes = new Set<string>();
+  const compiled: RoomLayoutRule[] = [];
+
+  for (const scope of plan.scopes) {
+    const scopeKey = scope.roomId ?? "root";
+    if (seenScopes.has(scopeKey) || (scope.roomId !== null && !rooms.has(scope.roomId))) continue;
+    const directNodeIds = new Set(
+      graph.nodes.filter((node) => node.parentId === scope.roomId).map((node) => node.id)
+    );
+    const assigned = new Set<string>();
+    const areaIds = new Set<string>();
+    const subAreas: AreaDefinition[] = [];
+    const ratios: number[] = [];
+
+    for (const area of scope.areas) {
+      if (areaIds.has(area.id)) continue;
+      const nodeIds = area.nodeIds.filter((nodeId) => {
+        if (!directNodeIds.has(nodeId) || assigned.has(nodeId)) return false;
+        assigned.add(nodeId);
+        return true;
+      });
+      if (nodeIds.length === 0) continue;
+      areaIds.add(area.id);
+      subAreas.push({
+        id: `${scopeKey}-${area.id}`.slice(0, 80),
+        name: area.label,
+        direction: area.direction,
+        match: { nodeIds },
+      });
+      // Area width/height follows content rather than a model-authored number.
+      ratios.push(Math.max(1, nodeIds.length));
+    }
+
+    if (subAreas.length === 0) continue;
+    seenScopes.add(scopeKey);
+    compiled.push({
+      roomId: scope.roomId,
+      area: {
+        id: `${scopeKey}-semantic-layout`.slice(0, 80),
+        name: scope.roomId === null ? "Project flow" : "Room flow",
+        direction: scope.direction,
+        splitRatio: ratios,
+        padding: { top: 5, right: 5, bottom: 5, left: 5 },
+        subAreas,
+      },
+    });
+  }
+
+  if (compiled.length === 0) return defaultRoomLayoutRules;
+  const customScopeIds = new Set(compiled.map((rule) => rule.roomId));
+  return [
+    ...compiled,
+    ...defaultRoomLayoutRules.filter((rule) => !customScopeIds.has(rule.roomId)),
+  ];
+}
+
+/** Applies an append-only Room expansion patch without letting it rewrite unrelated scopes. */
+export function mergeSemanticLayoutScopes(
+  graph: FlowGraph,
+  current: SemanticLayoutPlan | undefined,
+  incoming: SemanticScopeLayout[],
+  allowedRoomIds: Set<string>
+): SemanticLayoutPlan {
+  const validRooms = roomIds(graph);
+  const replacements = new Map<string, SemanticScopeLayout>();
+  for (const scope of incoming) {
+    if (scope.roomId && allowedRoomIds.has(scope.roomId) && validRooms.has(scope.roomId)) {
+      replacements.set(scope.roomId, scope);
+    }
+  }
+  if (replacements.size === 0) {
+    throw new Error("Layout patch did not describe the expanded Room or a newly created Room");
+  }
+  const preserved = (current?.scopes ?? []).filter(
+    (scope) => scope.roomId === null || !scope.roomId || !replacements.has(scope.roomId)
+  );
+  return { version: 1, scopes: [...preserved, ...replacements.values()] };
+}
 
 /**
  * Generates deterministic pleasing pastel debug colors for an area ID.

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { LAYOUT_ENGINE_VERSION, type GeneratedFlowGraph } from "@insightify/graph-domain";
 import { SqliteProjectRepository } from "./project-repository.js";
 
 const cleanup: string[] = [];
@@ -35,7 +36,7 @@ describe("SqliteProjectRepository", () => {
     expect(summary.canonicalPath).toBe(realpathSync.native(sourceDir));
     expect(summary.sandboxPath).toBe(mount.sandboxPath);
 
-    repository.saveGraph({
+    const storedGraph = {
       projectId: mount.id,
       provider: "codex",
       snapshotHash: "abc123",
@@ -47,9 +48,37 @@ describe("SqliteProjectRepository", () => {
         edges: [],
       },
       layout: { root: { x: 50, y: 48 } },
-    });
+      layoutOverrides: { root: { x: 55, y: 52 } },
+      layoutPlan: {
+        version: 1,
+        scopes: [{
+          roomId: null,
+          direction: "row",
+          areas: [{ id: "system", label: "System", direction: "grid", nodeIds: ["root"] }],
+        }],
+      },
+      layoutEngineVersion: LAYOUT_ENGINE_VERSION,
+    } satisfies GeneratedFlowGraph;
+    repository.saveGraph(storedGraph);
     expect(repository.getGraph(mount.id)?.graph.title).toBe("Test flow");
     expect(repository.getGraph(mount.id)?.layout.root).toEqual({ x: 50, y: 48 });
+    expect(repository.getGraph(mount.id)?.layoutOverrides?.root).toEqual({ x: 55, y: 52 });
+    expect(repository.getGraph(mount.id)?.layoutPlan?.scopes[0]?.areas[0]?.id).toBe("system");
+    expect(repository.getGraph(mount.id)?.layoutEngineVersion).toBe(LAYOUT_ENGINE_VERSION);
+
+    // Coordinates written by an older layout compiler are not comparable with
+    // the current one, so they are recomputed on the way out. What the user
+    // dragged by hand is theirs, and survives.
+    repository.saveGraph({
+      ...storedGraph,
+      layout: { root: { x: 90, y: 90 } },
+      layoutEngineVersion: LAYOUT_ENGINE_VERSION - 1,
+    });
+    const refreshed = repository.getGraph(mount.id);
+    expect(refreshed?.layoutEngineVersion).toBe(LAYOUT_ENGINE_VERSION);
+    expect(refreshed?.layout.root).not.toEqual({ x: 90, y: 90 });
+    expect(refreshed?.layoutOverrides?.root).toEqual({ x: 55, y: 52 });
+
     repository.close();
   });
 });

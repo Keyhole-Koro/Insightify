@@ -1,4 +1,9 @@
-export type AgentProviderKind = "codex" | "antigravity-cli" | "antigravity-sdk";
+// Every provider the runtime knows about. The type is derived from the list so
+// that adding a provider is a single edit, and every place that enumerates
+// providers is forced by the compiler to say what it does with the new one.
+export const AGENT_PROVIDER_KINDS = ["codex", "antigravity-cli", "antigravity-sdk"] as const;
+
+export type AgentProviderKind = (typeof AGENT_PROVIDER_KINDS)[number];
 
 export type AgentCapabilities = {
   managedSubscriptionLogin: boolean;

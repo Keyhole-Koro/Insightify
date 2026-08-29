@@ -1,5 +1,6 @@
 import type { AgentEvent } from "@insightify/agent-runtime";
 import {
+  isRoom,
   type FlowEdge,
   type FlowNode,
   type ExpandedRoomFrame,
@@ -334,7 +335,7 @@ export function isApprovalResolved(event: AgentEvent): event is ApprovalResolved
  */
 export function shouldShowNodeAvatar(node: FlowNode, visibleNodes: FlowNode[]): boolean {
   // Always show avatar for Room portals
-  if (node.kind === "room") return true;
+  if (isRoom(node)) return true;
 
   // Find siblings belonging to the same scope / parent
   const siblings = visibleNodes.filter((n) => n.parentId === node.parentId);

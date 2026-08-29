@@ -1,12 +1,17 @@
 import { z } from "zod";
+import { isExpandedRoom } from "./room.js";
+import { toProviderJsonSchema } from "./json-schema.js";
 import {
+  compileSemanticLayoutPlan,
   defaultRoomLayoutRules,
   layoutNodesWithAreaDSL,
   type ExpandedRoomFrame,
   type LayoutBounds,
+  type RoomLayoutRule,
 } from "./area-layout.js";
 
 export * from "./area-layout.js";
+export * from "./room.js";
 
 export const flowNodeKindSchema = z.enum([
   "room",
@@ -45,9 +50,13 @@ export const flowEdgeSchema = z.object({
   label: z.string().trim().max(60),
 });
 
-export const flowGraphSchema = z.object({
+const flowGraphTitleShape = {
   title: z.string().trim().min(1).max(80),
   summary: z.string().trim().min(1).max(400),
+};
+
+export const flowGraphSchema = z.object({
+  ...flowGraphTitleShape,
   nodes: z.array(flowNodeSchema).min(1),
   edges: z.array(flowEdgeSchema),
 }).superRefine((graph, context) => {
@@ -81,15 +90,51 @@ export type FlowNode = z.infer<typeof flowNodeSchema>;
 export type FlowEdge = z.infer<typeof flowEdgeSchema>;
 export type FlowGraph = z.infer<typeof flowGraphSchema>;
 
+// The model describes semantic grouping, never coordinates or raw CSS-like
+// spacing. The deterministic compiler in area-layout turns this small, safe
+// document into the lower-level Area DSL used by every canvas projection.
+export const semanticLayoutAreaSchema = z.object({
+  id: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+  label: z.string().trim().min(1).max(60),
+  direction: z.enum(["row", "column", "grid"]),
+  nodeIds: z.array(z.string().regex(/^[a-z][a-z0-9-]{0,39}$/)).max(7),
+});
+
+export const semanticScopeLayoutSchema = z.object({
+  roomId: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/).nullable(),
+  direction: z.enum(["row", "column"]),
+  areas: z.array(semanticLayoutAreaSchema).min(1).max(4),
+});
+
+export const semanticLayoutPlanSchema = z.object({
+  version: z.literal(1),
+  scopes: z.array(semanticScopeLayoutSchema).min(1).max(64),
+});
+
+export type SemanticLayoutArea = z.infer<typeof semanticLayoutAreaSchema>;
+export type SemanticScopeLayout = z.infer<typeof semanticScopeLayoutSchema>;
+export type SemanticLayoutPlan = z.infer<typeof semanticLayoutPlanSchema>;
+
+export const flowGraphGenerationSchema = z.object({
+  graph: flowGraphSchema,
+  layoutPlan: semanticLayoutPlanSchema,
+});
+export type FlowGraphGeneration = z.infer<typeof flowGraphGenerationSchema>;
+
 export const flowGraphExpansionSchema = z.object({
   nodes: z.array(flowNodeSchema).min(1),
   edges: z.array(flowEdgeSchema),
 });
 export type FlowGraphExpansion = z.infer<typeof flowGraphExpansionSchema>;
 
+export const flowGraphGenerationExpansionSchema = flowGraphExpansionSchema.extend({
+  layoutScopes: z.array(semanticScopeLayoutSchema).min(1),
+});
+export type FlowGraphGenerationExpansion = z.infer<typeof flowGraphGenerationExpansionSchema>;
+
 export const flowNodePositionSchema = z.object({
   x: z.number().min(4).max(96),
-  y: z.number().min(8).max(92),
+  y: z.number().min(4).max(96),
 });
 export const graphLayoutSchema = z.record(z.string(), flowNodePositionSchema);
 export type FlowNodePosition = z.infer<typeof flowNodePositionSchema>;
@@ -97,12 +142,19 @@ export type GraphLayout = z.infer<typeof graphLayoutSchema>;
 
 export const generatedFlowGraphSchema = z.object({
   projectId: z.string().uuid(),
-  provider: z.enum(["codex", "antigravity-cli"]),
+  // Which agent produced this document. The domain records the provenance and
+  // does not enumerate providers: that list belongs to the layer that runs them.
+  provider: z.string().trim().min(1).max(40),
   snapshotHash: z.string().min(1).max(128),
   generatedAt: z.string().min(1).max(64),
   graph: flowGraphSchema,
   layout: graphLayoutSchema,
-  layoutVersion: z.literal(2).optional(),
+  layoutOverrides: graphLayoutSchema.optional(),
+  layoutPlan: semanticLayoutPlanSchema.optional(),
+  // Which build of the layout compiler produced `layout`. Not a literal: a
+  // document saved by an older build must still load, so that it can be
+  // recognised as stale and recomputed.
+  layoutEngineVersion: z.number().int().positive().optional(),
 });
 export type GeneratedFlowGraph = z.infer<typeof generatedFlowGraphSchema>;
 
@@ -138,65 +190,54 @@ export type PortalPreview = {
 export const FLOWFOLD_ROOM_MAX_NODES = 7;
 export const PORTAL_PREVIEW_MAX_NODES = 5;
 
-export const FLOW_GRAPH_JSON_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["title", "summary", "nodes", "edges"],
-  properties: {
-    title: { type: "string", minLength: 1, maxLength: 80 },
-    summary: { type: "string", minLength: 1, maxLength: 400 },
-    nodes: {
-      type: "array",
-      minItems: 1,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["id", "title", "summary", "kind", "parentId", "evidence"],
-        properties: {
-          id: { type: "string", pattern: "^[a-z][a-z0-9-]{0,39}$" },
-          title: { type: "string", minLength: 1, maxLength: 60 },
-          summary: { type: "string", minLength: 1, maxLength: 240 },
-          kind: { type: "string", enum: ["room", "process", "decision", "data", "external"] },
-          parentId: { anyOf: [{ type: "string", pattern: "^[a-z][a-z0-9-]{0,39}$" }, { type: "null" }] },
-          evidence: { type: "array", maxItems: 4, items: { type: "string", minLength: 1, maxLength: 240 } },
-        },
-      },
-    },
-    edges: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["source", "target", "label"],
-        properties: {
-          source: { type: "string", pattern: "^[a-z][a-z0-9-]{0,39}$" },
-          target: { type: "string", pattern: "^[a-z][a-z0-9-]{0,39}$" },
-          label: { type: "string", maxLength: 60 },
-        },
-      },
-    },
-  },
-} as const;
+// What the model is allowed to author. `status` and `codeSnippet` are omitted
+// on purpose: status is a runtime annotation a static snapshot cannot assert,
+// and a code snippet duplicates `evidence` at a large cost in tokens. Both stay
+// editable by hand, and both survive a regeneration.
+export const generatedFlowNodeSchema = flowNodeSchema.omit({ status: true, codeSnippet: true });
 
-export const FLOW_GRAPH_EXPANSION_JSON_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["nodes", "edges"],
-  properties: {
-    nodes: {
-      type: "array",
-      minItems: 1,
-      items: FLOW_GRAPH_JSON_SCHEMA.properties.nodes.items,
-    },
-    edges: {
-      type: "array",
-      items: FLOW_GRAPH_JSON_SCHEMA.properties.edges.items,
-    },
-  },
-} as const;
+const generatedFlowGraphContentSchema = z.object({
+  ...flowGraphTitleShape,
+  nodes: z.array(generatedFlowNodeSchema).min(1),
+  edges: z.array(flowEdgeSchema),
+});
+
+const generatedFlowGraphPatchSchema = z.object({
+  nodes: z.array(generatedFlowNodeSchema).min(1),
+  edges: z.array(flowEdgeSchema),
+});
+
+// Every schema handed to a provider is derived from the Zod definitions above,
+// so a field can never exist in the domain and be missing from what the model
+// is asked to produce.
+export const FLOW_GRAPH_JSON_SCHEMA = toProviderJsonSchema(generatedFlowGraphContentSchema);
+
+export const SEMANTIC_SCOPE_LAYOUT_JSON_SCHEMA = toProviderJsonSchema(semanticScopeLayoutSchema);
+
+export const SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA = toProviderJsonSchema(semanticLayoutPlanSchema);
+
+export const FLOW_GRAPH_GENERATION_JSON_SCHEMA = toProviderJsonSchema(
+  z.object({ graph: generatedFlowGraphContentSchema, layoutPlan: semanticLayoutPlanSchema })
+);
+
+export const FLOW_GRAPH_EXPANSION_JSON_SCHEMA = toProviderJsonSchema(generatedFlowGraphPatchSchema);
+
+export const FLOW_GRAPH_GENERATION_EXPANSION_JSON_SCHEMA = toProviderJsonSchema(
+  generatedFlowGraphPatchSchema.extend({
+    layoutScopes: z.array(semanticScopeLayoutSchema).min(1),
+  })
+);
 
 export function parseFlowGraph(value: unknown): FlowGraph {
   return flowGraphSchema.parse(value);
+}
+
+export function parseFlowGraphGeneration(value: unknown): FlowGraphGeneration {
+  return flowGraphGenerationSchema.parse(value);
+}
+
+export function parseFlowGraphGenerationText(text: string): FlowGraphGeneration {
+  return parseFlowGraphGeneration(JSON.parse(unfenceJson(text)));
 }
 
 export function parseGeneratedFlowGraph(value: unknown): GeneratedFlowGraph {
@@ -215,23 +256,46 @@ export function parseFlowGraphExpansionText(text: string): FlowGraphExpansion {
   return parseFlowGraphExpansion(JSON.parse(unfenceJson(text)));
 }
 
-export function layoutRootNodes(graph: FlowGraph): PositionedFlowNode[] {
+export function parseFlowGraphGenerationExpansion(value: unknown): FlowGraphGenerationExpansion {
+  return flowGraphGenerationExpansionSchema.parse(value);
+}
+
+export function parseFlowGraphGenerationExpansionText(text: string): FlowGraphGenerationExpansion {
+  return parseFlowGraphGenerationExpansion(JSON.parse(unfenceJson(text)));
+}
+
+export function resolveRoomLayoutRules(
+  graph: FlowGraph,
+  plan?: SemanticLayoutPlan
+): RoomLayoutRule[] {
+  return compileSemanticLayoutPlan(graph, plan);
+}
+
+export function layoutRootNodes(
+  graph: FlowGraph,
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): PositionedFlowNode[] {
   const roots = graph.nodes.filter((node) => node.parentId === null);
   const visible = roots.length > 0 ? roots : graph.nodes;
-  return layoutFlowNodes(visible, graph.edges);
+  return layoutFlowNodes(visible, graph.edges, null, rules);
 }
 
 export function layoutFlowNodes(
   visible: FlowNode[],
   edges: FlowEdge[] = [],
-  roomId: string | null = null
+  roomId: string | null = null,
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
 ): PositionedFlowNode[] {
   if (visible.length === 0) return [];
   // Use the Recursive Area Layout DSL
-  return layoutNodesWithAreaDSL(visible, roomId, defaultRoomLayoutRules, edges);
+  return layoutNodesWithAreaDSL(visible, roomId, rules, edges);
 }
 
-export function createDefaultGraphLayout(graph: FlowGraph, existing: GraphLayout = {}): GraphLayout {
+export function createDefaultGraphLayout(
+  graph: FlowGraph,
+  existing: GraphLayout = {},
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): GraphLayout {
   const layout: GraphLayout = { ...existing };
   const parentIds = new Set<string | null>([null, ...graph.nodes.map((node) => node.parentId)]);
   for (const parentId of parentIds) {
@@ -240,7 +304,7 @@ export function createDefaultGraphLayout(graph: FlowGraph, existing: GraphLayout
     const projectedEdges = projection.edges
       .filter((edge): edge is ProjectedFlowEdge & { source: string; target: string } => edge.source !== null && edge.target !== null)
       .map((edge) => ({ source: edge.source, target: edge.target, label: edge.labels[0] ?? "" }));
-    for (const node of layoutFlowNodes(nodes, projectedEdges, parentId)) {
+    for (const node of layoutFlowNodes(nodes, projectedEdges, parentId, rules)) {
       if (!layout[node.id]) layout[node.id] = { x: node.x, y: node.y };
     }
   }
@@ -261,6 +325,27 @@ function scopeRepresentative(graph: FlowGraph, scopeId: string | null): (nodeId:
       cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
     }
     return null;
+  };
+}
+
+/**
+ * The compiler that turns a semantic layout plan into coordinates. Bump this
+ * whenever a change to the compiler would place existing nodes differently.
+ */
+export const LAYOUT_ENGINE_VERSION = 3;
+
+/**
+ * Coordinates from an older compiler are not comparable with the current one,
+ * so they are recomputed from the plan. Positions the user dragged by hand live
+ * in `layoutOverrides` and always survive.
+ */
+export function withCurrentLayoutEngine(document: GeneratedFlowGraph): GeneratedFlowGraph {
+  if (document.layoutEngineVersion === LAYOUT_ENGINE_VERSION) return document;
+  const rules = resolveRoomLayoutRules(document.graph, document.layoutPlan);
+  return {
+    ...document,
+    layout: createDefaultGraphLayout(document.graph, {}, rules),
+    layoutEngineVersion: LAYOUT_ENGINE_VERSION,
   };
 }
 
@@ -365,7 +450,12 @@ export function scopeBoundaryPorts(graph: FlowGraph, scopeId: string | null): Sc
 
 // A Portal is a folded sheet of paper, not a link: it shows a miniature of the
 // flow inside it. This is a summary snapshot, never a live child canvas.
-export function buildPortalPreview(graph: FlowGraph, nodeId: string, limit = PORTAL_PREVIEW_MAX_NODES): PortalPreview {
+export function buildPortalPreview(
+  graph: FlowGraph,
+  nodeId: string,
+  limit = PORTAL_PREVIEW_MAX_NODES,
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): PortalPreview {
   const children = graph.nodes.filter((node) => node.parentId === nodeId);
   const descendantCount = descendantCountOf(graph, nodeId);
   if (children.length === 0) {
@@ -375,7 +465,12 @@ export function buildPortalPreview(graph: FlowGraph, nodeId: string, limit = POR
   const inside = projection.edges.filter(
     (edge): edge is ProjectedFlowEdge & { source: string; target: string } => edge.source !== null && edge.target !== null,
   );
-  const positioned = layoutFlowNodes(children, inside.map((edge) => ({ source: edge.source, target: edge.target, label: "" })));
+  const positioned = layoutFlowNodes(
+    children,
+    inside.map((edge) => ({ source: edge.source, target: edge.target, label: "" })),
+    nodeId,
+    rules
+  );
   const entries = new Set(projection.edges.filter((edge) => edge.source === null && edge.target).map((edge) => edge.target!));
   const exits = new Set(projection.edges.filter((edge) => edge.target === null && edge.source).map((edge) => edge.source!));
 
@@ -522,7 +617,7 @@ export function projectFlowWithExpandedScopes(
   const expandedChildren: FlowNode[] = [];
 
   for (const node of directNodes) {
-    if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+    if (isExpandedRoom(node, expandedScopeIds)) {
       const children = graph.nodes.filter((child) => child.parentId === node.id);
       expandedChildren.push(...children);
     }
@@ -579,16 +674,17 @@ export function getExpandedRoomFrames(
   scopeId: string | null = null,
   expandedScopeIds: Set<string> = new Set(),
   edges: FlowEdge[] = [],
-  savedLayout: GraphLayout = {}
+  savedLayout: GraphLayout = {},
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
 ): ExpandedRoomFrame[] {
   const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
-  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, defaultRoomLayoutRules, edges);
+  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, rules, edges);
   const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
 
   const frames: ExpandedRoomFrame[] = [];
 
   for (const node of directNodes) {
-    if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+    if (isExpandedRoom(node, expandedScopeIds)) {
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       const saved = savedLayout[node.id];
       const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
@@ -596,7 +692,7 @@ export function getExpandedRoomFrames(
       const structuralPositions = layoutNodesWithAreaDSL(
         childNodes,
         node.id,
-        defaultRoomLayoutRules,
+        rules,
         edges
       );
       const xLanes = clusterCoordinates(structuralPositions.map((child) => child.x));
@@ -644,13 +740,14 @@ export function layoutFlowNodesWithExpandedScopes(
   scopeId: string | null = null,
   expandedScopeIds: Set<string> = new Set(),
   edges: FlowEdge[] = [],
-  savedLayout: GraphLayout = {}
+  savedLayout: GraphLayout = {},
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
 ): PositionedFlowNode[] {
   const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
-  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, defaultRoomLayoutRules, edges);
+  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, rules, edges);
   const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
 
-  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout);
+  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout, rules);
   const frameMap = new Map(frames.map((f) => [f.roomId, f]));
   const basePositionMap = new Map(
     directNodes.map((node) => [
@@ -660,7 +757,7 @@ export function layoutFlowNodesWithExpandedScopes(
   );
   const reflowedPositionMap = new Map(
     directNodes
-      .filter((node) => !(node.kind === "room" && expandedScopeIds.has(node.id)))
+      .filter((node) => !isExpandedRoom(node, expandedScopeIds))
       .map((node) => [node.id, reflowAroundFrames(basePositionMap.get(node.id)!, frames)])
   );
   cascadeHorizontalReflow(directNodes, reflowedPositionMap, basePositionMap, frames);
@@ -673,7 +770,7 @@ export function layoutFlowNodesWithExpandedScopes(
   for (const node of directNodes) {
     const pos = basePositionMap.get(node.id)!;
 
-    if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+    if (isExpandedRoom(node, expandedScopeIds)) {
       const frame = frameMap.get(node.id)!;
       // Position the room node header at the top of the frame
       result.push({
@@ -685,7 +782,7 @@ export function layoutFlowNodesWithExpandedScopes(
       // 2. Position child nodes inside the room frame using local area DSL
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       if (childNodes.length > 0) {
-        const localRelPositions = localRoomPositions(childNodes, node.id, edges, savedLayout);
+        const localRelPositions = localRoomPositions(childNodes, node.id, edges, savedLayout, rules);
         for (const child of localRelPositions) {
           const childX = projectPercentage(child.x, frame.contentBounds.x, frame.contentBounds.width);
           const childY = projectPercentage(child.y, frame.contentBounds.y, frame.contentBounds.height);
@@ -724,9 +821,10 @@ function localRoomPositions(
   nodes: FlowNode[],
   roomId: string,
   edges: FlowEdge[],
-  savedLayout: GraphLayout
+  savedLayout: GraphLayout,
+  rules: RoomLayoutRule[]
 ): PositionedFlowNode[] {
-  const structural = layoutNodesWithAreaDSL(nodes, roomId, defaultRoomLayoutRules, edges);
+  const structural = layoutNodesWithAreaDSL(nodes, roomId, rules, edges);
   const xs = structural.map((node) => node.x);
   const ys = structural.map((node) => node.y);
   const minX = Math.min(...xs);

@@ -28,11 +28,18 @@ describe("buildProjectSnapshot", () => {
     expect(snapshot.files).not.toContain(".env");
     expect(snapshot.files).not.toContain("node_modules/ignored.js");
     expect(buildFlowGraphPrompt(snapshot)).toContain("untrusted data");
+    expect(buildFlowGraphPrompt(snapshot)).toContain("Never generate coordinates");
     expect(buildFlowGraphExpansionPrompt(snapshot, {
       title: "Graph",
       summary: "Graph summary",
       nodes: [{ id: "root", title: "Root", summary: "Root summary", kind: "room", parentId: null, evidence: [] }],
       edges: [],
     }, "root")).toContain("Add 4-7 useful direct child nodes");
+    expect(buildFlowGraphExpansionPrompt(snapshot, {
+      title: "Graph",
+      summary: "Graph summary",
+      nodes: [{ id: "root", title: "Root", summary: "Root summary", kind: "room", parentId: null, evidence: [] }],
+      edges: [],
+    }, "root")).toContain("layoutScopes");
   });
 });

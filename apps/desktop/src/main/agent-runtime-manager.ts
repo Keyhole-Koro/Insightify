@@ -7,17 +7,22 @@ import { CodexAppServerClient, probeCodex } from "@insightify/agent-codex";
 import type { AgentEvent, ApprovalDecision, ProviderInstallation } from "@insightify/agent-runtime";
 import { IPC_CHANNELS, type ExecutableAgentProvider, type StartRunResult } from "@insightify/desktop-bridge";
 import {
-  FLOW_GRAPH_JSON_SCHEMA,
-  FLOW_GRAPH_EXPANSION_JSON_SCHEMA,
+  FLOW_GRAPH_GENERATION_JSON_SCHEMA,
+  isRoom,
+  LAYOUT_ENGINE_VERSION,
+  FLOW_GRAPH_GENERATION_EXPANSION_JSON_SCHEMA,
   applyScopeExpansion,
   balanceFlowGraphScopes,
   createDefaultGraphLayout,
-  parseFlowGraph,
-  parseFlowGraphText,
-  parseFlowGraphExpansion,
-  parseFlowGraphExpansionText,
+  mergeSemanticLayoutScopes,
+  parseFlowGraphGeneration,
+  parseFlowGraphGenerationExpansion,
+  parseFlowGraphGenerationExpansionText,
+  parseFlowGraphGenerationText,
+  resolveRoomLayoutRules,
   type FlowGraph,
   type GeneratedFlowGraph,
+  type SemanticLayoutPlan,
 } from "@insightify/graph-domain";
 import type { ProjectRepository } from "./project-repository.js";
 import { buildFlowGraphExpansionPrompt, buildFlowGraphPrompt, buildProjectSnapshot } from "./project-snapshot.js";
@@ -35,6 +40,8 @@ type GraphGeneration = {
   scopeNodeId: string | null;
   existingGraph: FlowGraph | null;
   existingLayout: GeneratedFlowGraph["layout"];
+  existingLayoutOverrides: GeneratedFlowGraph["layoutOverrides"];
+  existingLayoutPlan: SemanticLayoutPlan | undefined;
 };
 
 export class AgentRuntimeManager {
@@ -74,7 +81,7 @@ export class AgentRuntimeManager {
     if (scopeNodeId && !currentDocument) throw new Error("Generate the root FlowFold Graph before expanding a Room");
     const snapshot = await buildProjectSnapshot(project.canonicalPath);
     const prompt = scopeNodeId
-      ? buildFlowGraphExpansionPrompt(snapshot, currentDocument!.graph, scopeNodeId)
+      ? buildFlowGraphExpansionPrompt(snapshot, currentDocument!.graph, scopeNodeId, currentDocument!.layoutPlan)
       : buildFlowGraphPrompt(snapshot);
     const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "insightify-graph-"));
     const generation: GraphGeneration = {
@@ -87,20 +94,26 @@ export class AgentRuntimeManager {
       temporaryDirectory,
       scopeNodeId: scopeNodeId ?? null,
       existingGraph: currentDocument?.graph ?? null,
-      existingLayout: currentDocument?.layoutVersion === 2 ? currentDocument.layout : {},
+      existingLayout: currentDocument?.layout ?? {},
+      existingLayoutOverrides: currentDocument?.layoutOverrides,
+      existingLayoutPlan: currentDocument?.layoutPlan,
     };
     this.#graphGenerations.push(generation);
 
     try {
       const handle = provider === "codex"
         ? await (await this.#codexFor(projectId)).startRun(prompt, {
-            outputSchema: scopeNodeId ? FLOW_GRAPH_EXPANSION_JSON_SCHEMA : FLOW_GRAPH_JSON_SCHEMA,
+            outputSchema: scopeNodeId
+              ? FLOW_GRAPH_GENERATION_EXPANSION_JSON_SCHEMA
+              : FLOW_GRAPH_GENERATION_JSON_SCHEMA,
           readOnly: true,
           cwd: temporaryDirectory,
           })
         : await (await this.#antigravityFor(projectId)).startRun(prompt, {
             cwd: temporaryDirectory ?? undefined,
-            jsonSchema: scopeNodeId ? FLOW_GRAPH_EXPANSION_JSON_SCHEMA : FLOW_GRAPH_JSON_SCHEMA,
+            jsonSchema: scopeNodeId
+              ? FLOW_GRAPH_GENERATION_EXPANSION_JSON_SCHEMA
+              : FLOW_GRAPH_GENERATION_JSON_SCHEMA,
           });
       generation.runId = handle.runId;
       return handle;
@@ -219,26 +232,48 @@ export class AgentRuntimeManager {
       return;
     }
     try {
-      const generatedGraph = generation.scopeNodeId && generation.existingGraph
-        ? applyScopeExpansion(
-            generation.existingGraph,
-            generation.structuredOutput === null
-              ? parseFlowGraphExpansionText(generation.transcript)
-              : parseFlowGraphExpansion(generation.structuredOutput),
-            generation.scopeNodeId,
-          )
-        : generation.structuredOutput === null
-          ? parseFlowGraphText(generation.transcript)
-          : parseFlowGraph(generation.structuredOutput);
+      let generatedGraph: FlowGraph;
+      let layoutPlan: SemanticLayoutPlan;
+      if (generation.scopeNodeId && generation.existingGraph) {
+        const expansion = generation.structuredOutput === null
+          ? parseFlowGraphGenerationExpansionText(generation.transcript)
+          : parseFlowGraphGenerationExpansion(generation.structuredOutput);
+        generatedGraph = applyScopeExpansion(
+          generation.existingGraph,
+          { nodes: expansion.nodes, edges: expansion.edges },
+          generation.scopeNodeId
+        );
+        const existingIds = new Set(generation.existingGraph.nodes.map((node) => node.id));
+        const newRoomIds = generatedGraph.nodes
+          .filter((node) => isRoom(node) && !existingIds.has(node.id))
+          .map((node) => node.id);
+        layoutPlan = mergeSemanticLayoutScopes(
+          generatedGraph,
+          generation.existingLayoutPlan,
+          expansion.layoutScopes,
+          new Set([generation.scopeNodeId, ...newRoomIds])
+        );
+      } else {
+        const generated = generation.structuredOutput === null
+          ? parseFlowGraphGenerationText(generation.transcript)
+          : parseFlowGraphGeneration(generation.structuredOutput);
+        generatedGraph = generated.graph;
+        layoutPlan = generated.layoutPlan;
+      }
       const graph = balanceFlowGraphScopes(generatedGraph);
+      const layoutRules = resolveRoomLayoutRules(graph, layoutPlan);
       const value: GeneratedFlowGraph = {
         projectId: generation.projectId,
         provider: generation.provider,
         snapshotHash: generation.snapshotHash,
         generatedAt: new Date().toISOString(),
         graph,
-        layout: createDefaultGraphLayout(graph, generation.existingLayout),
-        layoutVersion: 2,
+        layoutPlan,
+        layout: createDefaultGraphLayout(graph, generation.existingLayout, layoutRules),
+        ...(generation.existingLayoutOverrides
+          ? { layoutOverrides: generation.existingLayoutOverrides }
+          : {}),
+        layoutEngineVersion: LAYOUT_ENGINE_VERSION,
       };
       this.#projects.saveGraph(value);
       this.#sendGraphEvent({ status: "completed", value, ...(generation.scopeNodeId ? { scopeNodeId: generation.scopeNodeId } : {}) });

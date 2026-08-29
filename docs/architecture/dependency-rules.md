@@ -88,8 +88,13 @@ Renderer は `InsightifyDesktopApi` の型にだけ依存し、Electron IPC の�
 `x/y` という**表示状態**を持つ。両者を混ぜない。
 
 - Semantic Zoom、camera、selection は永続化しない view state である。
-- 手動で動かした Node 位置は `GraphLayout` として永続化する。
-- Layout の既定値は `createDefaultGraphLayout` が Edge 方向から導出する。生成 AI は座標を返さない。
+- 自動生成した座標は `layout`、ユーザーが手で動かした座標は `layoutOverrides` に分けて永続化する。
+- 生成 AI は座標を返さない。返すのは `SemanticLayoutPlan`（Area への Node 割り当て）だけで、
+  `resolveRoomLayoutRules` が Area DSL へ compile し、`createDefaultGraphLayout` が座標を決める。
+- `defaultRoomLayoutRules` は plan が無いときの fallback であり、`kinds` と `tags` だけで判定する。
+  特定の Node id を書かない。書くと、同じ id を持つ別 Project の配置が偶然変わる。
+- `layoutEngineVersion` はその座標を作った compiler の版である。読み出し時に現在版と異なれば
+  `layout` を再計算し、`layoutOverrides` は保持する。Document 上の version はこれ一つに限る。
 
 ---
 

@@ -1,4 +1,4 @@
-import type { AgentEvent, ApprovalDecision, ProviderInstallation } from "@insightify/agent-runtime";
+import { AGENT_PROVIDER_KINDS, type AgentEvent, type AgentProviderKind, type ApprovalDecision, type ProviderInstallation } from "@insightify/agent-runtime";
 import { generatedFlowGraphSchema, type GeneratedFlowGraph } from "@insightify/graph-domain";
 import { z } from "zod";
 
@@ -17,7 +17,22 @@ export const IPC_CHANNELS = {
 } as const;
 
 export const projectIdSchema = z.string().uuid();
-export const executableAgentProviderSchema = z.enum(["codex", "antigravity-cli"]);
+// Providers the desktop can launch as a subprocess. Deriving the list from
+// AGENT_PROVIDER_KINDS means a provider added to the runtime is executable
+// unless it is named here, rather than silently missing from the boundary.
+const NON_EXECUTABLE_PROVIDERS = ["antigravity-sdk"] as const;
+
+export type ExecutableAgentProvider = Exclude<
+  AgentProviderKind,
+  (typeof NON_EXECUTABLE_PROVIDERS)[number]
+>;
+
+export const executableAgentProviders = AGENT_PROVIDER_KINDS.filter(
+  (kind): kind is ExecutableAgentProvider =>
+    !(NON_EXECUTABLE_PROVIDERS as readonly string[]).includes(kind)
+);
+
+export const executableAgentProviderSchema = z.enum(executableAgentProviders);
 
 export const startAgentRunInputSchema = z.object({
   provider: executableAgentProviderSchema,
@@ -26,7 +41,9 @@ export const startAgentRunInputSchema = z.object({
 });
 
 export const projectGraphInputSchema = z.object({ projectId: projectIdSchema });
-export const saveProjectGraphInputSchema = generatedFlowGraphSchema;
+export const saveProjectGraphInputSchema = generatedFlowGraphSchema.extend({
+  provider: executableAgentProviderSchema,
+});
 export const generateFlowGraphInputSchema = z.object({
   provider: executableAgentProviderSchema,
   projectId: projectIdSchema,
@@ -47,7 +64,6 @@ export const approvalResponseSchema = z.object({
   decision: z.enum(["accept", "acceptForSession", "decline", "cancel"]),
 });
 
-export type ExecutableAgentProvider = z.infer<typeof executableAgentProviderSchema>;
 export type StartAgentRunInput = z.infer<typeof startAgentRunInputSchema>;
 export type CancelAgentRunInput = z.infer<typeof cancelAgentRunInputSchema>;
 export type ApprovalResponse = z.infer<typeof approvalResponseSchema> & { decision: ApprovalDecision };

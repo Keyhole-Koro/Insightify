@@ -6,6 +6,7 @@ import {
   getNodeAreaIdsForScope,
   layoutFlowNodesWithExpandedScopes,
   projectFlowWithExpandedScopes,
+  resolveRoomLayoutRules,
   scopeBoundaryPorts,
   type FlowNode,
   type GeneratedFlowGraph,
@@ -79,6 +80,15 @@ export function useFlowProjection(input: FlowProjectionInput) {
     [graph, activeScopeId]
   );
 
+  const layoutRules = useMemo(
+    () => (graph ? resolveRoomLayoutRules(graph.graph, graph.layoutPlan) : undefined),
+    [graph]
+  );
+  const savedLayout = useMemo(
+    () => ({ ...(graph?.layout ?? {}), ...(graph?.layoutOverrides ?? {}) }),
+    [graph?.layout, graph?.layoutOverrides]
+  );
+
   const positionedNodes = useMemo(
     () =>
       layoutFlowNodesWithExpandedScopes(
@@ -86,9 +96,10 @@ export function useFlowProjection(input: FlowProjectionInput) {
         activeScopeId,
         renderedExpandedScopeIds,
         flowEdges,
-        graph?.layout
+        savedLayout,
+        layoutRules
       ),
-    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, graph?.layout]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules]
   );
 
   const roomFrames = useMemo(
@@ -98,9 +109,10 @@ export function useFlowProjection(input: FlowProjectionInput) {
         activeScopeId,
         renderedExpandedScopeIds,
         flowEdges,
-        graph?.layout
+        savedLayout,
+        layoutRules
       ),
-    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, graph?.layout]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules]
   );
 
   const stage = useMemo(
@@ -121,8 +133,8 @@ export function useFlowProjection(input: FlowProjectionInput) {
   const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
 
   const debugAreas = useMemo(
-    () => getDebugAreasForScope(activeScopeId, visibleNodes),
-    [activeScopeId, visibleNodes]
+    () => getDebugAreasForScope(activeScopeId, visibleNodes, layoutRules),
+    [activeScopeId, visibleNodes, layoutRules]
   );
 
   const positions = useMemo(
@@ -142,18 +154,24 @@ export function useFlowProjection(input: FlowProjectionInput) {
   const previews = useMemo(
     () =>
       new Map(
-        graph ? visibleNodes.map((node) => [node.id, buildPortalPreview(graph.graph, node.id)] as const) : []
+        graph
+          ? visibleNodes.map((node) => [
+              node.id,
+              buildPortalPreview(graph.graph, node.id, undefined, layoutRules),
+            ] as const)
+          : []
       ),
-    [visibleNodes, graph]
+    [visibleNodes, graph, layoutRules]
   );
 
   const areaIds = useMemo(
     () =>
       getNodeAreaIdsForScope(
         activeScopeId,
-        positionedNodes.filter((node) => node.parentId === activeScopeId)
+        positionedNodes.filter((node) => node.parentId === activeScopeId),
+        layoutRules
       ),
-    [activeScopeId, positionedNodes]
+    [activeScopeId, positionedNodes, layoutRules]
   );
 
   const visualEdges = useMemo(

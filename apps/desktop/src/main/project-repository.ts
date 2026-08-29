@@ -3,7 +3,13 @@ import { cpSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ProjectSummary } from "@insightify/desktop-bridge";
-import { graphLayoutSchema, parseFlowGraph, type GeneratedFlowGraph } from "@insightify/graph-domain";
+import {
+  graphLayoutSchema,
+  parseFlowGraph,
+  semanticLayoutPlanSchema,
+  withCurrentLayoutEngine,
+  type GeneratedFlowGraph,
+} from "@insightify/graph-domain";
 
 type ProjectRow = {
   id: string;
@@ -19,6 +25,9 @@ type ProjectGraphRow = {
   generated_at: string;
   graph_json: string;
   layout_json: string;
+  layout_overrides_json: string;
+  layout_plan_json: string | null;
+  layout_engine_version: number | null;
 };
 
 export type ProjectMount = ProjectSummary & {
@@ -152,36 +161,52 @@ export class SqliteProjectRepository implements ProjectRepository {
   getGraph(projectId: string): GeneratedFlowGraph | null {
     const row = this.#database
       .prepare(`
-        SELECT project_id, provider, snapshot_hash, generated_at, graph_json, layout_json
+        SELECT project_id, provider, snapshot_hash, generated_at, graph_json, layout_json,
+               layout_overrides_json, layout_plan_json, layout_engine_version
         FROM project_graphs
         WHERE project_id = ?
       `)
       .get(projectId) as ProjectGraphRow | undefined;
     if (!row) return null;
-    if (row.provider !== "codex" && row.provider !== "antigravity-cli") {
-      throw new Error(`Unsupported persisted graph provider: ${row.provider}`);
-    }
-    return {
+    const layoutPlan = row.layout_plan_json
+      ? semanticLayoutPlanSchema.parse(JSON.parse(row.layout_plan_json))
+      : undefined;
+    // A document laid out by an older compiler is refreshed on the way out, so
+    // the canvas never mixes coordinates from two engines.
+    return withCurrentLayoutEngine({
       projectId: row.project_id,
       provider: row.provider,
       snapshotHash: row.snapshot_hash,
       generatedAt: row.generated_at,
       graph: parseFlowGraph(JSON.parse(row.graph_json)),
       layout: graphLayoutSchema.parse(JSON.parse(row.layout_json)),
-    };
+      ...(Object.keys(JSON.parse(row.layout_overrides_json) as object).length > 0
+        ? { layoutOverrides: graphLayoutSchema.parse(JSON.parse(row.layout_overrides_json)) }
+        : {}),
+      ...(layoutPlan ? { layoutPlan } : {}),
+      ...(row.layout_engine_version !== null
+        ? { layoutEngineVersion: row.layout_engine_version }
+        : {}),
+    });
   }
 
   saveGraph(value: GeneratedFlowGraph): void {
     this.#database
       .prepare(`
-        INSERT INTO project_graphs (project_id, provider, snapshot_hash, generated_at, graph_json, layout_json)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO project_graphs (
+          project_id, provider, snapshot_hash, generated_at, graph_json, layout_json,
+          layout_overrides_json, layout_plan_json, layout_engine_version
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(project_id) DO UPDATE SET
           provider = excluded.provider,
           snapshot_hash = excluded.snapshot_hash,
           generated_at = excluded.generated_at,
           graph_json = excluded.graph_json,
-          layout_json = excluded.layout_json
+          layout_json = excluded.layout_json,
+          layout_overrides_json = excluded.layout_overrides_json,
+          layout_plan_json = excluded.layout_plan_json,
+          layout_engine_version = excluded.layout_engine_version
       `)
       .run(
         value.projectId,
@@ -189,7 +214,10 @@ export class SqliteProjectRepository implements ProjectRepository {
         value.snapshotHash,
         value.generatedAt,
         JSON.stringify(value.graph),
-        JSON.stringify(value.layout)
+        JSON.stringify(value.layout),
+        JSON.stringify(value.layoutOverrides ?? {}),
+        value.layoutPlan ? JSON.stringify(value.layoutPlan) : null,
+        value.layoutEngineVersion ?? null
       );
   }
 
@@ -228,7 +256,10 @@ export class SqliteProjectRepository implements ProjectRepository {
         snapshot_hash TEXT NOT NULL,
         generated_at TEXT NOT NULL,
         graph_json TEXT NOT NULL,
-        layout_json TEXT NOT NULL DEFAULT '{}'
+        layout_json TEXT NOT NULL DEFAULT '{}',
+        layout_overrides_json TEXT NOT NULL DEFAULT '{}',
+        layout_plan_json TEXT,
+        layout_engine_version INTEGER
       );
 
       INSERT OR IGNORE INTO schema_migrations (version, applied_at)
@@ -245,9 +276,21 @@ export class SqliteProjectRepository implements ProjectRepository {
         "ALTER TABLE project_graphs ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{}'"
       );
     }
+    const additionalGraphColumns = [
+      ["layout_overrides_json", "TEXT NOT NULL DEFAULT '{}'"],
+      ["layout_plan_json", "TEXT"],
+      ["layout_engine_version", "INTEGER"],
+    ] as const;
+    for (const [name, definition] of additionalGraphColumns) {
+      if (!graphColumns.some((column) => column.name === name)) {
+        this.#database.exec(`ALTER TABLE project_graphs ADD COLUMN ${name} ${definition}`);
+      }
+    }
     this.#database.exec(`
       INSERT OR IGNORE INTO schema_migrations (version, applied_at)
       VALUES (3, CURRENT_TIMESTAMP);
+      INSERT OR IGNORE INTO schema_migrations (version, applied_at)
+      VALUES (4, CURRENT_TIMESTAMP);
     `);
   }
 }

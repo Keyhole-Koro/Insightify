@@ -98,10 +98,11 @@ describe("removeEdgeAt", () => {
 });
 
 describe("placeNode", () => {
-  it("writes the position into the layout without touching the graph", () => {
+  it("writes a manual override without replacing the generated layout", () => {
     const original = document();
     const next = placeNode(original, "router", { x: 55, y: 65 });
-    expect(next.layout.router).toEqual({ x: 55, y: 65 });
+    expect(next.layoutOverrides?.router).toEqual({ x: 55, y: 65 });
+    expect(next.layout.router).toEqual({ x: 30, y: 50 });
     expect(next.graph).toBe(original.graph);
   });
 });

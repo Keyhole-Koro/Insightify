@@ -9,11 +9,16 @@ import {
   layoutFlowNodes,
   layoutFlowNodesWithExpandedScopes,
   layoutRootNodes,
+  mergeSemanticLayoutScopes,
   parseFlowGraph,
   parseFlowGraphExpansion,
   projectFlowToScope,
   projectFlowWithExpandedScopes,
+  resolveRoomLayoutRules,
   scopeBoundaryPorts,
+  defaultRoomLayoutRules,
+  semanticLayoutPlanSchema,
+  semanticScopeLayoutSchema,
   validateScopeExpansion,
 } from "./index.js";
 
@@ -116,6 +121,77 @@ describe("generatedFlowGraphSchema", () => {
       graph,
       layout: { input: { x: 20, y: 30 } },
     }).layout.input.x).toBe(20);
+  });
+});
+
+describe("semantic layout plans", () => {
+  const plan = semanticLayoutPlanSchema.parse({
+    version: 1,
+    scopes: [{
+      roomId: null,
+      direction: "row",
+      areas: [
+        { id: "ingress", label: "Ingress", direction: "column", nodeIds: ["input"] },
+        { id: "egress", label: "Egress", direction: "column", nodeIds: ["output"] },
+      ],
+    }],
+  });
+
+  it("compiles exact node membership into deterministic Area DSL rules", () => {
+    const parsed = parseFlowGraph(graph);
+    const rules = resolveRoomLayoutRules(parsed, plan);
+    expect(rules[0]).toMatchObject({
+      roomId: null,
+      area: {
+        direction: "row",
+        splitRatio: [1, 1],
+        subAreas: [
+          { name: "Ingress", match: { nodeIds: ["input"] } },
+          { name: "Egress", match: { nodeIds: ["output"] } },
+        ],
+      },
+    });
+    const positioned = layoutRootNodes(parsed, rules);
+    expect(positioned.find((node) => node.id === "input")!.x)
+      .toBeLessThan(positioned.find((node) => node.id === "output")!.x);
+  });
+
+  it("ignores unknown members instead of allowing a bad plan to break layout", () => {
+    const parsed = parseFlowGraph(graph);
+    const invalid = semanticLayoutPlanSchema.parse({
+      version: 1,
+      scopes: [{
+        roomId: null,
+        direction: "row",
+        areas: [{ id: "missing", label: "Missing", direction: "grid", nodeIds: ["unknown"] }],
+      }],
+    });
+    expect(resolveRoomLayoutRules(parsed, invalid)).toEqual(defaultRoomLayoutRules);
+  });
+
+  it("limits an expansion patch to the requested Room", () => {
+    const expanded = parseFlowGraph({
+      ...graph,
+      nodes: [
+        { id: "gateway", title: "Gateway", summary: "Gateway room", kind: "room", parentId: null, evidence: [] },
+        { id: "route", title: "Route", summary: "Route request", kind: "api", parentId: "gateway", evidence: [] },
+      ],
+      edges: [],
+    });
+    const gatewayScope = semanticScopeLayoutSchema.parse({
+      roomId: "gateway",
+      direction: "column",
+      areas: [{ id: "routing", label: "Routing", direction: "row", nodeIds: ["route"] }],
+    });
+    const merged = mergeSemanticLayoutScopes(
+      expanded,
+      plan,
+      [gatewayScope],
+      new Set(["gateway"])
+    );
+    expect(merged.scopes.map((scope) => scope.roomId)).toEqual([null, "gateway"]);
+    expect(() => mergeSemanticLayoutScopes(expanded, plan, [gatewayScope], new Set(["other"])))
+      .toThrow("did not describe the expanded Room");
   });
 });
 
@@ -330,19 +406,47 @@ describe("projectFlowWithExpandedScopes", () => {
       "api-gateway": { x: 30, y: 50 },
       "auth-guard": { x: 48, y: 50 },
     };
+    // Two lanes inside the Room, expressed the way a generated graph expresses
+    // them: as a semantic plan naming its own nodes.
+    const rules = resolveRoomLayoutRules(
+      testGraph,
+      semanticLayoutPlanSchema.parse({
+        version: 1,
+        scopes: [{
+          roomId: "api-gateway",
+          direction: "row",
+          areas: [
+            {
+              id: "rest",
+              label: "REST lane",
+              direction: "column",
+              nodeIds: ["api-auth-login", "api-workflows-create", "api-workflows-get", "api-workflows-run"],
+            },
+            {
+              id: "async",
+              label: "Async lane",
+              direction: "column",
+              nodeIds: ["api-ai-synthesize", "api-stripe-webhook", "api-graphql"],
+            },
+          ],
+        }],
+      })
+    );
     const [frame] = getExpandedRoomFrames(
       projection.nodes,
       null,
       openRooms,
       [],
-      savedLayout
+      savedLayout,
+      rules
     );
     const layout = layoutFlowNodesWithExpandedScopes(
       projection.nodes,
       null,
       openRooms,
       [],
-      savedLayout
+      savedLayout,
+      rules
     );
     const auth = layout.find((node) => node.id === "auth-guard")!;
     const children = layout.filter((node) => node.parentId === "api-gateway");

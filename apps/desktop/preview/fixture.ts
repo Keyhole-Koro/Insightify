@@ -1,4 +1,10 @@
-import { createDefaultGraphLayout, parseFlowGraph, type FlowGraph, type GeneratedFlowGraph } from "@insightify/graph-domain";
+import {
+  LAYOUT_ENGINE_VERSION,
+  createDefaultGraphLayout,
+  parseFlowGraph,
+  type FlowGraph,
+  type GeneratedFlowGraph,
+} from "@insightify/graph-domain";
 
 // Rich multi-cloud & multi-kind architectural fixture with diverse API endpoints
 const source: FlowGraph = {
@@ -348,6 +354,6 @@ export const previewGraph: GeneratedFlowGraph = (() => {
     generatedAt: new Date("2026-08-29T00:00:00.000Z").toISOString(),
     graph,
     layout: createDefaultGraphLayout(graph),
-    layoutVersion: 2,
+    layoutEngineVersion: LAYOUT_ENGINE_VERSION,
   };
 })();

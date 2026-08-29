@@ -38,6 +38,29 @@ export function removeNodeAndDescendants(
     layout: Object.fromEntries(
       Object.entries(document.layout).filter(([id]) => !removed.has(id))
     ),
+    ...(document.layoutOverrides
+      ? {
+          layoutOverrides: Object.fromEntries(
+            Object.entries(document.layoutOverrides).filter(([id]) => !removed.has(id))
+          ),
+        }
+      : {}),
+    ...(document.layoutPlan
+      ? {
+          layoutPlan: {
+            ...document.layoutPlan,
+            scopes: document.layoutPlan.scopes
+              .filter((scope) => scope.roomId === null || !removed.has(scope.roomId))
+              .map((scope) => ({
+                ...scope,
+                areas: scope.areas.map((area) => ({
+                  ...area,
+                  nodeIds: area.nodeIds.filter((id) => !removed.has(id)),
+                })),
+              })),
+          },
+        }
+      : {}),
   };
 }
 
@@ -73,5 +96,8 @@ export function placeNode(
   nodeId: string,
   position: FlowNodePosition
 ): GeneratedFlowGraph {
-  return { ...document, layout: { ...document.layout, [nodeId]: position } };
+  return {
+    ...document,
+    layoutOverrides: { ...(document.layoutOverrides ?? {}), [nodeId]: position },
+  };
 }
