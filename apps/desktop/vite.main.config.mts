@@ -6,5 +6,8 @@ export default defineConfig({
     rollupOptions: {
       external: ["node:sqlite"],
     },
+    watch: {
+      exclude: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.vite/**"],
+    },
   },
 });

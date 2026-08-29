@@ -6,4 +6,9 @@ export default defineConfig({
   build: {
     sourcemap: true,
   },
+  server: {
+    watch: {
+      ignored: ["**/node_modules/**", "**/.git/**", "**/dist/**", "**/.vite/**"],
+    },
+  },
 });
