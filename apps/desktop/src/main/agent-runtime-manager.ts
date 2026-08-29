@@ -157,7 +157,8 @@ export class AgentRuntimeManager {
     if (existing) return existing.client;
     const project = this.#requireProject(projectId);
     const installation = await this.#installation("codex");
-    const client = new CodexAppServerClient({ projectId, cwd: project.canonicalPath, version: installation.version });
+    const workingCwd = project.sandboxPath || project.canonicalPath;
+    const client = new CodexAppServerClient({ projectId, cwd: workingCwd, version: installation.version });
     const unsubscribe = client.onEvent((event) => this.#forward(event));
     this.#codexSessions.set(projectId, { client, unsubscribe });
     return client;
@@ -168,7 +169,8 @@ export class AgentRuntimeManager {
     if (existing) return existing.client;
     const project = this.#requireProject(projectId);
     const installation = await this.#installation("antigravity-cli");
-    const client = new AntigravityCliClient({ projectId, cwd: project.canonicalPath, version: installation.version });
+    const workingCwd = project.sandboxPath || project.canonicalPath;
+    const client = new AntigravityCliClient({ projectId, cwd: workingCwd, version: installation.version });
     const unsubscribe = client.onEvent((event) => this.#forward(event));
     this.#antigravitySessions.set(projectId, { client, unsubscribe });
     return client;

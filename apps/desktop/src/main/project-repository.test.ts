@@ -1,5 +1,5 @@
-import { realpathSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { existsSync, realpathSync } from "node:fs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -12,21 +12,28 @@ afterEach(async () => {
 });
 
 describe("SqliteProjectRepository", () => {
-  it("persists an opaque project id and never exposes its path in summaries", async () => {
-    const directory = await mkdtemp(path.join(tmpdir(), "insightify-project-"));
-    cleanup.push(directory);
-    const repository = new SqliteProjectRepository(":memory:");
+  it("persists project, deep-copies directory to isolated sandbox, and stores graph", async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), "insightify-repo-test-"));
+    cleanup.push(tempDir);
+    const sourceDir = path.join(tempDir, "source-app");
+    const dbPath = path.join(tempDir, "db.sqlite");
+    await mkdir(sourceDir, { recursive: true });
+    await writeFile(path.join(sourceDir, "package.json"), JSON.stringify({ name: "my-app" }));
 
-    const mount = repository.openPath(directory);
+    const repository = new SqliteProjectRepository(dbPath);
+
+    const mount = repository.openPath(sourceDir);
     const [summary] = repository.list();
 
-    expect(mount.canonicalPath).toBe(realpathSync.native(directory));
-    expect(summary).toEqual({
-      id: mount.id,
-      displayName: path.basename(directory),
-      lastOpenedAt: mount.lastOpenedAt,
-    });
-    expect(summary).not.toHaveProperty("canonicalPath");
+    expect(mount.canonicalPath).toBe(realpathSync.native(sourceDir));
+    expect(mount.sandboxPath).toBeDefined();
+    expect(existsSync(mount.sandboxPath)).toBe(true);
+    expect(existsSync(path.join(mount.sandboxPath, "package.json"))).toBe(true);
+
+    expect(summary.id).toBe(mount.id);
+    expect(summary.displayName).toBe(path.basename(sourceDir));
+    expect(summary.canonicalPath).toBe(realpathSync.native(sourceDir));
+    expect(summary.sandboxPath).toBe(mount.sandboxPath);
 
     repository.saveGraph({
       projectId: mount.id,

@@ -61,6 +61,8 @@ export type ProjectSummary = {
   id: string;
   displayName: string;
   lastOpenedAt: string;
+  canonicalPath?: string;
+  sandboxPath?: string;
 };
 
 export type StartRunResult = {

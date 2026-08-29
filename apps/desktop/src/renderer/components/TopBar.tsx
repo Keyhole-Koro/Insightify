@@ -76,13 +76,13 @@ export function TopBar({
       </div>
 
       <div className="topbar-actions">
-        {/* Experimental Note Banner */}
+        {/* Experimental Safe Sandbox Copy Badge */}
         <div
           className="experimental-note-badge"
-          title="試験段階モード：提案コードやファイルパスはクリップボードにコピーして手動適用します"
+          title={`試験段階（Safe Copy Sandbox）\n元ディレクトリ: ${project?.canonicalPath ?? "未設定"}\n作業コピー先: ${project?.sandboxPath ?? "未設定"}\n※ 元ファイルは直接変更されず、複製環境で安全に動作します。`}
         >
           <span className="badge-icon">🧪</span>
-          <span className="badge-text">試験段階：コードはコピーして利用</span>
+          <span className="badge-text">試験段階：作業コピー環境で安全実行中</span>
         </div>
 
         {project && graph && (

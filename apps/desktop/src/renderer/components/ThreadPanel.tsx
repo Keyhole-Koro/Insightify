@@ -80,12 +80,23 @@ export function ThreadPanel({
       </header>
 
       <div className="thread-body">
-        {/* Experimental Note Banner */}
+        {/* Experimental Safe Workspace Copy Banner */}
         <div className="thread-experimental-banner">
-          <span className="banner-icon">ℹ️</span>
+          <span className="banner-icon">🛡️</span>
           <div>
-            <strong>試験運用モード (Copy-First)</strong>
-            <p>提案コードや Evidence パスは直接上書きせず、コピーしてご利用ください。</p>
+            <strong>試験運用モード (Directory Sandbox Copy)</strong>
+            <p>
+              元のソースコードは保護され、プロジェクトディレクトリを丸ごと複製した安全な作業環境で実行・検証しています。
+            </p>
+            {project?.sandboxPath && (
+              <code
+                className="clickable-code"
+                title="クリックして作業コピーのパスをコピー"
+                onClick={() => copyToClipboard(project.sandboxPath!)}
+              >
+                📂 {project.sandboxPath}
+              </code>
+            )}
           </div>
         </div>
 

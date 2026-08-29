@@ -8,7 +8,13 @@ import "../src/renderer/styles.css";
 
 // A renderer-only harness: the real App against a stubbed preload bridge, so the
 // FlowFold canvas can be driven and recorded without an agent CLI or Electron.
-const project: ProjectSummary = { id: previewGraph.projectId, displayName: "Insightify", lastOpenedAt: previewGraph.generatedAt };
+const project: ProjectSummary = {
+  id: previewGraph.projectId,
+  displayName: "Insightify",
+  canonicalPath: "/home/user/Workspaces/Insightify",
+  sandboxPath: "/home/user/.insightify/sandboxes/0b6f4d3e-3f2a-4b7c-8d1e-9a0c5f2b7d41",
+  lastOpenedAt: previewGraph.generatedAt,
+};
 let stored: GeneratedFlowGraph = previewGraph;
 
 const capabilities: AgentCapabilities = {

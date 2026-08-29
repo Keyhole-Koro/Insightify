@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { realpathSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ProjectSummary } from "@insightify/desktop-bridge";
@@ -23,6 +23,7 @@ type ProjectGraphRow = {
 
 export type ProjectMount = ProjectSummary & {
   canonicalPath: string;
+  sandboxPath: string;
 };
 
 export interface ProjectRepository {
@@ -31,14 +32,29 @@ export interface ProjectRepository {
   resolve(projectId: string): ProjectMount | null;
   getGraph(projectId: string): GeneratedFlowGraph | null;
   saveGraph(value: GeneratedFlowGraph): void;
+  syncSandboxCopy(projectId: string): string;
   close(): void;
 }
 
+const IGNORE_COPY_PATTERNS = [
+  /node_modules/,
+  /\.git/,
+  /\.vite/,
+  /\.turbo/,
+  /dist/,
+  /out/,
+  /\.DS_Store/,
+  /\.insightify/,
+];
+
 export class SqliteProjectRepository implements ProjectRepository {
   readonly #database: DatabaseSync;
+  readonly #sandboxBaseDir: string;
 
   constructor(databasePath: string) {
     this.#database = new DatabaseSync(databasePath);
+    this.#sandboxBaseDir = path.join(path.dirname(databasePath), "sandboxes");
+    mkdirSync(this.#sandboxBaseDir, { recursive: true });
     this.#database.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     this.#migrate();
   }
@@ -62,7 +78,15 @@ export class SqliteProjectRepository implements ProjectRepository {
       `)
       .run(id, displayName, canonicalPath, now);
 
-    return { id, displayName, canonicalPath, lastOpenedAt: now };
+    const sandboxPath = this.syncSandboxCopy(id, canonicalPath);
+
+    return {
+      id,
+      displayName,
+      canonicalPath,
+      sandboxPath,
+      lastOpenedAt: now,
+    };
   }
 
   list(): ProjectSummary[] {
@@ -73,7 +97,7 @@ export class SqliteProjectRepository implements ProjectRepository {
         ORDER BY last_opened_at DESC
       `)
       .all() as ProjectRow[];
-    return rows.map(toSummary);
+    return rows.map((row) => this.#toSummary(row));
   }
 
   resolve(projectId: string): ProjectMount | null {
@@ -84,7 +108,45 @@ export class SqliteProjectRepository implements ProjectRepository {
         WHERE id = ?
       `)
       .get(projectId) as ProjectRow | undefined;
-    return row ? { ...toSummary(row), canonicalPath: row.canonical_path } : null;
+    if (!row) return null;
+    const summary = this.#toSummary(row);
+    return {
+      ...summary,
+      canonicalPath: row.canonical_path,
+      sandboxPath: summary.sandboxPath!,
+    };
+  }
+
+  /**
+   * Deep copies the original project directory to an isolated sandbox workspace.
+   * This guarantees that the experimental phase never modifies the original source tree.
+   */
+  syncSandboxCopy(projectId: string, explicitCanonicalPath?: string): string {
+    const canonicalPath =
+      explicitCanonicalPath ??
+      (
+        this.#database
+          .prepare("SELECT canonical_path FROM projects WHERE id = ?")
+          .get(projectId) as { canonical_path: string } | undefined
+      )?.canonical_path;
+
+    if (!canonicalPath || !existsSync(canonicalPath)) {
+      throw new Error(`Cannot locate canonical project path for project ${projectId}`);
+    }
+
+    const sandboxPath = path.join(this.#sandboxBaseDir, projectId);
+    mkdirSync(sandboxPath, { recursive: true });
+
+    // Perform deep directory copy with safe excludes
+    cpSync(canonicalPath, sandboxPath, {
+      recursive: true,
+      filter: (source) => {
+        const basename = path.basename(source);
+        return !IGNORE_COPY_PATTERNS.some((pattern) => pattern.test(basename));
+      },
+    });
+
+    return sandboxPath;
   }
 
   getGraph(projectId: string): GeneratedFlowGraph | null {
@@ -121,11 +183,29 @@ export class SqliteProjectRepository implements ProjectRepository {
           graph_json = excluded.graph_json,
           layout_json = excluded.layout_json
       `)
-      .run(value.projectId, value.provider, value.snapshotHash, value.generatedAt, JSON.stringify(value.graph), JSON.stringify(value.layout));
+      .run(
+        value.projectId,
+        value.provider,
+        value.snapshotHash,
+        value.generatedAt,
+        JSON.stringify(value.graph),
+        JSON.stringify(value.layout)
+      );
   }
 
   close(): void {
     this.#database.close();
+  }
+
+  #toSummary(row: ProjectRow): ProjectSummary {
+    const sandboxPath = path.join(this.#sandboxBaseDir, row.id);
+    return {
+      id: row.id,
+      displayName: row.display_name,
+      canonicalPath: row.canonical_path,
+      sandboxPath: existsSync(sandboxPath) ? sandboxPath : undefined,
+      lastOpenedAt: row.last_opened_at,
+    };
   }
 
   #migrate(): void {
@@ -157,21 +237,17 @@ export class SqliteProjectRepository implements ProjectRepository {
       INSERT OR IGNORE INTO schema_migrations (version, applied_at)
       VALUES (2, CURRENT_TIMESTAMP);
     `);
-    const graphColumns = this.#database.prepare("PRAGMA table_info(project_graphs)").all() as Array<{ name: string }>;
+    const graphColumns = this.#database
+      .prepare("PRAGMA table_info(project_graphs)")
+      .all() as Array<{ name: string }>;
     if (!graphColumns.some((column) => column.name === "layout_json")) {
-      this.#database.exec("ALTER TABLE project_graphs ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{}'");
+      this.#database.exec(
+        "ALTER TABLE project_graphs ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{}'"
+      );
     }
     this.#database.exec(`
       INSERT OR IGNORE INTO schema_migrations (version, applied_at)
       VALUES (3, CURRENT_TIMESTAMP);
     `);
   }
-}
-
-function toSummary(row: ProjectRow): ProjectSummary {
-  return {
-    id: row.id,
-    displayName: row.display_name,
-    lastOpenedAt: row.last_opened_at,
-  };
 }
