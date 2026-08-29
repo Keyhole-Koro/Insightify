@@ -87,6 +87,7 @@ export function App() {
   const [currentScopeId, setCurrentScopeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [peekNodeId, setPeekNodeId] = useState<string | null>(null);
+  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const [dive, setDive] = useState<DiveState | null>(null);
   const [frame, setFrame] = useState({ width: 960, height: 700 });
@@ -454,6 +455,34 @@ export function App() {
     );
   }
 
+  function toggleNodeExpansion(nodeId: string) {
+    setExpandedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }
+
+  function expandAllNodes() {
+    setExpandedNodeIds(new Set(visibleNodes.map((n) => n.id)));
+  }
+
+  function collapseAllNodes() {
+    setExpandedNodeIds(new Set());
+  }
+
+  function handleWheel(event: React.WheelEvent<HTMLElement>) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const delta = -event.deltaY * 0.003;
+      setZoom((current) => Math.min(5.0, Math.max(0.2, +(current + delta).toFixed(2))));
+    }
+  }
+
   function askAiAboutNode(node: FlowNode) {
     setSelectedNodeId(node.id);
     setPrompt(
@@ -661,7 +690,7 @@ export function App() {
             }}
           />
 
-          <section className="canvas-frame" ref={canvasRef}>
+          <section className="canvas-frame" ref={canvasRef} onWheel={handleWheel}>
             {!project && <EmptyProject onPick={pickProject} />}
             {project && !graph && (
               <GraphEmpty
@@ -803,11 +832,14 @@ export function App() {
                       preview={previews.get(node.id) ?? emptyPreview}
                       lod={lod}
                       selected={selectedNodeId === node.id}
+                      isExpanded={expandedNodeIds.has(node.id)}
+                      onToggleExpand={() => toggleNodeExpansion(node.id)}
                       connections={connectionSides(node.id, roomEdges, boundaryPorts)}
                       onSelect={() => {
                         if (!dragRef.current) {
                           setSelectedNodeId(node.id);
                           setEvents([]);
+                          toggleNodeExpansion(node.id);
                         }
                       }}
                       onPeek={() => setPeekNodeId(node.id)}
@@ -896,18 +928,42 @@ export function App() {
 
                 <div className="zoom-indicator">
                   <button
-                    aria-label="Show less detail"
-                    onClick={() => setZoom((value) => Math.min(1.45, Math.max(0.55, value - 0.15)))}
+                    aria-label="すべて折りたたむ"
+                    title="全ノードを折りたたむ"
+                    onClick={collapseAllNodes}
+                    type="button"
+                  >
+                    ⊟
+                  </button>
+                  <button
+                    aria-label="すべて展開"
+                    title="全ノードを展開する"
+                    onClick={expandAllNodes}
+                    type="button"
+                  >
+                    ⊞
+                  </button>
+                  <button
+                    aria-label="縮小"
+                    onClick={() =>
+                      setZoom((value) => Math.min(5.0, Math.max(0.2, +(value - 0.25).toFixed(2))))
+                    }
                     type="button"
                   >
                     −
                   </button>
-                  <span>
+                  <span
+                    onClick={() => setZoom(+(1 / (stage.scale || 1)).toFixed(2))}
+                    title="クリックで 100% にリセット"
+                    style={{ cursor: "pointer" }}
+                  >
                     {Math.round(stageZoom * 100)}% · {lod}
                   </span>
                   <button
-                    aria-label="Show more detail"
-                    onClick={() => setZoom((value) => Math.min(1.45, Math.max(0.55, value + 0.15)))}
+                    aria-label="拡大"
+                    onClick={() =>
+                      setZoom((value) => Math.min(5.0, Math.max(0.2, +(value + 0.25).toFixed(2))))
+                    }
                     type="button"
                   >
                     ＋

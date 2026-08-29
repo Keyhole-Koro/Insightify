@@ -10,6 +10,8 @@ interface PortalCardProps {
   preview: PortalPreview;
   lod: SemanticLevel;
   selected: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
   connections: { input: boolean; output: boolean };
   onSelect: () => void;
   onPeek: () => void;
@@ -26,6 +28,8 @@ export function PortalCard({
   preview,
   lod,
   selected,
+  isExpanded = false,
+  onToggleExpand,
   connections,
   onSelect,
   onPeek,
@@ -38,7 +42,6 @@ export function PortalCard({
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0;
   const [copied, setCopied] = useState(false);
-  const [isManuallyClosed, setIsManuallyClosed] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -47,16 +50,10 @@ export function PortalCard({
       /aws|gcp|azure|docker|k8s|kubernetes|postgres|redis|openai|stripe|github|react|graphql|rest/i.test(t)
     );
 
-  // Default is always closed. Only the actively selected node expands (unless manually closed)
-  const isExpanded = selected && !isManuallyClosed;
-
-  function toggleExpand(event: React.MouseEvent) {
+  function handleToggle(event: React.MouseEvent) {
     event.stopPropagation();
-    if (isExpanded) {
-      setIsManuallyClosed(true);
-    } else {
-      setIsManuallyClosed(false);
-      onSelect();
+    if (onToggleExpand) {
+      onToggleExpand();
     }
   }
 
@@ -105,7 +102,6 @@ export function PortalCard({
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}
       onClick={() => {
-        setIsManuallyClosed(false);
         onSelect();
       }}
       onDoubleClick={onEnter}
@@ -131,7 +127,7 @@ export function PortalCard({
       />
 
       {/* TOP AVATAR / ICONIC SHAPE */}
-      <div className="node-avatar-container" onClick={toggleExpand} title="クリックで詳細を開閉">
+      <div className="node-avatar-container" onClick={handleToggle} title="クリックで詳細を開閉">
         <div className={`node-avatar shape-${avatarShape}`}>
           <NodeIcon kind={node.kind} technology={tech} size={22} />
           <span className={`node-status-orb status-${status}`} title={`Status: ${status}`} />
@@ -140,7 +136,7 @@ export function PortalCard({
 
       {/* COMPACT PILL (Visible when collapsed) */}
       {!isExpanded && (
-        <div className="node-compact-pill" onClick={toggleExpand}>
+        <div className="node-compact-pill" onClick={handleToggle} title="クリックで詳細を展開">
           <span className="compact-kind-tag">{tech || node.kind}</span>
           <span className="compact-title">{node.title}</span>
           <span className="compact-toggle-icon" title="詳細を開く">▾</span>
@@ -164,7 +160,7 @@ export function PortalCard({
               </button>
               <button
                 className="plate-collapse-btn"
-                onClick={toggleExpand}
+                onClick={handleToggle}
                 title="折りたたむ"
                 type="button"
               >
