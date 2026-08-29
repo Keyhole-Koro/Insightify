@@ -3,10 +3,9 @@ import type { FlowNodeKind } from "@insightify/graph-domain";
 
 export const providerKinds: ExecutableAgentProvider[] = ["antigravity-cli", "codex"];
 
-export const providerMeta: Record<
-  ExecutableAgentProvider,
-  { label: string; shortLabel: string; policy: string }
-> = {
+export type ProviderMeta = { label: string; shortLabel: string; policy: string };
+
+export const providerMeta: Record<ExecutableAgentProvider, ProviderMeta> = {
   codex: {
     label: "Codex",
     shortLabel: "CX",

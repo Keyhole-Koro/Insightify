@@ -1,21 +1,12 @@
 import React from "react";
 import type { FlowNodeKind, FlowNodeStatus } from "@insightify/graph-domain";
 import { commonTechnologies, nodeKinds } from "../lib/constants.js";
+import type { NodeDraft } from "../lib/node-draft.js";
 import { InlineError } from "./error/InlineError.js";
 
 export const nodeStatuses: FlowNodeStatus[] = ["idle", "working", "ready", "error"];
 
-export interface NodeDraft {
-  nodeId: string;
-  title: string;
-  summary: string;
-  kind: FlowNodeKind;
-  technology: string;
-  evidence: string;
-  tags: string;
-  status: FlowNodeStatus;
-  codeSnippet: string;
-}
+export type { NodeDraft };
 
 interface NodeEditorProps {
   draft: NodeDraft;

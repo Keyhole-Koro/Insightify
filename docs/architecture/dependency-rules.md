@@ -95,7 +95,21 @@ Renderer は `InsightifyDesktopApi` の型にだけ依存し、Electron IPC の�
 
 ## 5. Renderer 内部の構造
 
-Renderer は Electron に依存しないが、`window.insightify` にはグローバルとして依存している。
-FlowFold canvas を Web client と共有する段階では、この依存を props / context 経由の注入へ置き換える。
-それまでは `apps/desktop/preview/` の harness が同じ役割を果たす（stub した bridge を差し込んで
-Electron なしで Canvas を動かす）。
+Renderer も内部を層に分ける。依存は上から下への一方向であり、下の層は上を知らない。
+
+| 層 | 置き場所 | 責務 |
+|---|---|---|
+| Presentation | `App.tsx`, `components/` | 組み立てと描画のみ。導出も IO も行わない |
+| Service (hooks) | `hooks/` | `useProjectGraph`（正本と保存）、`useAgentSession`（実行とイベント）、`useCanvasView`（view state）、`useFlowProjection`（描画用の導出）、`useNodeDrag` |
+| Adapter | `lib/bridge.ts` | `window.insightify` に触れる唯一の場所 |
+| Pure logic | `lib/` | `graph-edits`、`node-draft`、`drag-position`、`prompts`。React も DOM も使わず、単体テストできる |
+
+**規約:**
+
+- `window.insightify` を参照してよいのは `lib/bridge.ts` だけである。他は `useBridge()` を経由する。
+- `lib/` の純関数は React を import しない。値から値への変換に留める。
+- `useCanvasView` が持つ状態は永続化しない。保存されるのは `GeneratedFlowGraph` だけである（第 4 節）。
+- `hooks/` は `components/` を import しない。共有する型は `lib/` に置く。
+
+`useBridge()` は `BridgeContext` を先に見るため、Electron なしで Canvas を動かす場合は
+実装を差し替えられる。`apps/desktop/preview/` の harness は `window.insightify` を stub して同じ役割を果たす。
