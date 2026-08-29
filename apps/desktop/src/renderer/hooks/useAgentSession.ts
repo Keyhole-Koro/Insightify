@@ -38,6 +38,8 @@ export type AgentSession = {
   events: AgentEvent[];
   clearEvents: () => void;
   transcript: string;
+  readingFiles: string[];
+  currentReadingFile: string | null;
   approvals: ApprovalRequestedEvent[];
   run: StartRunResult | null;
   busy: boolean;
@@ -124,6 +126,26 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
         .join(""),
     [events]
   );
+
+  const readingFiles = useMemo(() => {
+    const files: string[] = [];
+    for (const event of events) {
+      if (event.type === "file.reading" && !files.includes(event.path)) {
+        files.push(event.path);
+      }
+    }
+    return files;
+  }, [events]);
+
+  const currentReadingFile = useMemo(() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const event = events[i];
+      if (event && event.type === "file.reading") {
+        return event.path;
+      }
+    }
+    return null;
+  }, [events]);
 
   const approvals = useMemo(() => {
     const resolved = new Set(events.filter(isApprovalResolved).map((event) => event.requestId));
@@ -241,6 +263,8 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
     events,
     clearEvents,
     transcript,
+    readingFiles,
+    currentReadingFile,
     approvals,
     run,
     busy,

@@ -17,14 +17,19 @@ export type ProjectSnapshot = {
   hash: string;
 };
 
-export async function buildProjectSnapshot(projectRoot: string): Promise<ProjectSnapshot> {
+export async function buildProjectSnapshot(
+  projectRoot: string,
+  onFileRead?: (path: string, index: number, total: number) => void
+): Promise<ProjectSnapshot> {
   const discovered = await listProjectFiles(projectRoot);
   const files = discovered.filter(isSafeRelativePath).slice(0, MAX_FILES);
   const ranked = [...files].sort((left, right) => scorePath(right) - scorePath(left) || left.localeCompare(right));
   const excerpts: ProjectSnapshot["excerpts"] = [];
   let totalChars = 0;
 
-  for (const relativePath of ranked) {
+  for (let i = 0; i < ranked.length; i++) {
+    const relativePath = ranked[i];
+    if (!relativePath) continue;
     if (excerpts.length >= MAX_EXCERPTS || totalChars >= MAX_TOTAL_CHARS) break;
     if (!isTextCandidate(relativePath)) continue;
     const absolutePath = path.resolve(projectRoot, relativePath);
@@ -38,6 +43,7 @@ export async function buildProjectSnapshot(projectRoot: string): Promise<Project
       const content = buffer.toString("utf8", 0, remaining);
       excerpts.push({ path: relativePath, content });
       totalChars += content.length;
+      onFileRead?.(relativePath, excerpts.length, Math.min(ranked.length, MAX_EXCERPTS));
     } catch {
       // Files can disappear while the snapshot is being built; skip them.
     }

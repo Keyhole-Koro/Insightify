@@ -1965,3 +1965,107 @@ button { color: inherit; }
   color: #8c92a4;
   font-size: 9.5px;
 }
+
+.canvas-generating-overlay .generating-subtext {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  color: #8c92a4;
+}
+
+.generating-file-reading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 480px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.generating-file-reading code {
+  color: #c9ff63;
+  background: rgba(201, 255, 99, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.generating-file-reading em {
+  font-style: normal;
+  color: #9da4b8;
+  font-size: 8.5px;
+}
+
+/* Inspected Files Section in Stream */
+.stream-reading-files {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: rgba(14, 16, 22, 0.7);
+  border: 1px solid #232733;
+  border-radius: 8px;
+}
+
+.stream-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.stream-section-title span {
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: #8b92a4;
+  text-transform: uppercase;
+}
+
+.stream-section-title em {
+  font-style: normal;
+  font-size: 8px;
+  color: #c9ff63;
+}
+
+.stream-file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.stream-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(26, 30, 42, 0.85);
+  border: 1px solid #2f3547;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  color: #cfd4e2;
+  white-space: nowrap;
+  animation: file-chip-appear 140ms ease both;
+}
+
+@keyframes file-chip-appear {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.stream-file-chip .file-icon {
+  font-size: 7.5px;
+}
+
+.stream-file-chip .file-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

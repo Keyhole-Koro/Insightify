@@ -57,6 +57,7 @@ export type AgentEvent =
     })
   | (AgentEventBase & { type: "approval.resolved"; requestId: string })
   | (AgentEventBase & { type: "diff.updated"; diff: string })
+  | (AgentEventBase & { type: "file.reading"; path: string; totalFiles?: number; currentFileIndex?: number })
   | (AgentEventBase & { type: "usage.updated"; usage: unknown })
   | (AgentEventBase & { type: "warning"; message: string })
   | (AgentEventBase & { type: "run.completed"; status: "completed" | "interrupted" })

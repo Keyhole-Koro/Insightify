@@ -22,6 +22,7 @@ interface ThreadPanelProps {
   events: AgentEvent[];
   approvals: ApprovalRequestedEvent[];
   transcript: string;
+  readingFiles?: string[];
   generating: boolean;
   provider: ProviderInstallation | null;
   providerKind: ExecutableAgentProvider;
@@ -44,6 +45,7 @@ export function ThreadPanel({
   events,
   approvals,
   transcript,
+  readingFiles = [],
   generating,
   provider,
   providerKind,
@@ -138,7 +140,11 @@ export function ThreadPanel({
                 <p>{generationPhase(events, transcript)} · read-only · validating locally</p>
               </div>
             </div>
-            <GraphGenerationStream transcript={transcript} expansion={anchor !== null} />
+            <GraphGenerationStream
+              transcript={transcript}
+              expansion={anchor !== null}
+              readingFiles={readingFiles}
+            />
           </>
         )}
 

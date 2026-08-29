@@ -95,7 +95,21 @@ export class AgentRuntimeManager {
     const project = this.#requireProject(projectId);
     const currentDocument = scopeNodeId ? this.#projects.getGraph(projectId) : null;
     if (scopeNodeId && !currentDocument) throw new Error("Generate the root FlowFold Graph before expanding a Room");
-    const snapshot = await buildProjectSnapshot(project.canonicalPath);
+    let sequence = 0;
+    const snapshot = await buildProjectSnapshot(project.canonicalPath, (filePath, index, total) => {
+      this.#forward({
+        provider,
+        projectId,
+        sequence: ++sequence,
+        timestamp: new Date().toISOString(),
+        threadId: null,
+        runId: null,
+        type: "file.reading",
+        path: filePath,
+        currentFileIndex: index,
+        totalFiles: total,
+      });
+    });
     const prompt = scopeNodeId
       ? buildFlowGraphExpansionPrompt(snapshot, currentDocument!.graph, scopeNodeId, currentDocument!.layoutPlan)
       : buildFlowGraphPrompt(snapshot);

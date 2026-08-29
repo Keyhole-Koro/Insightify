@@ -4,9 +4,14 @@ import { extractStreamValues } from "../lib/flowfold-helpers.js";
 interface GraphGenerationStreamProps {
   transcript: string;
   expansion: boolean;
+  readingFiles?: string[];
 }
 
-export function GraphGenerationStream({ transcript, expansion }: GraphGenerationStreamProps) {
+export function GraphGenerationStream({
+  transcript,
+  expansion,
+  readingFiles = [],
+}: GraphGenerationStreamProps) {
   const titles = extractStreamValues(transcript, "title").slice(0, 8);
   const tail = transcript.slice(-900);
 
@@ -16,6 +21,25 @@ export function GraphGenerationStream({ transcript, expansion }: GraphGeneration
         <span>LIVE STRUCTURED STREAM</span>
         <b>{transcript.length > 0 ? `${transcript.length.toLocaleString()} chars` : "Thinking…"}</b>
       </header>
+
+      {/* Inspected/Read Files Section */}
+      {readingFiles.length > 0 && (
+        <div className="stream-reading-files">
+          <div className="stream-section-title">
+            <span>INSPECTED SOURCE FILES</span>
+            <em>{readingFiles.length} files scanned</em>
+          </div>
+          <div className="stream-file-chips">
+            {readingFiles.map((path) => (
+              <span className="stream-file-chip" key={path} title={path}>
+                <span className="file-icon">📄</span>
+                <span className="file-name">{path}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {titles.length > 0 && (
         <div className="stream-discoveries">
           {titles.map((title, index) => (

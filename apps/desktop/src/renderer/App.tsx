@@ -128,6 +128,8 @@ export function App() {
     meta,
     events,
     transcript,
+    readingFiles,
+    currentReadingFile,
     approvals,
     run,
     busy,
@@ -468,7 +470,16 @@ export function App() {
                           ? `${meta.label} is recomputing semantic layout arrangement…`
                           : `${meta.label} is decomposing Room…`}
                       </strong>
-                      <span>Read-only · validating locally with structured output</span>
+                      <div className="generating-subtext">
+                        {currentReadingFile ? (
+                          <span className="generating-file-reading" title={currentReadingFile}>
+                            📄 Reading: <code>{currentReadingFile}</code>
+                            {readingFiles.length > 1 && <em> ({readingFiles.length} files scanned)</em>}
+                          </span>
+                        ) : (
+                          <span>Read-only · validating locally with structured output</span>
+                        )}
+                      </div>
                     </div>
                     <button type="button" className="stop-button" onClick={cancelRun}>
                       Stop
@@ -889,6 +900,7 @@ export function App() {
           events={events}
           approvals={approvals}
           transcript={transcript}
+          readingFiles={readingFiles}
           generating={generatingGraph || expandingScopeId !== null}
           provider={provider}
           providerKind={providerKind}

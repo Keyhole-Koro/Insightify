@@ -47,8 +47,15 @@ export function normalizeAntigravityEvent(
       const state = text(step.state)?.toUpperCase() ?? "";
       const itemId = String(step.step_index ?? "unknown");
       const tool = text(step.tool_name) ?? text(record(step.tool_info).name) ?? "tool";
+      const toolArgs = record(step.tool_input ?? step.tool_arguments ?? step.tool_info);
+      const filePath = text(toolArgs.AbsolutePath) ?? text(toolArgs.TargetFile) ?? text(toolArgs.path) ?? text(toolArgs.file);
+
+      if (filePath) {
+        events.push({ ...makeBase(), type: "file.reading", path: filePath });
+      }
+
       if (state === "RUNNING" || state === "PENDING") {
-        events.push({ ...makeBase(), type: "tool.started", itemId, tool, summary: tool });
+        events.push({ ...makeBase(), type: "tool.started", itemId, tool, summary: filePath ? `Reading ${filePath}` : tool });
       } else if (state) {
         events.push({
           ...makeBase(),
