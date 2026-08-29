@@ -28,6 +28,8 @@ export interface AreaMatchRule {
 
 export interface AreaDefinition {
   id: string;
+  /** Set when this area came from a semantic plan, so the UI can address it. */
+  planArea?: { roomId: string | null; areaId: string };
   name?: string;
   direction?: AreaDirection;
   splitRatio?: number[]; // e.g. [30, 40, 30]
@@ -54,6 +56,8 @@ export interface ResolvedArea {
 export interface DebugAreaBox {
   id: string;
   name: string;
+  /** Present only for areas a plan authored — the ones a user can lock. */
+  planArea?: { roomId: string | null; areaId: string };
   bounds: LayoutBounds;
   backgroundColor: string;
   borderColor: string;
@@ -176,6 +180,7 @@ export function compileSemanticLayoutPlan(
       areaIds.add(area.id);
       subAreas.push({
         id: `${scopeKey}-${area.id}`.slice(0, 80),
+        planArea: { roomId: scope.roomId, areaId: area.id },
         name: area.label,
         direction: area.direction,
         match: { nodeIds },
@@ -470,6 +475,7 @@ export function getDebugAreasForScope(
       return {
         id: area.definition.id,
         name: area.definition.name ?? area.definition.id,
+        ...(area.definition.planArea ? { planArea: area.definition.planArea } : {}),
         bounds,
         backgroundColor: colors.bg,
         borderColor: colors.border,

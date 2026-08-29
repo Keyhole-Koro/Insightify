@@ -58,6 +58,7 @@ describe("SqliteProjectRepository", () => {
         }],
       },
       layoutEngineVersion: LAYOUT_ENGINE_VERSION,
+      lockedLayoutAreas: [{ roomId: null, areaId: "system" }],
     } satisfies GeneratedFlowGraph;
     repository.saveGraph(storedGraph);
     expect(repository.getGraph(mount.id)?.graph.title).toBe("Test flow");
@@ -65,6 +66,9 @@ describe("SqliteProjectRepository", () => {
     expect(repository.getGraph(mount.id)?.layoutOverrides?.root).toEqual({ x: 55, y: 52 });
     expect(repository.getGraph(mount.id)?.layoutPlan?.scopes[0]?.areas[0]?.id).toBe("system");
     expect(repository.getGraph(mount.id)?.layoutEngineVersion).toBe(LAYOUT_ENGINE_VERSION);
+    expect(repository.getGraph(mount.id)?.lockedLayoutAreas).toEqual([
+      { roomId: null, areaId: "system" },
+    ]);
 
     // Coordinates written by an older layout compiler are not comparable with
     // the current one, so they are recomputed on the way out. What the user

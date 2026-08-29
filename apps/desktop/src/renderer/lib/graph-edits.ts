@@ -1,4 +1,10 @@
-import type { FlowEdge, FlowNode, FlowNodePosition, GeneratedFlowGraph } from "@insightify/graph-domain";
+import type {
+  FlowEdge,
+  FlowNode,
+  FlowNodePosition,
+  GeneratedFlowGraph,
+  LayoutAreaLock,
+} from "@insightify/graph-domain";
 import { descendantIds } from "./flowfold-helpers.js";
 
 // Every edit the canvas can make to a saved graph, as a pure value-to-value
@@ -100,4 +106,30 @@ export function placeNode(
     ...document,
     layoutOverrides: { ...(document.layoutOverrides ?? {}), [nodeId]: position },
   };
+}
+
+/**
+ * Pins or unpins one area of a layout plan. A pinned area keeps its membership
+ * through a relayout; the rest of the scope is free to be rearranged.
+ */
+export function toggleLayoutAreaLock(
+  document: GeneratedFlowGraph,
+  lock: LayoutAreaLock
+): GeneratedFlowGraph {
+  const current = document.lockedLayoutAreas ?? [];
+  const isSame = (other: LayoutAreaLock) =>
+    other.roomId === lock.roomId && other.areaId === lock.areaId;
+  const next = current.some(isSame)
+    ? current.filter((other) => !isSame(other))
+    : [...current, lock];
+  return { ...document, lockedLayoutAreas: next };
+}
+
+export function isLayoutAreaLocked(
+  document: GeneratedFlowGraph | null,
+  lock: LayoutAreaLock
+): boolean {
+  return (document?.lockedLayoutAreas ?? []).some(
+    (other) => other.roomId === lock.roomId && other.areaId === lock.areaId
+  );
 }

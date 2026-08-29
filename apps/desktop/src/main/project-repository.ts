@@ -3,8 +3,10 @@ import { cpSync, existsSync, mkdirSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ProjectSummary } from "@insightify/desktop-bridge";
+import { z } from "zod";
 import {
   graphLayoutSchema,
+  layoutAreaLockSchema,
   parseFlowGraph,
   semanticLayoutPlanSchema,
   withCurrentLayoutEngine,
@@ -28,6 +30,7 @@ type ProjectGraphRow = {
   layout_overrides_json: string;
   layout_plan_json: string | null;
   layout_engine_version: number | null;
+  locked_layout_areas_json: string | null;
 };
 
 export type ProjectMount = ProjectSummary & {
@@ -162,7 +165,8 @@ export class SqliteProjectRepository implements ProjectRepository {
     const row = this.#database
       .prepare(`
         SELECT project_id, provider, snapshot_hash, generated_at, graph_json, layout_json,
-               layout_overrides_json, layout_plan_json, layout_engine_version
+               layout_overrides_json, layout_plan_json, layout_engine_version,
+               locked_layout_areas_json
         FROM project_graphs
         WHERE project_id = ?
       `)
@@ -187,6 +191,13 @@ export class SqliteProjectRepository implements ProjectRepository {
       ...(row.layout_engine_version !== null
         ? { layoutEngineVersion: row.layout_engine_version }
         : {}),
+      ...(row.locked_layout_areas_json
+        ? {
+            lockedLayoutAreas: z
+              .array(layoutAreaLockSchema)
+              .parse(JSON.parse(row.locked_layout_areas_json)),
+          }
+        : {}),
     });
   }
 
@@ -195,9 +206,10 @@ export class SqliteProjectRepository implements ProjectRepository {
       .prepare(`
         INSERT INTO project_graphs (
           project_id, provider, snapshot_hash, generated_at, graph_json, layout_json,
-          layout_overrides_json, layout_plan_json, layout_engine_version
+          layout_overrides_json, layout_plan_json, layout_engine_version,
+          locked_layout_areas_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(project_id) DO UPDATE SET
           provider = excluded.provider,
           snapshot_hash = excluded.snapshot_hash,
@@ -206,7 +218,8 @@ export class SqliteProjectRepository implements ProjectRepository {
           layout_json = excluded.layout_json,
           layout_overrides_json = excluded.layout_overrides_json,
           layout_plan_json = excluded.layout_plan_json,
-          layout_engine_version = excluded.layout_engine_version
+          layout_engine_version = excluded.layout_engine_version,
+          locked_layout_areas_json = excluded.locked_layout_areas_json
       `)
       .run(
         value.projectId,
@@ -217,7 +230,8 @@ export class SqliteProjectRepository implements ProjectRepository {
         JSON.stringify(value.layout),
         JSON.stringify(value.layoutOverrides ?? {}),
         value.layoutPlan ? JSON.stringify(value.layoutPlan) : null,
-        value.layoutEngineVersion ?? null
+        value.layoutEngineVersion ?? null,
+        value.lockedLayoutAreas?.length ? JSON.stringify(value.lockedLayoutAreas) : null
       );
   }
 
@@ -259,7 +273,8 @@ export class SqliteProjectRepository implements ProjectRepository {
         layout_json TEXT NOT NULL DEFAULT '{}',
         layout_overrides_json TEXT NOT NULL DEFAULT '{}',
         layout_plan_json TEXT,
-        layout_engine_version INTEGER
+        layout_engine_version INTEGER,
+        locked_layout_areas_json TEXT
       );
 
       INSERT OR IGNORE INTO schema_migrations (version, applied_at)
@@ -280,6 +295,7 @@ export class SqliteProjectRepository implements ProjectRepository {
       ["layout_overrides_json", "TEXT NOT NULL DEFAULT '{}'"],
       ["layout_plan_json", "TEXT"],
       ["layout_engine_version", "INTEGER"],
+      ["locked_layout_areas_json", "TEXT"],
     ] as const;
     for (const [name, definition] of additionalGraphColumns) {
       if (!graphColumns.some((column) => column.name === name)) {

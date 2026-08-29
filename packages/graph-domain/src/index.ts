@@ -106,6 +106,14 @@ export const semanticScopeLayoutSchema = z.object({
   areas: z.array(semanticLayoutAreaSchema).min(1).max(4),
 });
 
+// A lock is the user's statement about an area, not the model's, so it lives on
+// the document rather than inside the plan a provider authors.
+export const layoutAreaLockSchema = z.object({
+  roomId: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/).nullable(),
+  areaId: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+});
+export type LayoutAreaLock = z.infer<typeof layoutAreaLockSchema>;
+
 export const semanticLayoutPlanSchema = z.object({
   version: z.literal(1),
   scopes: z.array(semanticScopeLayoutSchema).min(1).max(64),
@@ -155,6 +163,7 @@ export const generatedFlowGraphSchema = z.object({
   // document saved by an older build must still load, so that it can be
   // recognised as stale and recomputed.
   layoutEngineVersion: z.number().int().positive().optional(),
+  lockedLayoutAreas: z.array(layoutAreaLockSchema).max(64).optional(),
 });
 export type GeneratedFlowGraph = z.infer<typeof generatedFlowGraphSchema>;
 
@@ -340,19 +349,87 @@ function scopeRepresentative(graph: FlowGraph, scopeId: string | null): (nodeId:
  * The compiler that turns a semantic layout plan into coordinates. Bump this
  * whenever a change to the compiler would place existing nodes differently.
  */
+const MAX_AREAS_PER_SCOPE = 4;
+
 /**
- * Swaps in a newly generated layout plan without touching the graph. Generated
- * coordinates are rebuilt from the new plan; `layoutOverrides` is the user's own
- * work and is never discarded by a relayout.
+ * Carries locked areas from the current plan into an incoming one. A locked area
+ * keeps its label, direction and exact membership; the nodes it holds are taken
+ * out of every other area of that scope, so a regeneration can rearrange what is
+ * left without ever moving what the user pinned.
+ */
+export function applyLayoutAreaLocks(
+  current: SemanticLayoutPlan | undefined,
+  incoming: SemanticLayoutPlan,
+  locks: readonly LayoutAreaLock[] = []
+): SemanticLayoutPlan {
+  if (!current || locks.length === 0) return incoming;
+  const scopeKey = (roomId: string | null) => roomId ?? "\u0000root";
+  const lockedIn = new Map<string, Set<string>>();
+  for (const lock of locks) {
+    const key = scopeKey(lock.roomId);
+    if (!lockedIn.has(key)) lockedIn.set(key, new Set());
+    lockedIn.get(key)!.add(lock.areaId);
+  }
+
+  const scopes: SemanticScopeLayout[] = [];
+  const handled = new Set<string>();
+  const scopesToVisit = [
+    ...incoming.scopes,
+    // A locked scope the model left out entirely still has to survive.
+    ...current.scopes.filter(
+      (scope) =>
+        lockedIn.has(scopeKey(scope.roomId)) &&
+        !incoming.scopes.some((other) => other.roomId === scope.roomId)
+    ),
+  ];
+
+  for (const scope of scopesToVisit) {
+    const key = scopeKey(scope.roomId);
+    if (handled.has(key)) continue;
+    handled.add(key);
+    const lockedAreaIds = lockedIn.get(key);
+    const currentScope = current.scopes.find((other) => other.roomId === scope.roomId);
+    const locked = lockedAreaIds
+      ? (currentScope?.areas ?? []).filter((area) => lockedAreaIds.has(area.id))
+      : [];
+    if (locked.length === 0) {
+      scopes.push(scope);
+      continue;
+    }
+    const pinned = new Set(locked.flatMap((area) => area.nodeIds));
+    const rearranged = (scope === currentScope ? [] : scope.areas)
+      .filter((area) => !locked.some((lockedArea) => lockedArea.id === area.id))
+      .map((area) => ({ ...area, nodeIds: area.nodeIds.filter((id) => !pinned.has(id)) }))
+      .filter((area) => area.nodeIds.length > 0);
+    scopes.push({
+      roomId: scope.roomId,
+      direction: scope.direction,
+      areas: [...locked, ...rearranged].slice(0, MAX_AREAS_PER_SCOPE),
+    });
+  }
+
+  return { ...incoming, scopes: scopes.length > 0 ? scopes : incoming.scopes };
+}
+
+/**
+ * Swaps in a newly generated layout plan without touching the graph. Locked
+ * areas are carried over, generated coordinates are rebuilt from the merged
+ * plan, and `layoutOverrides` is the user's own work: a relayout never
+ * discards it.
  */
 export function withLayoutPlan(
   document: GeneratedFlowGraph,
   layoutPlan: SemanticLayoutPlan
 ): GeneratedFlowGraph {
-  const rules = resolveRoomLayoutRules(document.graph, layoutPlan);
+  const merged = applyLayoutAreaLocks(
+    document.layoutPlan,
+    layoutPlan,
+    document.lockedLayoutAreas
+  );
+  const rules = resolveRoomLayoutRules(document.graph, merged);
   return {
     ...document,
-    layoutPlan,
+    layoutPlan: merged,
     layout: createDefaultGraphLayout(document.graph, {}, rules),
     layoutEngineVersion: LAYOUT_ENGINE_VERSION,
   };

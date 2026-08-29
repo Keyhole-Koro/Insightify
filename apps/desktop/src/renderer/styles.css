@@ -1421,6 +1421,36 @@ button { color: inherit; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
+/* An area a plan authored can be pinned, so its badge is a control rather than
+   a caption. The debug layer itself does not receive pointer events. */
+.debug-area-badge.is-lockable {
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.debug-area-badge.is-lockable:hover {
+  background: rgba(10, 12, 16, 0.96);
+}
+
+.debug-area-badge.is-locked {
+  border-color: #c9ff63;
+  color: #c9ff63;
+  background: rgba(201, 255, 99, 0.16);
+}
+
+.debug-area-box:has(.debug-area-badge.is-locked) {
+  border-style: solid;
+  border-width: 1.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .debug-area-badge.is-lockable {
+    transition: none;
+  }
+}
+
 .canvas-toolbar button.active {
   border-color: #c9ff63;
   color: #c9ff63;

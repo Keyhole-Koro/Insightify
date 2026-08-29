@@ -17,9 +17,11 @@ import {
   shouldShowNodeAvatar,
 } from "./lib/flowfold-helpers.js";
 import {
+  isLayoutAreaLocked,
   patchNode,
   removeEdgeAt,
   removeNodeAndDescendants,
+  toggleLayoutAreaLock,
   upsertEdge,
 } from "./lib/graph-edits.js";
 import {
@@ -274,6 +276,12 @@ export function App() {
     view.selectNode(null);
   }
 
+  // Pinning an area is a change to the saved document, so it goes through the
+  // same edit path as any other: applied, then written back.
+  function toggleAreaLock(lock: { roomId: string | null; areaId: string }) {
+    editGraph((current) => toggleLayoutAreaLock(current, lock));
+  }
+
   function startNewEdge() {
     if (visibleNodes.length < 2) {
       reportError("Create at least two nodes in this Room before connecting them.");
@@ -464,7 +472,7 @@ export function App() {
                 >
                   {/* Visual Debug Areas with Pastel Colors */}
                   {showDebugAreas && (
-                    <div className="debug-areas-layer" aria-hidden="true">
+                    <div className="debug-areas-layer" aria-label="Layout areas">
                       {debugAreas.map((area) => (
                         <div
                           key={area.id}
@@ -478,15 +486,33 @@ export function App() {
                             borderColor: area.borderColor,
                           }}
                         >
-                          <span
-                            className="debug-area-badge"
-                            style={{
-                              color: area.textColor,
-                              borderColor: area.borderColor,
-                            }}
-                          >
-                            {area.name}
-                          </span>
+                          {area.planArea ? (
+                            <button
+                              type="button"
+                              className={`debug-area-badge is-lockable${
+                                isLayoutAreaLocked(graph, area.planArea) ? " is-locked" : ""
+                              }`}
+                              style={{ color: area.textColor, borderColor: area.borderColor }}
+                              onClick={() => toggleAreaLock(area.planArea!)}
+                              title={
+                                isLayoutAreaLocked(graph, area.planArea)
+                                  ? "固定を解除する（次のRelayoutで並び替えられる）"
+                                  : "このAreaの構成を固定し、Relayoutから守る"
+                              }
+                            >
+                              <span aria-hidden="true">
+                                {isLayoutAreaLocked(graph, area.planArea) ? "🔒" : "🔓"}
+                              </span>{" "}
+                              {area.name}
+                            </button>
+                          ) : (
+                            <span
+                              className="debug-area-badge"
+                              style={{ color: area.textColor, borderColor: area.borderColor }}
+                            >
+                              {area.name}
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>
