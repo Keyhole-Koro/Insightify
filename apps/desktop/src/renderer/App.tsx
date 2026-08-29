@@ -16,9 +16,11 @@ import type {
 } from "@insightify/desktop-bridge";
 import {
   buildPortalPreview,
+  getDebugAreasForScope,
   layoutFlowNodes,
   projectFlowToScope,
   scopeBoundaryPorts,
+  type DebugAreaBox,
   type FlowEdge,
   type FlowNode,
   type GeneratedFlowGraph,
@@ -88,6 +90,7 @@ export function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [peekNodeId, setPeekNodeId] = useState<string | null>(null);
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
+  const [showDebugAreas, setShowDebugAreas] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [dive, setDive] = useState<DiveState | null>(null);
   const [frame, setFrame] = useState({ width: 960, height: 700 });
@@ -215,6 +218,7 @@ export function App() {
   const stage = useMemo(() => stageMetrics(flowLayout, frame), [flowLayout, frame]);
   const stageZoom = zoom * stage.scale;
   const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
+  const debugAreas = useMemo(() => getDebugAreasForScope(activeScopeId), [activeScopeId]);
 
   const positionedNodes = useMemo(
     () => flowLayout.map((node) => ({ ...node, ...(graph?.layout[node.id] ?? {}) })),
@@ -732,6 +736,14 @@ export function App() {
                   >
                     ↗ Edges <span>{editableEdges.length}</span>
                   </button>
+                  <button
+                    type="button"
+                    className={showDebugAreas ? "active" : ""}
+                    onClick={() => setShowDebugAreas(!showDebugAreas)}
+                    title="再帰的エリアDSLの境界と色を表示/非表示"
+                  >
+                    🗺️ Areas {showDebugAreas ? "ON" : "OFF"}
+                  </button>
                 </div>
                 <div className="scope-label">
                   <span>ROOM</span> {scopeNode?.title ?? graph.graph.title}
@@ -784,6 +796,36 @@ export function App() {
                     } as CSSProperties
                   }
                 >
+                  {/* Visual Debug Areas with Pastel Colors */}
+                  {showDebugAreas && (
+                    <div className="debug-areas-layer" aria-hidden="true">
+                      {debugAreas.map((area) => (
+                        <div
+                          key={area.id}
+                          className="debug-area-box"
+                          style={{
+                            left: `${area.bounds.x}%`,
+                            top: `${area.bounds.y}%`,
+                            width: `${area.bounds.width}%`,
+                            height: `${area.bounds.height}%`,
+                            backgroundColor: area.backgroundColor,
+                            borderColor: area.borderColor,
+                          }}
+                        >
+                          <span
+                            className="debug-area-badge"
+                            style={{
+                              color: area.textColor,
+                              borderColor: area.borderColor,
+                            }}
+                          >
+                            {area.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <svg
                     className="edge-layer"
                     viewBox="0 0 1000 620"

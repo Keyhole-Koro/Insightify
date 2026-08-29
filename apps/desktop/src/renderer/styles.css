@@ -1286,3 +1286,50 @@ button { color: inherit; }
   color: #ffffff;
   background: #232733;
 }
+
+/* ==========================================================================
+   Visual Recursive Area DSL Debug Overlay
+   ========================================================================== */
+
+.debug-areas-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.debug-area-box {
+  position: absolute;
+  border-width: 1.5px;
+  border-style: dashed;
+  border-radius: 12px;
+  backdrop-filter: blur(2px);
+  box-sizing: border-box;
+  transition: all 180ms ease;
+  overflow: hidden;
+}
+
+.debug-area-badge {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 6px;
+  background: rgba(10, 12, 16, 0.85);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.canvas-toolbar button.active {
+  border-color: #c9ff63;
+  color: #c9ff63;
+  background: rgba(201, 255, 99, 0.12);
+}

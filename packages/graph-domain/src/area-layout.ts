@@ -41,8 +41,18 @@ export interface ResolvedArea {
   assignedNodes: FlowNode[];
 }
 
+export interface DebugAreaBox {
+  id: string;
+  name: string;
+  bounds: LayoutBounds;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  nodeCount: number;
+}
+
 /**
- * Built-in standard architectural DSL layout rules for common room types.
+ * Built-in standard architectural DSL layout rules with tight padding.
  */
 export const defaultRoomLayoutRules: RoomLayoutRule[] = [
   // 1. Root Level 3-Tier Architecture Pipeline
@@ -50,14 +60,15 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
     roomId: null,
     area: {
       id: "root-canvas",
+      name: "System Root Scope",
       direction: "row",
-      splitRatio: [28, 36, 36],
-      padding: { top: 14, right: 8, bottom: 14, left: 8 },
+      splitRatio: [26, 36, 38],
+      padding: { top: 6, right: 6, bottom: 6, left: 6 },
       subAreas: [
         // Left Column: Ingress / Frontend / Gateway
         {
           id: "tier-ingress",
-          name: "Ingress & Client",
+          name: "Ingress & Client Layer",
           direction: "column",
           match: {
             nodeIds: ["frontend-portal", "api-gateway"],
@@ -68,7 +79,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
         // Center Column: Core Coordination & Services
         {
           id: "tier-core",
-          name: "Services & Coordination",
+          name: "Services & Coordination Layer",
           direction: "column",
           match: {
             nodeIds: ["auth-guard", "workflow-engine"],
@@ -76,12 +87,12 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
             kinds: ["auth", "service", "decision", "process"],
           },
         },
-        // Right Column: Persistence, Buffering & External Cloud
+        // Right Column: Persistence & External Cloud
         {
           id: "tier-state-cloud",
-          name: "Data & Cloud Infrastructure",
+          name: "Infrastructure Layer",
           direction: "column",
-          splitRatio: [45, 55],
+          splitRatio: [44, 56],
           subAreas: [
             {
               id: "tier-data-queue",
@@ -95,8 +106,8 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
             },
             {
               id: "tier-cloud-ai",
-              name: "AI & Cloud Integrations",
-              direction: "row",
+              name: "External Cloud & AI",
+              direction: "grid",
               match: {
                 nodeIds: ["ai-synthesizer", "cloud-storage", "payment-hub", "analytics-lake"],
                 tags: ["openai", "aws", "stripe", "gcp", "azure"],
@@ -114,14 +125,15 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
     roomId: "api-gateway",
     area: {
       id: "gateway-canvas",
+      name: "API Gateway Scope",
       direction: "row",
       splitRatio: [48, 52],
-      padding: { top: 14, right: 10, bottom: 14, left: 10 },
+      padding: { top: 6, right: 6, bottom: 6, left: 6 },
       subAreas: [
         // Left Column: Core REST Endpoints stacked vertically
         {
           id: "gw-rest-endpoints",
-          name: "Core REST Endpoints",
+          name: "Core REST Endpoints Lane",
           direction: "column",
           match: {
             nodeIds: [
@@ -137,7 +149,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
         // Right Column: AI Streaming, Webhooks & GraphQL (Vertical Stack)
         {
           id: "gw-async-endpoints",
-          name: "AI, Webhooks & GraphQL",
+          name: "Async / SSE / Webhook Lane",
           direction: "column",
           match: {
             nodeIds: ["api-ai-synthesize", "api-stripe-webhook", "api-graphql"],
@@ -154,17 +166,20 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
     roomId: "workflow-engine",
     area: {
       id: "engine-canvas",
+      name: "Workflow Engine Scope",
       direction: "row",
       splitRatio: [26, 48, 26],
-      padding: { top: 18, right: 8, bottom: 18, left: 8 },
+      padding: { top: 8, right: 6, bottom: 8, left: 6 },
       subAreas: [
         {
           id: "engine-ingress",
+          name: "Dispatcher Ingress",
           direction: "column",
           match: { nodeIds: ["dispatch-service"], tags: ["dispatcher", "ingress"] },
         },
         {
           id: "engine-execution",
+          name: "Execution & Branching",
           direction: "row",
           match: {
             nodeIds: ["branch-evaluator", "k8s-runner"],
@@ -173,6 +188,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
         },
         {
           id: "engine-state",
+          name: "State Checkpoint",
           direction: "column",
           match: { nodeIds: ["state-checkpoint"], tags: ["checkpoint", "wal"] },
         },
@@ -185,17 +201,20 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
     roomId: "frontend-portal",
     area: {
       id: "frontend-canvas",
+      name: "Frontend Portal Scope",
       direction: "row",
       splitRatio: [50, 50],
-      padding: { top: 16, right: 12, bottom: 16, left: 12 },
+      padding: { top: 8, right: 8, bottom: 8, left: 8 },
       subAreas: [
         {
           id: "ui-web-lane",
+          name: "Web Apps & Editors",
           direction: "column",
           match: { nodeIds: ["web-dashboard", "canvas-editor"], tags: ["dashboard", "canvas"] },
         },
         {
           id: "ui-aux-lane",
+          name: "Mobile & Security Views",
           direction: "column",
           match: { nodeIds: ["mobile-client", "auth-modal"], tags: ["mobile", "modal"] },
         },
@@ -203,6 +222,23 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
     },
   },
 ];
+
+/**
+ * Generates deterministic pleasing pastel debug colors for an area ID.
+ */
+function getAreaColor(id: string): { bg: string; border: string; text: string } {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    bg: `hsla(${hue}, 70%, 50%, 0.12)`,
+    border: `hsla(${hue}, 80%, 65%, 0.65)`,
+    text: `hsla(${hue}, 90%, 80%, 0.95)`,
+  };
+}
 
 /**
  * Calculates specificity score for how well a node matches an area's rule.
@@ -319,6 +355,35 @@ function resolveAreaTree(
   }
 
   return leafAreas;
+}
+
+/**
+ * Returns debug bounding boxes with colors for a given Room scope.
+ */
+export function getDebugAreasForScope(
+  roomId: string | null = null,
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): DebugAreaBox[] {
+  const matchedRule =
+    rules.find((r) => r.roomId === roomId) ??
+    rules.find((r) => r.roomId === null) ??
+    defaultRoomLayoutRules[0]!;
+
+  const initialBounds: LayoutBounds = { x: 0, y: 0, width: 100, height: 100 };
+  const leafAreas = resolveAreaTree(matchedRule.area, initialBounds);
+
+  return leafAreas.map((area) => {
+    const colors = getAreaColor(area.definition.id);
+    return {
+      id: area.definition.id,
+      name: area.definition.name ?? area.definition.id,
+      bounds: area.bounds,
+      backgroundColor: colors.bg,
+      borderColor: colors.border,
+      textColor: colors.text,
+      nodeCount: area.assignedNodes.length,
+    };
+  });
 }
 
 /**
