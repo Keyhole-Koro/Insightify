@@ -504,3 +504,104 @@ function unfenceJson(text: string): string {
     ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
     : trimmed;
 }
+
+/**
+ * Projects a scope while allowing designated Room nodes to be expanded inline.
+ */
+export function projectFlowWithExpandedScopes(
+  graph: FlowGraph,
+  scopeId: string | null,
+  expandedScopeIds: Set<string> = new Set()
+): ScopeProjection {
+  const directNodes = graph.nodes.filter((node) => node.parentId === scopeId);
+  const expandedChildren: FlowNode[] = [];
+
+  for (const node of directNodes) {
+    if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+      const children = graph.nodes.filter((child) => child.parentId === node.id);
+      expandedChildren.push(...children);
+    }
+  }
+
+  const allVisibleNodes = [...directNodes, ...expandedChildren];
+  const visibleIdSet = new Set(allVisibleNodes.map((n) => n.id));
+
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const resolveTarget = (nodeId: string): string | null => {
+    if (visibleIdSet.has(nodeId)) return nodeId;
+    let cursor = byId.get(nodeId);
+    const visited = new Set<string>();
+    while (cursor && !visited.has(cursor.id)) {
+      if (visibleIdSet.has(cursor.id)) return cursor.id;
+      visited.add(cursor.id);
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
+    }
+    return null;
+  };
+
+  const projected = new Map<string, ProjectedFlowEdge>();
+  for (const edge of graph.edges) {
+    const source = resolveTarget(edge.source);
+    const target = resolveTarget(edge.target);
+    if (source === target) continue;
+    if (source === null && target === null) continue;
+
+    const key = `${source ?? "outside"}\u0000${target ?? "outside"}`;
+    const current = projected.get(key);
+    if (current) {
+      current.count += 1;
+      if (edge.label && !current.labels.includes(edge.label)) current.labels.push(edge.label);
+      continue;
+    }
+    projected.set(key, {
+      source,
+      target,
+      sourceOutsideId: source === null ? edge.source : null,
+      targetOutsideId: target === null ? edge.target : null,
+      labels: edge.label ? [edge.label] : [],
+      count: 1,
+    });
+  }
+
+  return { nodes: allVisibleNodes, edges: [...projected.values()] };
+}
+
+/**
+ * Computes positions for all visible nodes including inline-expanded sub-scope nodes.
+ */
+export function layoutFlowNodesWithExpandedScopes(
+  visibleNodes: FlowNode[],
+  scopeId: string | null = null,
+  expandedScopeIds: Set<string> = new Set(),
+  edges: FlowEdge[] = [],
+  savedLayout: GraphLayout = {}
+): PositionedFlowNode[] {
+  const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
+  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, defaultRoomLayoutRules, edges);
+  const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
+
+  const result: PositionedFlowNode[] = [];
+
+  for (const node of directNodes) {
+    const saved = savedLayout[node.id];
+    const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
+    result.push({ ...node, x: pos.x, y: pos.y });
+
+    if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+      const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
+      if (childNodes.length > 0) {
+        const childPositions = layoutNodesWithAreaDSL(childNodes, node.id, defaultRoomLayoutRules, edges);
+        for (const child of childPositions) {
+          const childSaved = savedLayout[child.id];
+          if (childSaved) {
+            result.push({ ...child, x: childSaved.x, y: childSaved.y });
+          } else {
+            result.push(child);
+          }
+        }
+      }
+    }
+  }
+
+  return result;
+}

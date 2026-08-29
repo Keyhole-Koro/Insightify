@@ -18,7 +18,9 @@ import {
   buildPortalPreview,
   getDebugAreasForScope,
   layoutFlowNodes,
+  layoutFlowNodesWithExpandedScopes,
   projectFlowToScope,
+  projectFlowWithExpandedScopes,
   scopeBoundaryPorts,
   type DebugAreaBox,
   type FlowEdge,
@@ -90,6 +92,7 @@ export function App() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [peekNodeId, setPeekNodeId] = useState<string | null>(null);
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
+  const [expandedScopeIds, setExpandedScopeIds] = useState<Set<string>>(new Set(["api-gateway"]));
   const [showDebugAreas, setShowDebugAreas] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [dive, setDive] = useState<DiveState | null>(null);
@@ -199,8 +202,8 @@ export function App() {
   const provider = providers.find((item) => item.provider === providerKind) ?? null;
   const meta = providerMeta[providerKind];
   const projection = useMemo(
-    () => (graph ? projectFlowToScope(graph.graph, activeScopeId) : null),
-    [graph, activeScopeId]
+    () => (graph ? projectFlowWithExpandedScopes(graph.graph, activeScopeId, expandedScopeIds) : null),
+    [graph, activeScopeId, expandedScopeIds]
   );
   const visibleNodes = projection?.nodes ?? emptyNodes;
   const roomEdges = useMemo(
@@ -212,8 +215,15 @@ export function App() {
     [graph, activeScopeId]
   );
   const flowLayout = useMemo(
-    () => layoutFlowNodes(visibleNodes, roomEdges.map(toFlowEdge), activeScopeId),
-    [visibleNodes, roomEdges, activeScopeId]
+    () =>
+      layoutFlowNodesWithExpandedScopes(
+        visibleNodes,
+        activeScopeId,
+        expandedScopeIds,
+        roomEdges.map(toFlowEdge),
+        graph?.layout
+      ),
+    [visibleNodes, activeScopeId, expandedScopeIds, roomEdges, graph?.layout]
   );
   const stage = useMemo(() => stageMetrics(flowLayout, frame), [flowLayout, frame]);
   const stageZoom = zoom * stage.scale;
@@ -287,6 +297,30 @@ export function App() {
     setRun(null);
     setZoom(1);
   }
+
+  const toggleScopeExpand = useCallback((roomId: string) => {
+    setExpandedScopeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+  }, []);
+
+  const expandAllRooms = useCallback(() => {
+    if (!graph) return;
+    const roomIds = graph.graph.nodes
+      .filter((n) => n.kind === "room" && (n.parentId === activeScopeId || activeScopeId === null))
+      .map((n) => n.id);
+    setExpandedScopeIds(new Set(roomIds));
+  }, [graph, activeScopeId]);
+
+  const collapseAllRooms = useCallback(() => {
+    setExpandedScopeIds(new Set());
+  }, []);
 
   function selectProject(selected: ProjectSummary) {
     projectIdRef.current = selected.id;
@@ -741,6 +775,13 @@ export function App() {
                   </button>
                   <button
                     type="button"
+                    onClick={expandedScopeIds.size > 0 ? collapseAllRooms : expandAllRooms}
+                    title={expandedScopeIds.size > 0 ? "すべてのRoomを折りたたむ" : "すべてのRoomをインライン展開"}
+                  >
+                    🚪 Rooms {expandedScopeIds.size > 0 ? `(${expandedScopeIds.size} open)` : "⊞ Expand"}
+                  </button>
+                  <button
+                    type="button"
                     className={showDebugAreas ? "active" : ""}
                     onClick={() => setShowDebugAreas(!showDebugAreas)}
                     title="再帰的エリアDSLの境界と色を表示/非表示"
@@ -879,6 +920,8 @@ export function App() {
                       selected={selectedNodeId === node.id}
                       isExpanded={expandedNodeIds.has(node.id)}
                       onToggleExpand={() => toggleNodeExpansion(node.id)}
+                      isScopeExpanded={expandedScopeIds.has(node.id)}
+                      onToggleScopeExpand={() => toggleScopeExpand(node.id)}
                       connections={connectionSides(node.id, roomEdges, boundaryPorts)}
                       onSelect={() => {
                         if (!dragRef.current) {

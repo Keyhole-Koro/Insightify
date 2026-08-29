@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyScopeExpansion, balanceFlowGraphScopes, buildPortalPreview, createDefaultGraphLayout, generatedFlowGraphSchema, layoutFlowNodes, layoutRootNodes, parseFlowGraph, parseFlowGraphExpansion, projectFlowToScope, scopeBoundaryPorts, validateScopeExpansion } from "./index.js";
+import { applyScopeExpansion, balanceFlowGraphScopes, buildPortalPreview, createDefaultGraphLayout, generatedFlowGraphSchema, layoutFlowNodes, layoutRootNodes, parseFlowGraph, parseFlowGraphExpansion, projectFlowToScope, projectFlowWithExpandedScopes, scopeBoundaryPorts, validateScopeExpansion } from "./index.js";
 
 const graph = {
   title: "System",
@@ -261,5 +261,33 @@ describe("layoutNodesWithAreaDSL", () => {
     expect(loginNode.x).toBeLessThan(streamNode.x);
     expect(loginNode.y).toBeGreaterThan(0);
     expect(loginNode.y).toBeLessThan(100);
+  });
+});
+
+describe("projectFlowWithExpandedScopes", () => {
+  it("inlines child nodes when a Room is expanded without entering it", () => {
+    const testGraph = parseFlowGraph({
+      title: "Inline expansion test",
+      summary: "Test graph",
+      nodes: [
+        { id: "root-ui", title: "Web UI", summary: "Client", kind: "ui", parentId: null, evidence: [] },
+        { id: "root-gw", title: "API Gateway", summary: "Gateway", kind: "room", parentId: null, evidence: [] },
+        { id: "child-api-1", title: "POST /auth", summary: "Auth endpoint", kind: "api", parentId: "root-gw", evidence: [] },
+        { id: "child-api-2", title: "GET /data", summary: "Data endpoint", kind: "api", parentId: "root-gw", evidence: [] },
+      ],
+      edges: [
+        { source: "root-ui", target: "child-api-1", label: "request" },
+      ],
+    });
+
+    // 1. When not expanded, only root nodes are visible
+    const collapsed = projectFlowWithExpandedScopes(testGraph, null, new Set());
+    expect(collapsed.nodes.map((n) => n.id)).toEqual(["root-ui", "root-gw"]);
+    expect(collapsed.edges[0]?.target).toBe("root-gw");
+
+    // 2. When root-gw is expanded inline, its children are visible simultaneously in root scope
+    const expanded = projectFlowWithExpandedScopes(testGraph, null, new Set(["root-gw"]));
+    expect(expanded.nodes.map((n) => n.id)).toEqual(["root-ui", "root-gw", "child-api-1", "child-api-2"]);
+    expect(expanded.edges[0]?.target).toBe("child-api-1");
   });
 });

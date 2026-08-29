@@ -12,6 +12,8 @@ interface PortalCardProps {
   selected: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  isScopeExpanded?: boolean;
+  onToggleScopeExpand?: () => void;
   connections: { input: boolean; output: boolean };
   onSelect: () => void;
   onPeek: () => void;
@@ -30,6 +32,8 @@ export function PortalCard({
   selected,
   isExpanded = false,
   onToggleExpand,
+  isScopeExpanded = false,
+  onToggleScopeExpand,
   connections,
   onSelect,
   onPeek,
@@ -40,7 +44,7 @@ export function PortalCard({
   onPointerMove,
   onPointerUp,
 }: PortalCardProps) {
-  const isPortal = preview.childCount > 0;
+  const isPortal = preview.childCount > 0 || node.kind === "room";
   const [copied, setCopied] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
@@ -54,6 +58,13 @@ export function PortalCard({
     event.stopPropagation();
     if (onToggleExpand) {
       onToggleExpand();
+    }
+  }
+
+  function handleToggleScope(event: React.MouseEvent) {
+    event.stopPropagation();
+    if (onToggleScopeExpand) {
+      onToggleScopeExpand();
     }
   }
 
@@ -96,8 +107,8 @@ export function PortalCard({
       className={`flow-node shape-${avatarShape} kind-${node.kind} status-${status}${
         selected ? " selected" : ""
       }${isExpanded ? " is-expanded" : " is-compact"}${isPortal ? " is-portal" : ""}${
-        tech ? ` tech-${tech.toLowerCase()}` : ""
-      }`}
+        isScopeExpanded ? " is-scope-expanded" : ""
+      }${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}
@@ -139,6 +150,16 @@ export function PortalCard({
         <div className="node-compact-pill" onClick={handleToggle} title="クリックで詳細を展開">
           <span className="compact-kind-tag">{tech || node.kind}</span>
           <span className="compact-title">{node.title}</span>
+          {isPortal && onToggleScopeExpand && (
+            <button
+              className={`pill-scope-expand-btn ${isScopeExpanded ? "active" : ""}`}
+              onClick={handleToggleScope}
+              title={isScopeExpanded ? "内部ノードを折りたたむ" : "今いる画面で内部ノードを展開"}
+              type="button"
+            >
+              {isScopeExpanded ? "⊟ Fold" : "⊞ Inside"}
+            </button>
+          )}
           <span className="compact-toggle-icon" title="詳細を開く">▾</span>
         </div>
       )}
@@ -150,6 +171,16 @@ export function PortalCard({
           <div className="plate-header">
             <span className="plate-kind-badge">{tech || node.kind}</span>
             <div className="plate-header-actions">
+              {isPortal && onToggleScopeExpand && (
+                <button
+                  className={`plate-scope-toggle-btn ${isScopeExpanded ? "active" : ""}`}
+                  onClick={handleToggleScope}
+                  title={isScopeExpanded ? "内部ノードを折りたたむ" : "内部ノードを展開"}
+                  type="button"
+                >
+                  {isScopeExpanded ? "⊟ Fold Inside" : "⊞ Expand Inside"}
+                </button>
+              )}
               <button
                 className={`plate-copy-btn ${copied ? "copied" : ""}`}
                 onClick={handleCopy}
