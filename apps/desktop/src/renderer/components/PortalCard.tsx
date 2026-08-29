@@ -38,7 +38,7 @@ export function PortalCard({
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0;
   const [copied, setCopied] = useState(false);
-  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
+  const [isManuallyClosed, setIsManuallyClosed] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -47,15 +47,17 @@ export function PortalCard({
       /aws|gcp|azure|docker|k8s|kubernetes|postgres|redis|openai|stripe|github|react|graphql|rest/i.test(t)
     );
 
-  // If manually overridden, use that; otherwise open on selected or when in deep implementation LOD
-  const isExpanded =
-    expandedOverride !== null
-      ? expandedOverride
-      : selected || lod === "implementation";
+  // Default is always closed. Only the actively selected node expands (unless manually closed)
+  const isExpanded = selected && !isManuallyClosed;
 
   function toggleExpand(event: React.MouseEvent) {
     event.stopPropagation();
-    setExpandedOverride(!isExpanded);
+    if (isExpanded) {
+      setIsManuallyClosed(true);
+    } else {
+      setIsManuallyClosed(false);
+      onSelect();
+    }
   }
 
   async function handleCopy(event: React.MouseEvent) {
@@ -103,11 +105,8 @@ export function PortalCard({
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}
       onClick={() => {
+        setIsManuallyClosed(false);
         onSelect();
-        // If clicking on compact node, automatically expand it
-        if (!isExpanded) {
-          setExpandedOverride(true);
-        }
       }}
       onDoubleClick={onEnter}
       onKeyDown={(event) => {
