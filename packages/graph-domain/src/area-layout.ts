@@ -328,6 +328,7 @@ function resolveAreaTree(
 
     let subBounds: LayoutBounds;
     if (direction === "row") {
+      // Split horizontally
       const subWidth = +(currentBounds.width * proportion).toFixed(1);
       const subX = +(currentBounds.x + accumulated).toFixed(1);
       accumulated += subWidth;
@@ -338,6 +339,7 @@ function resolveAreaTree(
         height: currentBounds.height,
       };
     } else {
+      // Split vertically
       const subHeight = +(currentBounds.height * proportion).toFixed(1);
       const subY = +(currentBounds.y + accumulated).toFixed(1);
       accumulated += subHeight;
@@ -409,13 +411,13 @@ export function getDebugAreasForScope(
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
 
-        // Tight Content-Fit with 6% horizontal and 7% vertical padding around nodes
-        const padX = 6.5;
-        const padY = 7.5;
-        const fitX = +(Math.max(2, minX - padX)).toFixed(1);
-        const fitY = +(Math.max(2, minY - padY)).toFixed(1);
-        const fitW = +(Math.max(14, maxX - minX + padX * 2)).toFixed(1);
-        const fitH = +(Math.max(16, maxY - minY + padY * 2)).toFixed(1);
+        // Ultra-tight Content-Fit with 4.8% horizontal and 5.0% vertical padding
+        const padX = 4.8;
+        const padY = 5.0;
+        const fitX = +(Math.max(1, minX - padX)).toFixed(1);
+        const fitY = +(Math.max(1, minY - padY)).toFixed(1);
+        const fitW = +(Math.max(10, maxX - minX + padX * 2)).toFixed(1);
+        const fitH = +(Math.max(10, maxY - minY + padY * 2)).toFixed(1);
 
         bounds = {
           x: fitX,
@@ -510,11 +512,11 @@ export function layoutNodesWithAreaDSL(
     const dir = area.definition.direction ?? "column";
 
     if (dir === "column") {
-      // Tight vertical stack
+      // Tight vertical stack with controlled 11.5% pitch
       const centerX = +(ax + aw / 2).toFixed(1);
       const n = areaNodes.length;
-      // Controlled pitch: 18% to 22% max spacing per node to eliminate sparse vertical gaps
-      const totalSpanY = Math.min(ah * 0.88, Math.max(18, (n - 1) * 20));
+      const pitchY = 11.5;
+      const totalSpanY = Math.min(ah * 0.90, (n - 1) * pitchY);
       const startY = +(ay + (ah - totalSpanY) / 2).toFixed(1);
 
       areaNodes.forEach((node, idx) => {
@@ -525,10 +527,11 @@ export function layoutNodesWithAreaDSL(
         result.push({ ...node, x: centerX, y });
       });
     } else if (dir === "row") {
-      // Tight horizontal row
+      // Tight horizontal row with controlled 14.0% pitch
       const centerY = +(ay + ah / 2).toFixed(1);
       const n = areaNodes.length;
-      const totalSpanX = Math.min(aw * 0.88, Math.max(20, (n - 1) * 22));
+      const pitchX = 14.0;
+      const totalSpanX = Math.min(aw * 0.90, (n - 1) * pitchX);
       const startX = +(ax + (aw - totalSpanX) / 2).toFixed(1);
 
       areaNodes.forEach((node, idx) => {
@@ -539,11 +542,13 @@ export function layoutNodesWithAreaDSL(
         result.push({ ...node, x, y: centerY });
       });
     } else {
-      // Tight grid
+      // Tight grid with controlled 13.5% X pitch and 11.5% Y pitch
       const cols = Math.ceil(Math.sqrt(areaNodes.length));
       const rows = Math.ceil(areaNodes.length / cols);
-      const spanX = Math.min(aw * 0.88, Math.max(20, (cols - 1) * 22));
-      const spanY = Math.min(ah * 0.88, Math.max(18, (rows - 1) * 20));
+      const pitchX = 13.5;
+      const pitchY = 11.5;
+      const spanX = Math.min(aw * 0.90, (cols - 1) * pitchX);
+      const spanY = Math.min(ah * 0.90, (rows - 1) * pitchY);
       const startX = +(ax + (aw - spanX) / 2).toFixed(1);
       const startY = +(ay + (ah - spanY) / 2).toFixed(1);
 

@@ -365,27 +365,27 @@ function computeSeededLayout(nodes) {
   layout["analytics-lake"] = { x: 86.0, y: 84.0 };
 
   // 2. API Gateway Room (Left Vertical Core REST Lane + Right Async/Stream Lane)
-  // Left: Core REST Endpoints stacked vertically
-  layout["api-auth-login"] = { x: 26.0, y: 20.0 };
-  layout["api-workflows-create"] = { x: 26.0, y: 40.0 };
-  layout["api-workflows-get"] = { x: 26.0, y: 60.0 };
-  layout["api-workflows-run"] = { x: 26.0, y: 80.0 };
-  // Right: AI Stream, Webhooks, GraphQL
-  layout["api-ai-synthesize"] = { x: 74.0, y: 25.0 };
-  layout["api-stripe-webhook"] = { x: 74.0, y: 52.0 };
-  layout["api-graphql"] = { x: 74.0, y: 78.0 };
+  // Left: Core REST Endpoints stacked vertically (11.5% pitch)
+  layout["api-auth-login"] = { x: 26.0, y: 32.0 };
+  layout["api-workflows-create"] = { x: 26.0, y: 44.0 };
+  layout["api-workflows-get"] = { x: 26.0, y: 56.0 };
+  layout["api-workflows-run"] = { x: 26.0, y: 68.0 };
+  // Right: AI Stream, Webhooks, GraphQL (12% pitch)
+  layout["api-ai-synthesize"] = { x: 74.0, y: 38.0 };
+  layout["api-stripe-webhook"] = { x: 74.0, y: 50.0 };
+  layout["api-graphql"] = { x: 74.0, y: 62.0 };
 
-  // 3. Workflow Engine Room (Horizontal Pipeline)
-  layout["dispatch-service"] = { x: 20.0, y: 50.0 };
-  layout["branch-evaluator"] = { x: 45.0, y: 50.0 };
-  layout["k8s-runner"] = { x: 65.0, y: 50.0 };
-  layout["state-checkpoint"] = { x: 85.0, y: 50.0 };
+  // 3. Workflow Engine Room (Horizontal Pipeline, 14% pitch)
+  layout["dispatch-service"] = { x: 28.0, y: 50.0 };
+  layout["branch-evaluator"] = { x: 42.0, y: 50.0 };
+  layout["k8s-runner"] = { x: 56.0, y: 50.0 };
+  layout["state-checkpoint"] = { x: 72.0, y: 50.0 };
 
-  // 4. Frontend Portal Room (2-Column Grid)
-  layout["web-dashboard"] = { x: 30.0, y: 32.0 };
-  layout["canvas-editor"] = { x: 30.0, y: 68.0 };
-  layout["mobile-client"] = { x: 70.0, y: 32.0 };
-  layout["auth-modal"] = { x: 70.0, y: 68.0 };
+  // 4. Frontend Portal Room (2-Column Grid, 14% X, 12% Y pitch)
+  layout["web-dashboard"] = { x: 36.0, y: 42.0 };
+  layout["canvas-editor"] = { x: 36.0, y: 58.0 };
+  layout["mobile-client"] = { x: 64.0, y: 42.0 };
+  layout["auth-modal"] = { x: 64.0, y: 58.0 };
 
   return layout;
 }
