@@ -1165,3 +1165,119 @@ button { color: inherit; }
   border-color: #c9ff63;
   background: #3e5321;
 }
+
+/* ==========================================================================
+   Compact Pill & Click-to-Expand Interaction
+   ========================================================================== */
+
+.flow-node.is-compact {
+  width: auto;
+  min-width: 120px;
+  max-width: 190px;
+}
+
+.flow-node.is-compact .node-avatar-container {
+  margin-bottom: -10px;
+}
+
+.flow-node.is-compact .card-port {
+  top: 50%;
+}
+
+/* Compact Pill */
+.node-compact-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 4px 6px;
+  border: 1px solid #2f3442;
+  border-radius: 20px;
+  background: rgba(18, 20, 26, 0.95);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+.flow-node:hover .node-compact-pill {
+  border-color: #555d73;
+  background: rgba(24, 27, 36, 0.98);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.flow-node.selected .node-compact-pill {
+  border-color: #c9ff63;
+  box-shadow: 0 0 0 1px #c9ff63, 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
+.compact-kind-tag {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid #363c4d;
+  border-radius: 4px;
+  color: #9299ab;
+  background: #141620;
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.compact-title {
+  color: #edf0f5;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 95px;
+}
+
+.compact-toggle-icon {
+  color: #6c7385;
+  font-size: 10px;
+  transition: transform 140ms ease, color 140ms ease;
+}
+.node-compact-pill:hover .compact-toggle-icon {
+  color: #c9ff63;
+  transform: translateY(1px);
+}
+
+/* Expanded Plate Animation */
+.flow-node.is-expanded {
+  width: 240px;
+}
+
+.flow-node.is-expanded .node-detail-plate {
+  animation: expand-plate 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+
+@keyframes expand-plate {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.plate-collapse-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #2c303c;
+  border-radius: 5px;
+  color: #8b909e;
+  background: #15171f;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 120ms ease;
+}
+.plate-collapse-btn:hover {
+  border-color: #525a70;
+  color: #ffffff;
+  background: #232733;
+}

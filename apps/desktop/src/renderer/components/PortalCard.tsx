@@ -38,6 +38,7 @@ export function PortalCard({
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0;
   const [copied, setCopied] = useState(false);
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -45,6 +46,17 @@ export function PortalCard({
     node.tags?.find((t) =>
       /aws|gcp|azure|docker|k8s|kubernetes|postgres|redis|openai|stripe|github|react|graphql|rest/i.test(t)
     );
+
+  // If manually overridden, use that; otherwise open on selected or when in deep implementation LOD
+  const isExpanded =
+    expandedOverride !== null
+      ? expandedOverride
+      : selected || lod === "implementation";
+
+  function toggleExpand(event: React.MouseEvent) {
+    event.stopPropagation();
+    setExpandedOverride(!isExpanded);
+  }
 
   async function handleCopy(event: React.MouseEvent) {
     event.stopPropagation();
@@ -65,7 +77,7 @@ export function PortalCard({
     }
   }
 
-  // Determine geometric avatar shape based on kind & tech
+  // Geometric avatar shape
   const avatarShape = (() => {
     if (node.kind === "database" || node.kind === "data") return "cylinder";
     if (node.kind === "decision") return "diamond";
@@ -84,11 +96,19 @@ export function PortalCard({
       }`}
       className={`flow-node shape-${avatarShape} kind-${node.kind} status-${status}${
         selected ? " selected" : ""
-      }${isPortal ? " is-portal" : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
+      }${isExpanded ? " is-expanded" : " is-compact"}${isPortal ? " is-portal" : ""}${
+        tech ? ` tech-${tech.toLowerCase()}` : ""
+      }`}
       role="button"
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}
-      onClick={onSelect}
+      onClick={() => {
+        onSelect();
+        // If clicking on compact node, automatically expand it
+        if (!isExpanded) {
+          setExpandedOverride(true);
+        }
+      }}
       onDoubleClick={onEnter}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
@@ -101,7 +121,7 @@ export function PortalCard({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* Wiring Ports on outer container */}
+      {/* Wiring Ports */}
       <span
         className={connections.input ? "card-port in connected" : "card-port in"}
         aria-hidden="true"
@@ -112,73 +132,90 @@ export function PortalCard({
       />
 
       {/* TOP AVATAR / ICONIC SHAPE */}
-      <div className="node-avatar-container">
+      <div className="node-avatar-container" onClick={toggleExpand} title="クリックで詳細を開閉">
         <div className={`node-avatar shape-${avatarShape}`}>
-          <NodeIcon kind={node.kind} technology={tech} size={24} />
+          <NodeIcon kind={node.kind} technology={tech} size={22} />
           <span className={`node-status-orb status-${status}`} title={`Status: ${status}`} />
         </div>
       </div>
 
-      {/* BOTTOM DETAIL RECTANGLE PLATE */}
-      <div className="node-detail-plate">
-        {/* Plate Header */}
-        <div className="plate-header">
-          <span className="plate-kind-badge">{tech || node.kind}</span>
-          <div className="plate-header-actions">
-            <button
-              className={`plate-copy-btn ${copied ? "copied" : ""}`}
-              onClick={handleCopy}
-              title="ノード情報をコピー"
-              type="button"
-            >
-              {copied ? "✓" : "📋"}
-            </button>
-          </div>
+      {/* COMPACT PILL (Visible when collapsed) */}
+      {!isExpanded && (
+        <div className="node-compact-pill" onClick={toggleExpand}>
+          <span className="compact-kind-tag">{tech || node.kind}</span>
+          <span className="compact-title">{node.title}</span>
+          <span className="compact-toggle-icon" title="詳細を開く">▾</span>
         </div>
+      )}
 
-        {/* Title */}
-        <h3 className="plate-title">{node.title}</h3>
-
-        {/* Tags (visible in flow and implementation LOD) */}
-        {node.tags && node.tags.length > 0 && lod !== "structure" && (
-          <div className="plate-tags">
-            {node.tags.map((tag) => (
-              <span key={tag} className="portal-tag">
-                #{tag}
-              </span>
-            ))}
+      {/* EXPANDED DETAIL RECTANGLE PLATE (Visible when expanded) */}
+      {isExpanded && (
+        <div className="node-detail-plate">
+          {/* Plate Header */}
+          <div className="plate-header">
+            <span className="plate-kind-badge">{tech || node.kind}</span>
+            <div className="plate-header-actions">
+              <button
+                className={`plate-copy-btn ${copied ? "copied" : ""}`}
+                onClick={handleCopy}
+                title="ノード情報をコピー"
+                type="button"
+              >
+                {copied ? "✓" : "📋"}
+              </button>
+              <button
+                className="plate-collapse-btn"
+                onClick={toggleExpand}
+                title="折りたたむ"
+                type="button"
+              >
+                ▴
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* Summary */}
-        {lod !== "structure" && <p className="plate-summary">{node.summary}</p>}
+          {/* Title */}
+          <h3 className="plate-title">{node.title}</h3>
 
-        {/* Code Snippet in Implementation LOD */}
-        {lod === "implementation" && node.codeSnippet && (
-          <div className="plate-code-block">
-            <code>{node.codeSnippet}</code>
-          </div>
-        )}
+          {/* Tags */}
+          {node.tags && node.tags.length > 0 && (
+            <div className="plate-tags">
+              {node.tags.map((tag) => (
+                <span key={tag} className="portal-tag">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
 
-        {/* Nested Portal Fold */}
-        {isPortal && <PortalFold preview={preview} lod={lod} />}
+          {/* Summary */}
+          <p className="plate-summary">{node.summary}</p>
 
-        {/* Evidence file path in Implementation LOD */}
-        {lod === "implementation" && node.evidence.length > 0 && (
-          <div
-            className="plate-evidence"
-            title="クリックしてパスをコピー"
-            onClick={async (e) => {
-              e.stopPropagation();
-              await copyToClipboard(node.evidence[0] ?? "");
-            }}
-          >
-            📄 {node.evidence[0]}
-          </div>
-        )}
+          {/* Code Snippet */}
+          {node.codeSnippet && (
+            <div className="plate-code-block">
+              <code>{node.codeSnippet}</code>
+            </div>
+          )}
 
-        {/* Plate Footer */}
-        {lod !== "structure" && (
+          {/* Nested Portal Fold */}
+          {isPortal && <PortalFold preview={preview} lod={lod} />}
+
+          {/* Evidence file path */}
+          {node.evidence.length > 0 && (
+            <div
+              className="plate-evidence"
+              title="クリックしてパスをコピー"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await copyToClipboard(node.evidence[0] ?? "");
+              }}
+            >
+              📄 {node.evidence[0]}
+            </div>
+          )}
+
+          {/* Plate Footer */}
           <div className="plate-footer">
             <span className="plate-inner-count">
               {isPortal
@@ -229,8 +266,8 @@ export function PortalCard({
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </article>
   );
 }
