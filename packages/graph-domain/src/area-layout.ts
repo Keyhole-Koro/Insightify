@@ -52,6 +52,13 @@ export interface DebugAreaBox {
   nodeCount: number;
 }
 
+export interface ExpandedRoomFrame {
+  roomId: string;
+  title: string;
+  bounds: LayoutBounds;
+  childCount: number;
+}
+
 /**
  * Built-in standard architectural DSL layout rules.
  */
@@ -63,7 +70,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
       id: "root-canvas",
       name: "System Root Scope",
       direction: "row",
-      splitRatio: [26, 36, 38],
+      splitRatio: [30, 34, 36],
       padding: { top: 6, right: 6, bottom: 6, left: 6 },
       subAreas: [
         // Left Column: Ingress / Frontend / Gateway
@@ -134,7 +141,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
         // Left Column: Core REST Endpoints stacked vertically
         {
           id: "gw-rest-endpoints",
-          name: "Core REST Endpoints Lane",
+          name: "REST Lane",
           direction: "column",
           match: {
             nodeIds: [
@@ -150,7 +157,7 @@ export const defaultRoomLayoutRules: RoomLayoutRule[] = [
         // Right Column: AI Streaming, Webhooks & GraphQL (Vertical Stack)
         {
           id: "gw-async-endpoints",
-          name: "Async / SSE / Webhook Lane",
+          name: "Async / Webhook Lane",
           direction: "column",
           match: {
             nodeIds: ["api-ai-synthesize", "api-stripe-webhook", "api-graphql"],

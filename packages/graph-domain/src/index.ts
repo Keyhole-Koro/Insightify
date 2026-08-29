@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defaultRoomLayoutRules, layoutNodesWithAreaDSL } from "./area-layout.js";
+import { defaultRoomLayoutRules, layoutNodesWithAreaDSL, type ExpandedRoomFrame } from "./area-layout.js";
 
 export * from "./area-layout.js";
 
@@ -567,7 +567,52 @@ export function projectFlowWithExpandedScopes(
 }
 
 /**
- * Computes positions for all visible nodes including inline-expanded sub-scope nodes.
+ * Computes bounding frame boxes for all inline-expanded Room nodes.
+ */
+export function getExpandedRoomFrames(
+  visibleNodes: FlowNode[],
+  scopeId: string | null = null,
+  expandedScopeIds: Set<string> = new Set(),
+  edges: FlowEdge[] = [],
+  savedLayout: GraphLayout = {}
+): ExpandedRoomFrame[] {
+  const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
+  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, defaultRoomLayoutRules, edges);
+  const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
+
+  const frames: ExpandedRoomFrame[] = [];
+
+  for (const node of directNodes) {
+    if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+      const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
+      const saved = savedLayout[node.id];
+      const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
+
+      // Determine compact frame size based on child count
+      const isMultiLane = childNodes.length > 3;
+      const frameWidth = isMultiLane ? 28.0 : 18.0;
+      const maxRows = isMultiLane ? Math.ceil(childNodes.length / 2) : childNodes.length;
+      const frameHeight = Math.max(18.0, 8.0 + maxRows * 5.0);
+
+      frames.push({
+        roomId: node.id,
+        title: node.title,
+        bounds: {
+          x: +(Math.max(1, pos.x - frameWidth / 2)).toFixed(1),
+          y: +(Math.max(2, pos.y - frameHeight / 2)).toFixed(1),
+          width: frameWidth,
+          height: frameHeight,
+        },
+        childCount: childNodes.length,
+      });
+    }
+  }
+
+  return frames;
+}
+
+/**
+ * Computes positions for all visible nodes using compact local frame projections for inline-expanded scopes.
  */
 export function layoutFlowNodesWithExpandedScopes(
   visibleNodes: FlowNode[],
@@ -580,26 +625,44 @@ export function layoutFlowNodesWithExpandedScopes(
   const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, defaultRoomLayoutRules, edges);
   const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
 
+  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout);
+  const frameMap = new Map(frames.map((f) => [f.roomId, f]));
+
   const result: PositionedFlowNode[] = [];
 
+  // 1. Position direct scope nodes
   for (const node of directNodes) {
     const saved = savedLayout[node.id];
     const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
-    result.push({ ...node, x: pos.x, y: pos.y });
 
     if (node.kind === "room" && expandedScopeIds.has(node.id)) {
+      const frame = frameMap.get(node.id)!;
+      // Position the room node header at the top of the frame
+      result.push({
+        ...node,
+        x: +(frame.bounds.x + frame.bounds.width / 2).toFixed(1),
+        y: +(frame.bounds.y + 4.2).toFixed(1),
+      });
+
+      // 2. Position child nodes inside the room frame using local area DSL
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       if (childNodes.length > 0) {
-        const childPositions = layoutNodesWithAreaDSL(childNodes, node.id, defaultRoomLayoutRules, edges);
-        for (const child of childPositions) {
-          const childSaved = savedLayout[child.id];
-          if (childSaved) {
-            result.push({ ...child, x: childSaved.x, y: childSaved.y });
-          } else {
-            result.push(child);
-          }
+        const localRelPositions = layoutNodesWithAreaDSL(childNodes, node.id, defaultRoomLayoutRules, edges);
+        const padTop = 8.5;
+        const padBottom = 3.0;
+        const padLeft = 3.5;
+        const padRight = 3.5;
+        const innerW = frame.bounds.width - padLeft - padRight;
+        const innerH = frame.bounds.height - padTop - padBottom;
+
+        for (const child of localRelPositions) {
+          const childX = +(frame.bounds.x + padLeft + (child.x * innerW) / 100).toFixed(1);
+          const childY = +(frame.bounds.y + padTop + (child.y * innerH) / 100).toFixed(1);
+          result.push({ ...child, x: childX, y: childY });
         }
       }
+    } else {
+      result.push({ ...node, x: pos.x, y: pos.y });
     }
   }
 

@@ -17,12 +17,14 @@ import type {
 import {
   buildPortalPreview,
   getDebugAreasForScope,
+  getExpandedRoomFrames,
   layoutFlowNodes,
   layoutFlowNodesWithExpandedScopes,
   projectFlowToScope,
   projectFlowWithExpandedScopes,
   scopeBoundaryPorts,
   type DebugAreaBox,
+  type ExpandedRoomFrame,
   type FlowEdge,
   type FlowNode,
   type GeneratedFlowGraph,
@@ -231,6 +233,17 @@ export function App() {
   const debugAreas = useMemo(
     () => getDebugAreasForScope(activeScopeId, visibleNodes),
     [activeScopeId, visibleNodes]
+  );
+  const roomFrames = useMemo(
+    () =>
+      getExpandedRoomFrames(
+        visibleNodes,
+        activeScopeId,
+        expandedScopeIds,
+        roomEdges.map(toFlowEdge),
+        graph?.layout
+      ),
+    [visibleNodes, activeScopeId, expandedScopeIds, roomEdges, graph?.layout]
   );
 
   const positionedNodes = useMemo(
@@ -869,6 +882,37 @@ export function App() {
                       ))}
                     </div>
                   )}
+
+                  {/* Visual Expanded Room Container Frames */}
+                  {roomFrames.map((frame) => (
+                    <div
+                      key={`room-frame-${frame.roomId}`}
+                      className="expanded-room-frame"
+                      style={{
+                        left: `${frame.bounds.x}%`,
+                        top: `${frame.bounds.y}%`,
+                        width: `${frame.bounds.width}%`,
+                        height: `${frame.bounds.height}%`,
+                      }}
+                    >
+                      <div className="room-frame-header">
+                        <span className="room-frame-badge">ROOM</span>
+                        <span className="room-frame-title">{frame.title}</span>
+                        <span className="room-frame-count">{frame.childCount} nodes</span>
+                        <button
+                          type="button"
+                          className="room-frame-fold-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleScopeExpand(frame.roomId);
+                          }}
+                          title="内部ノードを折りたたむ"
+                        >
+                          ⊟ Fold
+                        </button>
+                      </div>
+                    </div>
+                  ))}
 
                   <svg
                     className="edge-layer"
