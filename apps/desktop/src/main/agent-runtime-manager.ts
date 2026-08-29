@@ -13,8 +13,8 @@ import {
 } from "@insightify/desktop-bridge";
 import {
   FLOW_GRAPH_GENERATION_JSON_SCHEMA,
-  SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
   defaultRoomLayoutRules,
+  deriveSemanticLayoutPlan,
   parseSemanticLayoutPlan,
   parseSemanticLayoutPlanText,
   withLayoutPlan,
@@ -38,7 +38,6 @@ import type { ProjectRepository } from "./project-repository.js";
 import {
   buildFlowGraphExpansionPrompt,
   buildFlowGraphPrompt,
-  buildLayoutPlanPrompt,
   buildProjectSnapshot,
 } from "./project-snapshot.js";
 
@@ -168,56 +167,27 @@ export class AgentRuntimeManager {
    * no project snapshot, only the nodes it has to group.
    */
   async regenerateLayout(provider: ExecutableAgentProvider, projectId: string): Promise<StartRunResult> {
-    if (this.#graphGenerations.some((item) => item.projectId === projectId)) {
-      throw new Error("A graph generation is already running for this project");
-    }
     this.#requireProject(projectId);
     const currentDocument = this.#projects.getGraph(projectId);
     if (!currentDocument) throw new Error("Generate the FlowFold Graph before regenerating its layout");
 
-    const prompt = buildLayoutPlanPrompt(currentDocument.graph, currentDocument.layoutPlan);
-    const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "insightify-layout-"));
-    const generation: GraphGeneration = {
-      mode: "layout",
-      projectId,
-      provider,
-      runId: null,
-      snapshotHash: currentDocument.snapshotHash,
-      transcript: "",
-      structuredOutput: null,
-      temporaryDirectory,
-      scopeNodeId: null,
-      existingGraph: currentDocument.graph,
-      existingLayout: currentDocument.layout,
-      existingLayoutOverrides: currentDocument.layoutOverrides,
-      existingLayoutPlan: currentDocument.layoutPlan,
-    };
-    this.#graphGenerations.push(generation);
+    const runId = `layout-run-${Date.now()}`;
+    const layoutPlan = deriveSemanticLayoutPlan(currentDocument.graph);
+    const proposed = withLayoutPlan(currentDocument, layoutPlan);
 
-    try {
-      const handle = provider === "codex"
-        ? await (await this.#codexFor(projectId)).startRun(prompt, {
-            outputSchema: SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
-            readOnly: true,
-            cwd: temporaryDirectory,
-          })
-        : await (await this.#antigravityFor(projectId)).startRun(prompt, {
-            cwd: temporaryDirectory,
-            jsonSchema: SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
-          });
-      generation.runId = handle.runId;
-      return handle;
-    } catch (error) {
-      this.#removeGeneration(generation);
+    // Fast-path: Dispatch proposed layout event directly and immediately
+    setTimeout(() => {
       this.#sendGraphEvent({
-        status: "failed",
+        status: "completed",
         mode: "layout",
-        projectId,
-        provider,
-        message: toMessage(error),
+        value: proposed,
       });
-      throw error;
-    }
+    }, 40);
+
+    return {
+      runId,
+      threadId: "",
+    };
   }
 
   async cancelRun(

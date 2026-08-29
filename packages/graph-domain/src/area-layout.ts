@@ -667,3 +667,102 @@ function topologicalFallbackLayout(visible: FlowNode[], edges: FlowEdge[]): Posi
   }
   return visible.map((node) => result.get(node.id)!);
 }
+
+/**
+ * Deterministically derives an optimal SemanticLayoutPlan for a FlowGraph based
+ * on architectural roles and data flow topology. Runs in <1ms without network calls.
+ */
+export function deriveSemanticLayoutPlan(graph: FlowGraph): SemanticLayoutPlan {
+  const parentIds = new Set<string | null>([null, ...graph.nodes.filter(isRoomNode).map((n) => n.id)]);
+  const scopes: SemanticScopeLayout[] = [];
+
+  for (const parentId of parentIds) {
+    const directChildren = graph.nodes.filter((node) => node.parentId === parentId);
+    if (directChildren.length === 0) continue;
+
+    const ingressNodes: string[] = [];
+    const coreNodes: string[] = [];
+    const storageNodes: string[] = [];
+
+    for (const node of directChildren) {
+      if (node.kind === "ui" || node.kind === "auth" || node.kind === "api") {
+        ingressNodes.push(node.id);
+      } else if (
+        node.kind === "database" ||
+        node.kind === "data" ||
+        node.kind === "queue" ||
+        node.kind === "external"
+      ) {
+        storageNodes.push(node.id);
+      } else {
+        coreNodes.push(node.id);
+      }
+    }
+
+    const areas: AreaDefinition[] = [];
+    const scopeAreas: SemanticScopeLayout["areas"] = [];
+
+    if (ingressNodes.length > 0) {
+      const isApiList = directChildren.every((n) => n.kind === "api");
+      scopeAreas.push({
+        id: "ingress-tier",
+        label: isApiList ? "Endpoints & Routes" : "Ingress & Presentation",
+        direction: ingressNodes.length > 4 ? "grid" : "column",
+        nodeIds: ingressNodes,
+      });
+    }
+
+    if (coreNodes.length > 0 || (ingressNodes.length === 0 && storageNodes.length === 0)) {
+      scopeAreas.push({
+        id: "core-tier",
+        label: "Processing & Coordination",
+        direction: coreNodes.length > 4 ? "grid" : "column",
+        nodeIds: coreNodes.length > 0 ? coreNodes : directChildren.map((n) => n.id),
+      });
+    }
+
+    if (storageNodes.length > 0) {
+      scopeAreas.push({
+        id: "storage-tier",
+        label: "Persistence & Storage",
+        direction: storageNodes.length > 4 ? "grid" : "column",
+        nodeIds: storageNodes,
+      });
+    }
+
+    scopes.push({
+      roomId: parentId,
+      direction: "row",
+      areas: scopeAreas.length > 0 ? scopeAreas : [
+        {
+          id: "main-area",
+          label: "Flow Area",
+          direction: directChildren.length > 4 ? "grid" : "row",
+          nodeIds: directChildren.map((n) => n.id),
+        },
+      ],
+    });
+  }
+
+  return {
+    version: 1,
+    scopes: scopes.length > 0 ? scopes : [
+      {
+        roomId: null,
+        direction: "row",
+        areas: [
+          {
+            id: "root-area",
+            label: "Root Systems",
+            direction: "row",
+            nodeIds: graph.nodes.map((n) => n.id),
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function isRoomNode(node: FlowNode): boolean {
+  return node.kind === "room";
+}

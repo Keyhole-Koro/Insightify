@@ -29,14 +29,30 @@ export const ROW_PITCH = 82;
 
 export type StageMetrics = { width: number; height: number; scale: number };
 type StageNode = { x: number; y: number; width?: number; height?: number };
+// Only the parts of a Room frame the stage has to be big enough for.
+type StageFrame = {
+  bounds: { width: number; height: number };
+  columns: number;
+  rows: number;
+};
+
+// A compact pill inside an unfolded Room, and the gap it needs from the next.
+export const NESTED_PITCH_X = 162;
+export const NESTED_PITCH_Y = 66;
 
 // layoutFlowNodes keeps the outermost column at 15% of the stage, so the stage
 // must be wide enough for half a card to fit inside that margin.
 const MINIMUM_STAGE_WIDTH = PORTAL_CARD_WIDTH / 0.3;
 
-export function stageMetrics(nodes: StageNode[], frame: { width: number; height: number }): StageMetrics {
+export function stageMetrics(
+  nodes: StageNode[],
+  frame: { width: number; height: number },
+  roomFrames: StageFrame[] = []
+): StageMetrics {
   const inner = { width: Math.max(320, frame.width - 96), height: Math.max(240, frame.height - 96) };
-  if (nodes.length === 0) return { width: inner.width, height: inner.height, scale: 1 };
+  if (nodes.length === 0 && roomFrames.length === 0) {
+    return { width: inner.width, height: inner.height, scale: 1 };
+  }
   // Count only nodes that actually share a visual row/column. Counting every
   // distinct percentage as a new row made staggered two-lane Rooms several
   // screens tall even though each lane contained only a few compact cards.
@@ -61,6 +77,20 @@ export function stageMetrics(nodes: StageNode[], frame: { width: number; height:
       }
     }
   }
+  // An unfolded Room is sized as a share of the stage, so the stage has to be
+  // large enough for that share to hold the pills inside it. Measuring the
+  // frame rather than its children keeps their deliberately tight pitch from
+  // being read as the gap between two ordinary cards, which would demand a
+  // stage several screens tall and shrink everything else to pay for it.
+  for (const room of roomFrames) {
+    if (room.bounds.width > 0) {
+      width = Math.max(width, (room.columns * NESTED_PITCH_X * 100) / room.bounds.width);
+    }
+    if (room.bounds.height > 0) {
+      height = Math.max(height, (room.rows * NESTED_PITCH_Y * 100) / room.bounds.height);
+    }
+  }
+
   // A Room that needs less space than the frame is shown larger, so a short
   // flow gains detail instead of leaving the canvas empty.
   const scale = Math.min(1.35, Math.max(0.3, Math.min(inner.width / width, inner.height / height)));

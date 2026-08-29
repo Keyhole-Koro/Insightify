@@ -28,8 +28,6 @@ import {
 
 const ROOT_CARD_WIDTH = 190;
 const ROOT_CARD_HEIGHT = 82;
-const NESTED_CARD_WIDTH = 154;
-const NESTED_CARD_HEIGHT = 60;
 const emptyNodes: FlowNode[] = [];
 
 type FlowProjectionInput = {
@@ -115,26 +113,36 @@ export function useFlowProjection(input: FlowProjectionInput) {
     [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules]
   );
 
+  // Only this scope's own cards set the stage size. A node inside an unfolded
+  // Room sits at a deliberately tight pitch, and reading that pitch as the gap
+  // between two ordinary cards demanded a stage several screens tall — which
+  // then scaled every card down and left the canvas mostly empty. The Rooms
+  // themselves are passed separately, as frames that must fit their contents.
   const stage = useMemo(
     () =>
       stageMetrics(
         positionedNodes
+          .filter((node) => node.parentId === activeScopeId)
           .filter((node) => !renderedExpandedScopeIds.has(node.id))
-          .map((node) => ({
-            ...node,
-            width: node.parentId === activeScopeId ? ROOT_CARD_WIDTH : NESTED_CARD_WIDTH,
-            height: node.parentId === activeScopeId ? ROOT_CARD_HEIGHT : NESTED_CARD_HEIGHT,
-          })),
-        frame
+          .map((node) => ({ ...node, width: ROOT_CARD_WIDTH, height: ROOT_CARD_HEIGHT })),
+        frame,
+        roomFrames
       ),
-    [positionedNodes, frame, renderedExpandedScopeIds, activeScopeId]
+    [positionedNodes, frame, renderedExpandedScopeIds, activeScopeId, roomFrames]
   );
   const stageZoom = zoom * stage.scale;
   const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
 
+  // Areas describe how this scope arranges its own nodes. Feeding the children
+  // of an unfolded Room into that calculation moved and stretched the areas of
+  // the scope above them, which own neither those nodes nor that space.
+  const directNodes = useMemo(
+    () => visibleNodes.filter((node) => node.parentId === activeScopeId),
+    [visibleNodes, activeScopeId]
+  );
   const debugAreas = useMemo(
-    () => getDebugAreasForScope(activeScopeId, visibleNodes, layoutRules),
-    [activeScopeId, visibleNodes, layoutRules]
+    () => getDebugAreasForScope(activeScopeId, directNodes, layoutRules),
+    [activeScopeId, directNodes, layoutRules]
   );
 
   const positions = useMemo(

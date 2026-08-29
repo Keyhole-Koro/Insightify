@@ -806,10 +806,11 @@ export function getExpandedRoomFrames(
           structuralPositions.filter((child) => Math.abs(child.x - lane) <= COORDINATE_CLUSTER_GAP).length
         )
       );
-      // Each extra lane needs enough horizontal pitch for a compact child pill.
-      // Vertical size follows the busiest lane, rather than total child count.
-      const frameWidth = clamp(14 + (columns - 1) * 4.5, 14, 32);
-      const frameHeight = clamp(7 + (rows - 1) * 5, 11, 25);
+      // A frame's share of the canvas has to grow with what it holds. When it
+      // does not, the stage has to grow instead to fit the pills inside it, and
+      // every card outside the Room is scaled down to pay for it.
+      const frameWidth = clamp(19 + (columns - 1) * 17, 19, 62);
+      const frameHeight = clamp(10 + rows * 10, 20, 78);
       const inwardShift = pos.x < 35 ? 12 : pos.x > 65 ? -12 : 0;
       const frameX = clamp(pos.x + inwardShift - frameWidth / 2, 1, 99 - frameWidth);
       const frameY = clamp(pos.y - frameHeight / 2, 3, 97 - frameHeight);

@@ -452,7 +452,7 @@ describe("projectFlowWithExpandedScopes", () => {
     const children = layout.filter((node) => node.parentId === "api-gateway");
 
     expect(frame).toMatchObject({ childCount: 7, columns: 2, rows: 4 });
-    expect(frame!.bounds).toMatchObject({ width: 18.5, height: 22 });
+    expect(frame!.bounds).toMatchObject({ width: 36, height: 50 });
     expect(auth.x).toBeGreaterThanOrEqual(frame!.bounds.x + frame!.bounds.width + 7);
     expect(children.every((node) =>
       node.x >= frame!.contentBounds.x &&
