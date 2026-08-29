@@ -1,11 +1,12 @@
 import { createDefaultGraphLayout, parseFlowGraph, type FlowGraph, type GeneratedFlowGraph } from "@insightify/graph-domain";
 
-// Rich multi-cloud & multi-kind architectural fixture: "NovaFlow AI Platform"
+// Rich multi-cloud & multi-kind architectural fixture with diverse API endpoints
 const source: FlowGraph = {
   title: "NovaFlow Architecture",
   summary:
     "Full-stack AI workflow orchestration platform spanning Web, APIs, Microservices, Cloud Stores, and AI Agents.",
   nodes: [
+    // --- Root Level Nodes ---
     {
       id: "frontend-portal",
       title: "Frontend Applications",
@@ -20,15 +21,15 @@ const source: FlowGraph = {
     },
     {
       id: "api-gateway",
-      title: "POST /api/v1/workflows",
-      summary: "High-throughput REST & WebSocket gateway handling ingress routing and rate limits.",
-      kind: "api",
+      title: "API Gateway Router",
+      summary: "High-throughput reverse proxy, SSL termination, and endpoint dispatcher.",
+      kind: "room",
       technology: "REST",
       parentId: null,
-      evidence: ["services/gateway/src/routes.ts"],
-      tags: ["gateway", "rest", "routing", "ingress"],
+      evidence: ["services/gateway/src/server.ts"],
+      tags: ["gateway", "rest", "graphql", "routing"],
       status: "ready",
-      codeSnippet: "router.post('/v1/workflows', authGuard, rateLimiter, createWorkflowHandler);",
+      codeSnippet: "export const app = fastify({ logger: true });\nawait app.register(routes);",
     },
     {
       id: "auth-guard",
@@ -125,6 +126,92 @@ const source: FlowGraph = {
       tags: ["gcp", "bigquery", "analytics", "cloud-run"],
       status: "ready",
       codeSnippet: "await bigquery.dataset('telemetry').table('events').insert(eventBatch);",
+    },
+
+    // --- API Gateway Nested Endpoints ---
+    {
+      id: "api-auth-login",
+      title: "POST /api/v1/auth/login",
+      summary: "User password & OAuth token exchange returning signed JWT access and refresh tokens.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/auth.ts"],
+      tags: ["auth", "login", "jwt", "rate-limited"],
+      status: "ready",
+      codeSnippet: "router.post('/login', validate(LoginSchema), async (req, reply) => {\n  const token = await authenticateUser(req.body);\n  return reply.send({ token });\n});",
+    },
+    {
+      id: "api-workflows-get",
+      title: "GET /api/v1/workflows/:id",
+      summary: "Fetches compiled workflow graph topology, step execution logs, and output state.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/workflows.ts"],
+      tags: ["workflow", "read", "cache-control"],
+      status: "ready",
+      codeSnippet: "router.get('/:id', async (req, reply) => {\n  const flow = await db.workflows.findById(req.params.id);\n  return flow ? reply.send(flow) : reply.status(404).send();\n});",
+    },
+    {
+      id: "api-workflows-create",
+      title: "POST /api/v1/workflows",
+      summary: "Validates workflow schema and stores new workflow definition in PostgreSQL.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/workflows.ts"],
+      tags: ["workflow", "create", "validation"],
+      status: "ready",
+      codeSnippet: "router.post('/', authGuard, async (req, reply) => {\n  const workflow = await createWorkflow(req.user.id, req.body);\n  return reply.status(201).send(workflow);\n});",
+    },
+    {
+      id: "api-workflows-run",
+      title: "POST /api/v1/workflows/:id/execute",
+      summary: "Enqueues execution job to Redis stream and returns run tracker ID for SSE streaming.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/execute.ts"],
+      tags: ["execute", "async", "redis-stream"],
+      status: "ready",
+      codeSnippet: "router.post('/:id/execute', async (req, reply) => {\n  const runId = await queue.add('workflow-run', { id: req.params.id });\n  return reply.send({ runId });\n});",
+    },
+    {
+      id: "api-ai-synthesize",
+      title: "POST /api/v1/ai/synthesize",
+      summary: "Streams LLM code decomposition and architectural graph generation in real-time.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/ai.ts"],
+      tags: ["openai", "sse", "stream", "ai"],
+      status: "working",
+      codeSnippet: "router.post('/synthesize', async (req, reply) => {\n  reply.raw.setHeader('Content-Type', 'text/event-stream');\n  await streamAiTokens(req.body.prompt, reply.raw);\n});",
+    },
+    {
+      id: "api-stripe-webhook",
+      title: "POST /api/v1/webhooks/stripe",
+      summary: "Verifies Stripe HMAC signature and processes checkout.session.completed events.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/webhooks.ts"],
+      tags: ["webhook", "stripe", "hmac-signed"],
+      status: "ready",
+      codeSnippet: "router.post('/stripe', rawBodyParser, async (req, reply) => {\n  const event = stripe.webhooks.constructEvent(req.rawBody, req.headers['stripe-signature'], secret);\n  await handleBillingEvent(event);\n  return reply.send({ received: true });\n});",
+    },
+    {
+      id: "api-graphql",
+      title: "POST /graphql",
+      summary: "Unified GraphQL endpoint with schema stitching for client queries and subscriptions.",
+      kind: "api",
+      technology: "GraphQL",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/graphql/schema.ts"],
+      tags: ["graphql", "federation", "apollo"],
+      status: "ready",
+      codeSnippet: "export const server = new ApolloServer({\n  typeDefs,\n  resolvers,\n  introspection: true\n});",
     },
 
     // --- Frontend Portal Nested Nodes ---
@@ -231,6 +318,15 @@ const source: FlowGraph = {
     { source: "primary-db", target: "payment-hub", label: "sync billing" },
     { source: "event-bus", target: "analytics-lake", label: "telemetry stream" },
 
+    // API Gateway Internal Endpoints Flow
+    { source: "api-auth-login", target: "auth-guard", label: "verify creds" },
+    { source: "api-workflows-create", target: "primary-db", label: "insert workflow" },
+    { source: "api-workflows-get", target: "primary-db", label: "query record" },
+    { source: "api-workflows-run", target: "event-bus", label: "enqueue stream" },
+    { source: "api-ai-synthesize", target: "ai-synthesizer", label: "stream prompt" },
+    { source: "api-stripe-webhook", target: "payment-hub", label: "webhook event" },
+    { source: "api-graphql", target: "primary-db", label: "resolve query" },
+
     // Frontend Portal internal flow
     { source: "auth-modal", target: "web-dashboard", label: "authenticated" },
     { source: "web-dashboard", target: "canvas-editor", label: "open graph" },
@@ -248,7 +344,7 @@ export const previewGraph: GeneratedFlowGraph = (() => {
   return {
     projectId: "0b6f4d3e-3f2a-4b7c-8d1e-9a0c5f2b7d41",
     provider: "codex",
-    snapshotHash: "preview",
+    snapshotHash: "preview-v2",
     generatedAt: new Date("2026-08-29T00:00:00.000Z").toISOString(),
     graph,
     layout: createDefaultGraphLayout(graph),
