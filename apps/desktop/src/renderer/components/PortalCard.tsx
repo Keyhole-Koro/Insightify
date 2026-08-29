@@ -15,6 +15,8 @@ interface PortalCardProps {
   isScopeExpanded?: boolean;
   onToggleScopeExpand?: () => void;
   isNestedChild?: boolean;
+  isLeavingScope?: boolean;
+  showAvatar?: boolean;
   connections: { input: boolean; output: boolean };
   onSelect: () => void;
   onPeek: () => void;
@@ -36,6 +38,8 @@ export function PortalCard({
   isScopeExpanded = false,
   onToggleScopeExpand,
   isNestedChild = false,
+  isLeavingScope = false,
+  showAvatar = true,
   connections,
   onSelect,
   onPeek,
@@ -55,6 +59,12 @@ export function PortalCard({
     node.tags?.find((t) =>
       /aws|gcp|azure|docker|k8s|kubernetes|postgres|redis|openai|stripe|github|react|graphql|rest/i.test(t)
     );
+
+  // Extract HTTP method or protocol if node title has "GET /...", "POST /...", etc.
+  const httpMethodMatch = node.title.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|GRAPHQL|GQL)\b/i);
+  const httpMethod = httpMethodMatch?.[1]?.toUpperCase();
+  const displayTitle = httpMethod ? node.title.replace(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|GRAPHQL|GQL)\s+/i, "") : node.title;
+  const tagLabel = httpMethod || tech || node.kind;
 
   function handleToggle(event: React.MouseEvent) {
     event.stopPropagation();
@@ -106,14 +116,17 @@ export function PortalCard({
       aria-label={`${node.title}. ${node.kind}. ${
         isPortal ? `Portal containing ${preview.descendantCount} nodes` : "No inner flow yet"
       }`}
+      aria-hidden={isScopeExpanded || undefined}
       className={`flow-node shape-${avatarShape} kind-${node.kind} status-${status}${
         selected ? " selected" : ""
       }${isExpanded ? " is-expanded" : " is-compact"}${isPortal ? " is-portal" : ""}${
         isScopeExpanded ? " is-scope-expanded" : ""
-      }${isNestedChild ? " is-nested-child" : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
+      }${isNestedChild ? " is-nested-child" : ""}${!showAvatar ? " no-avatar" : ""}${
+        isLeavingScope ? " is-leaving-scope" : ""
+      }${httpMethod ? ` method-${httpMethod.toLowerCase()}` : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
-      tabIndex={0}
+      tabIndex={isScopeExpanded ? -1 : 0}
       onClick={() => {
         onSelect();
       }}
@@ -139,19 +152,28 @@ export function PortalCard({
         aria-hidden="true"
       />
 
-      {/* TOP AVATAR / ICONIC SHAPE */}
-      <div className="node-avatar-container" onClick={handleToggle} title="クリックで詳細を開閉">
-        <div className={`node-avatar shape-${avatarShape}`}>
-          <NodeIcon kind={node.kind} technology={tech} size={22} />
-          <span className={`node-status-orb status-${status}`} title={`Status: ${status}`} />
+      {/* TOP AVATAR / ICONIC SHAPE (Only rendered when showAvatar is true) */}
+      {showAvatar && (
+        <div className="node-avatar-container" onClick={handleToggle} title="クリックで詳細を開閉">
+          <div className={`node-avatar shape-${avatarShape}`}>
+            <NodeIcon kind={node.kind} technology={tech} size={22} />
+            <span className={`node-status-orb status-${status}`} title={`Status: ${status}`} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* COMPACT PILL (Visible when collapsed) */}
       {!isExpanded && (
         <div className="node-compact-pill" onClick={handleToggle} title="クリックで詳細を展開">
-          <span className="compact-kind-tag">{tech || node.kind}</span>
-          <span className="compact-title">{node.title}</span>
+          {!showAvatar && (
+            <span className={`node-status-dot status-${status}`} title={`Status: ${status}`} />
+          )}
+          <span className={`compact-kind-tag${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
+            {tagLabel}
+          </span>
+          <span className="compact-title" title={node.title}>
+            {displayTitle}
+          </span>
           {isPortal && onToggleScopeExpand && (
             <button
               className={`pill-scope-expand-btn ${isScopeExpanded ? "active" : ""}`}
@@ -171,7 +193,9 @@ export function PortalCard({
         <div className="node-detail-plate">
           {/* Plate Header */}
           <div className="plate-header">
-            <span className="plate-kind-badge">{tech || node.kind}</span>
+            <span className={`plate-kind-badge${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
+              {tagLabel}
+            </span>
             <div className="plate-header-actions">
               {isPortal && onToggleScopeExpand && (
                 <button

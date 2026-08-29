@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { applyScopeExpansion, balanceFlowGraphScopes, buildPortalPreview, createDefaultGraphLayout, generatedFlowGraphSchema, layoutFlowNodes, layoutRootNodes, parseFlowGraph, parseFlowGraphExpansion, projectFlowToScope, projectFlowWithExpandedScopes, scopeBoundaryPorts, validateScopeExpansion } from "./index.js";
+import {
+  applyScopeExpansion,
+  balanceFlowGraphScopes,
+  buildPortalPreview,
+  createDefaultGraphLayout,
+  generatedFlowGraphSchema,
+  getExpandedRoomFrames,
+  layoutFlowNodes,
+  layoutFlowNodesWithExpandedScopes,
+  layoutRootNodes,
+  parseFlowGraph,
+  parseFlowGraphExpansion,
+  projectFlowToScope,
+  projectFlowWithExpandedScopes,
+  scopeBoundaryPorts,
+  validateScopeExpansion,
+} from "./index.js";
 
 const graph = {
   title: "System",
@@ -289,5 +305,87 @@ describe("projectFlowWithExpandedScopes", () => {
     const expanded = projectFlowWithExpandedScopes(testGraph, null, new Set(["root-gw"]));
     expect(expanded.nodes.map((n) => n.id)).toEqual(["root-ui", "root-gw", "child-api-1", "child-api-2"]);
     expect(expanded.edges[0]?.target).toBe("child-api-1");
+  });
+
+  it("fits a Room to its lane structure and reflows a nearby sibling", () => {
+    const testGraph = parseFlowGraph({
+      title: "Adaptive inline expansion",
+      summary: "A two-lane API Room beside an auth node",
+      nodes: [
+        { id: "api-gateway", title: "API Gateway", summary: "Gateway", kind: "room", parentId: null, evidence: [] },
+        { id: "auth-guard", title: "Auth Guard", summary: "Guard", kind: "auth", parentId: null, evidence: [] },
+        { id: "api-auth-login", title: "POST /login", summary: "Login", kind: "api", parentId: "api-gateway", evidence: [] },
+        { id: "api-workflows-create", title: "POST /workflows", summary: "Create", kind: "api", parentId: "api-gateway", evidence: [] },
+        { id: "api-workflows-get", title: "GET /workflows", summary: "Read", kind: "api", parentId: "api-gateway", evidence: [] },
+        { id: "api-workflows-run", title: "POST /run", summary: "Run", kind: "api", parentId: "api-gateway", evidence: [] },
+        { id: "api-ai-synthesize", title: "POST /ai", summary: "Stream", kind: "api", parentId: "api-gateway", evidence: [] },
+        { id: "api-stripe-webhook", title: "POST /stripe", summary: "Webhook", kind: "api", parentId: "api-gateway", evidence: [] },
+        { id: "api-graphql", title: "POST /graphql", summary: "GraphQL", kind: "api", parentId: "api-gateway", evidence: [] },
+      ],
+      edges: [],
+    });
+    const openRooms = new Set(["api-gateway"]);
+    const projection = projectFlowWithExpandedScopes(testGraph, null, openRooms);
+    const savedLayout = {
+      "api-gateway": { x: 30, y: 50 },
+      "auth-guard": { x: 48, y: 50 },
+    };
+    const [frame] = getExpandedRoomFrames(
+      projection.nodes,
+      null,
+      openRooms,
+      [],
+      savedLayout
+    );
+    const layout = layoutFlowNodesWithExpandedScopes(
+      projection.nodes,
+      null,
+      openRooms,
+      [],
+      savedLayout
+    );
+    const auth = layout.find((node) => node.id === "auth-guard")!;
+    const children = layout.filter((node) => node.parentId === "api-gateway");
+
+    expect(frame).toMatchObject({ childCount: 7, columns: 2, rows: 4 });
+    expect(frame!.bounds).toMatchObject({ width: 18.5, height: 22 });
+    expect(auth.x).toBeGreaterThanOrEqual(frame!.bounds.x + frame!.bounds.width + 7);
+    expect(children.every((node) =>
+      node.x >= frame!.contentBounds.x &&
+      node.x <= frame!.contentBounds.x + frame!.contentBounds.width &&
+      node.y >= frame!.contentBounds.y &&
+      node.y <= frame!.contentBounds.y + frame!.contentBounds.height
+    )).toBe(true);
+  });
+
+  it("treats a customized child position as local to its expanded Room", () => {
+    const testGraph = parseFlowGraph({
+      title: "Local child drag",
+      summary: "Persist a child inside its group",
+      nodes: [
+        { id: "root-room", title: "Room", summary: "Container", kind: "room", parentId: null, evidence: [] },
+        { id: "child-one", title: "One", summary: "First", kind: "process", parentId: "root-room", evidence: [] },
+        { id: "child-two", title: "Two", summary: "Second", kind: "process", parentId: "root-room", evidence: [] },
+      ],
+      edges: [{ source: "child-one", target: "child-two", label: "next" }],
+    });
+    const openRooms = new Set(["root-room"]);
+    const projection = projectFlowWithExpandedScopes(testGraph, null, openRooms);
+    const savedLayout = {
+      "root-room": { x: 50, y: 50 },
+      "child-one": { x: 90, y: 12 },
+    };
+    const [frame] = getExpandedRoomFrames(projection.nodes, null, openRooms, [], savedLayout);
+    const layout = layoutFlowNodesWithExpandedScopes(
+      projection.nodes,
+      null,
+      openRooms,
+      [],
+      savedLayout
+    );
+    const child = layout.find((node) => node.id === "child-one")!;
+
+    expect(child.x).toBeCloseTo(frame!.contentBounds.x + frame!.contentBounds.width * 0.9, 1);
+    expect(child.y).toBeCloseTo(frame!.contentBounds.y + frame!.contentBounds.height * 0.12, 1);
   });
 });

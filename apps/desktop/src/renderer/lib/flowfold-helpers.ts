@@ -2,6 +2,7 @@ import type { AgentEvent } from "@insightify/agent-runtime";
 import {
   type FlowEdge,
   type FlowNode,
+  type ExpandedRoomFrame,
   type GeneratedFlowGraph,
   type PortalPreview,
   type ProjectedFlowEdge,
@@ -12,6 +13,16 @@ import { PORTAL_CARD_WIDTH } from "../semantic-zoom.js";
 export type ApprovalRequestedEvent = Extract<AgentEvent, { type: "approval.requested" }>;
 export type ApprovalResolvedEvent = Extract<AgentEvent, { type: "approval.resolved" }>;
 export type RoomEdge = ProjectedFlowEdge & { source: string; target: string };
+export type VisualEdgeBundle = {
+  key: string;
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+  count: number;
+  bundled: boolean;
+  members: RoomEdge[];
+};
 
 export type FrameProjection = {
   x(value: number): number;
@@ -44,6 +55,92 @@ export function isRoomEdge(edge: ProjectedFlowEdge): edge is RoomEdge {
 
 export function toFlowEdge(edge: RoomEdge): FlowEdge {
   return { source: edge.source, target: edge.target, label: edge.labels[0] ?? "" };
+}
+
+export function bundleEdgesByVisualArea(
+  edges: RoomEdge[],
+  nodes: Array<FlowNode & { x: number; y: number }>,
+  scopeId: string | null,
+  areaIds: Record<string, string>,
+  frames: ExpandedRoomFrame[]
+): VisualEdgeBundle[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const frameById = new Map(frames.map((frame) => [frame.roomId, frame]));
+  const areaOf = (node: FlowNode) =>
+    node.parentId !== scopeId && node.parentId
+      ? `room:${node.parentId}`
+      : `area:${areaIds[node.id] ?? node.id}`;
+  const groups = new Map<string, RoomEdge[]>();
+
+  for (const edge of edges) {
+    const source = byId.get(edge.source);
+    const target = byId.get(edge.target);
+    if (!source || !target) continue;
+    const sourceArea = areaOf(source);
+    const targetArea = areaOf(target);
+    // Preserve the topology inside one visual area; only inter-area traffic
+    // becomes a trunk.
+    const key =
+      sourceArea === targetArea
+        ? `edge:${edge.source}:${edge.target}`
+        : `${sourceArea}->${targetArea}`;
+    const group = groups.get(key) ?? [];
+    group.push(edge);
+    groups.set(key, group);
+  }
+
+  return [...groups.entries()].map(([key, members]) => {
+    const sources = members.map((edge) => byId.get(edge.source)!).filter(Boolean);
+    const targets = members.map((edge) => byId.get(edge.target)!).filter(Boolean);
+    const average = (values: number[]) =>
+      values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+    let sourceX = average(sources.map((node) => node.x));
+    let sourceY = average(sources.map((node) => node.y));
+    let targetX = average(targets.map((node) => node.x));
+    let targetY = average(targets.map((node) => node.y));
+    const sourceParents = new Set(sources.map((node) => node.parentId));
+    const targetParents = new Set(targets.map((node) => node.parentId));
+    const count = members.reduce((sum, edge) => sum + edge.count, 0);
+    const bundled = members.length > 1 || count > 1;
+
+    if (bundled && sourceParents.size === 1) {
+      const parentId = sources[0]?.parentId;
+      const frame = parentId ? frameById.get(parentId) : undefined;
+      if (frame) {
+        sourceX = targetX >= sourceX
+          ? frame.bounds.x + frame.bounds.width
+          : frame.bounds.x;
+        sourceY = Math.min(
+          frame.contentBounds.y + frame.contentBounds.height,
+          Math.max(frame.contentBounds.y, sourceY)
+        );
+      }
+    }
+    if (bundled && targetParents.size === 1) {
+      const parentId = targets[0]?.parentId;
+      const frame = parentId ? frameById.get(parentId) : undefined;
+      if (frame) {
+        targetX = sourceX <= targetX
+          ? frame.bounds.x
+          : frame.bounds.x + frame.bounds.width;
+        targetY = Math.min(
+          frame.contentBounds.y + frame.contentBounds.height,
+          Math.max(frame.contentBounds.y, targetY)
+        );
+      }
+    }
+
+    return {
+      key,
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      count,
+      bundled,
+      members,
+    };
+  });
 }
 
 export function connectionSides(
@@ -228,4 +325,25 @@ export function isApprovalRequested(event: AgentEvent): event is ApprovalRequest
 
 export function isApprovalResolved(event: AgentEvent): event is ApprovalResolvedEvent {
   return event.type === "approval.resolved";
+}
+
+/**
+ * Determines whether a node should render an avatar icon above its compact pill.
+ * If multiple sibling nodes in the same scope share the same kind (e.g. repeated API endpoints),
+ * the individual avatar is omitted to reduce clutter and keep the list clean.
+ */
+export function shouldShowNodeAvatar(node: FlowNode, visibleNodes: FlowNode[]): boolean {
+  // Always show avatar for Room portals
+  if (node.kind === "room") return true;
+
+  // Find siblings belonging to the same scope / parent
+  const siblings = visibleNodes.filter((n) => n.parentId === node.parentId);
+  
+  // If there are multiple nodes of the exact same kind in this scope, omit the repeated icon
+  const sameKindCount = siblings.filter((n) => n.kind === node.kind).length;
+  if (sameKindCount > 1) {
+    return false;
+  }
+
+  return true;
 }

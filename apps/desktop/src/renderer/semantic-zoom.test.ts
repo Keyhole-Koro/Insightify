@@ -41,4 +41,15 @@ describe("stage metrics", () => {
     expect(metrics.scale).toBeGreaterThan(1);
     expect(semanticLevelForZoom("flow", metrics.scale)).toBe("implementation");
   });
+
+  it("does not count staggered lanes as a stack of global rows", () => {
+    const nodes = [
+      ...[47, 54.5, 62, 69.5].map((y) => ({ x: 8.5, y })),
+      ...[50.5, 58, 65.5].map((y) => ({ x: 30, y })),
+    ];
+    const metrics = stageMetrics(nodes, { width: 1200, height: 760 });
+
+    expect(metrics.height).toBeLessThan(1500);
+    expect(metrics.height * metrics.scale).toBeCloseTo(664, 5);
+  });
 });

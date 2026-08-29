@@ -56,7 +56,11 @@ export interface ExpandedRoomFrame {
   roomId: string;
   title: string;
   bounds: LayoutBounds;
+  /** Child-node center positions are projected into this inset content area. */
+  contentBounds: LayoutBounds;
   childCount: number;
+  columns: number;
+  rows: number;
 }
 
 /**
@@ -284,6 +288,40 @@ function calculateMatchScore(node: FlowNode, match?: AreaMatchRule): number {
   }
 
   return score;
+}
+
+/** Returns the leaf DSL area that visually owns each node in a scope. */
+export function getNodeAreaIdsForScope(
+  roomId: string | null,
+  nodes: FlowNode[],
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): Record<string, string> {
+  const matchedRule =
+    rules.find((rule) => rule.roomId === roomId) ??
+    rules.find((rule) => rule.roomId === null) ??
+    defaultRoomLayoutRules[0]!;
+  const areas = resolveAreaTree(matchedRule.area, { x: 0, y: 0, width: 100, height: 100 });
+  const result: Record<string, string> = {};
+
+  for (const node of nodes) {
+    let bestArea = areas[0]!;
+    let bestScore = 0;
+    for (const area of areas) {
+      const score = calculateMatchScore(node, area.definition.match);
+      if (score > bestScore) {
+        bestArea = area;
+        bestScore = score;
+      }
+    }
+    if (bestScore === 0) {
+      bestArea =
+        areas.find((area) =>
+          area.definition.id.includes("core") || area.definition.id.includes("rest")
+        ) ?? areas[0]!;
+    }
+    result[node.id] = bestArea.definition.id;
+  }
+  return result;
 }
 
 /**

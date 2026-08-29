@@ -25,25 +25,42 @@ export function semanticLevelForZoom(current: SemanticLevel, zoom: number): Sema
 // A Room is laid out at its natural pitch and then fitted into the frame, so a
 // dense Room reads at a lower semantic level instead of overlapping itself.
 export const COLUMN_PITCH = PORTAL_CARD_WIDTH + 20;
-export const ROW_PITCH = 196;
+export const ROW_PITCH = 82;
 
 export type StageMetrics = { width: number; height: number; scale: number };
+type StageNode = { x: number; y: number; width?: number; height?: number };
 
 // layoutFlowNodes keeps the outermost column at 15% of the stage, so the stage
 // must be wide enough for half a card to fit inside that margin.
 const MINIMUM_STAGE_WIDTH = PORTAL_CARD_WIDTH / 0.3;
 
-export function stageMetrics(nodes: Array<{ x: number; y: number }>, frame: { width: number; height: number }): StageMetrics {
+export function stageMetrics(nodes: StageNode[], frame: { width: number; height: number }): StageMetrics {
   const inner = { width: Math.max(320, frame.width - 96), height: Math.max(240, frame.height - 96) };
   if (nodes.length === 0) return { width: inner.width, height: inner.height, scale: 1 };
-  const xs = nodes.map((node) => node.x);
-  const ys = nodes.map((node) => node.y);
-  const columns = new Set(xs.map(Math.round)).size;
-  const rows = new Set(ys.map(Math.round)).size;
-  const spanX = Math.max(1, Math.max(...xs) - Math.min(...xs));
-  const spanY = Math.max(1, Math.max(...ys) - Math.min(...ys));
-  const width = Math.max(MINIMUM_STAGE_WIDTH, columns > 1 ? ((columns - 1) * COLUMN_PITCH * 100) / spanX : COLUMN_PITCH * 2);
-  const height = rows > 1 ? ((rows - 1) * ROW_PITCH * 100) / spanY : ROW_PITCH * 2;
+  // Count only nodes that actually share a visual row/column. Counting every
+  // distinct percentage as a new row made staggered two-lane Rooms several
+  // screens tall even though each lane contained only a few compact cards.
+  let width = MINIMUM_STAGE_WIDTH;
+  let height = ROW_PITCH * 2;
+  for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < nodes.length; rightIndex += 1) {
+      const left = nodes[leftIndex]!;
+      const right = nodes[rightIndex]!;
+      const deltaX = Math.abs(right.x - left.x);
+      const deltaY = Math.abs(right.y - left.y);
+      if (deltaY <= 4.5 && deltaX > 0.1) {
+        const pitch =
+          (left.width ?? PORTAL_CARD_WIDTH) / 2 +
+          (right.width ?? PORTAL_CARD_WIDTH) / 2 +
+          8;
+        width = Math.max(width, (pitch * 100) / deltaX);
+      }
+      if (deltaX <= 4.5 && deltaY > 0.1) {
+        const pitch = (left.height ?? ROW_PITCH) / 2 + (right.height ?? ROW_PITCH) / 2 + 6;
+        height = Math.max(height, (pitch * 100) / deltaY);
+      }
+    }
+  }
   // A Room that needs less space than the frame is shown larger, so a short
   // flow gains detail instead of leaving the canvas empty.
   const scale = Math.min(1.35, Math.max(0.3, Math.min(inner.width / width, inner.height / height)));

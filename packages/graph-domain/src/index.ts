@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { defaultRoomLayoutRules, layoutNodesWithAreaDSL, type ExpandedRoomFrame } from "./area-layout.js";
+import {
+  defaultRoomLayoutRules,
+  layoutNodesWithAreaDSL,
+  type ExpandedRoomFrame,
+  type LayoutBounds,
+} from "./area-layout.js";
 
 export * from "./area-layout.js";
 
@@ -588,26 +593,46 @@ export function getExpandedRoomFrames(
       const saved = savedLayout[node.id];
       const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
 
-      // Determine frame dimensions
-      const isMultiLane = childNodes.length > 3;
-      const frameWidth = isMultiLane ? 32.0 : 20.0;
-      const maxRows = isMultiLane ? Math.ceil(childNodes.length / 2) : childNodes.length;
-      const frameHeight = Math.max(22.0, 7.0 + maxRows * 6.5);
+      const structuralPositions = layoutNodesWithAreaDSL(
+        childNodes,
+        node.id,
+        defaultRoomLayoutRules,
+        edges
+      );
+      const xLanes = clusterCoordinates(structuralPositions.map((child) => child.x));
+      const columns = Math.max(1, xLanes.length);
+      const rows = Math.max(
+        1,
+        ...xLanes.map((lane) =>
+          structuralPositions.filter((child) => Math.abs(child.x - lane) <= COORDINATE_CLUSTER_GAP).length
+        )
+      );
+      // Each extra lane needs enough horizontal pitch for a compact child pill.
+      // Vertical size follows the busiest lane, rather than total child count.
+      const frameWidth = clamp(14 + (columns - 1) * 4.5, 14, 32);
+      const frameHeight = clamp(7 + (rows - 1) * 5, 11, 25);
+      const inwardShift = pos.x < 35 ? 12 : pos.x > 65 ? -12 : 0;
+      const frameX = clamp(pos.x + inwardShift - frameWidth / 2, 1, 99 - frameWidth);
+      const frameY = clamp(pos.y - frameHeight / 2, 3, 97 - frameHeight);
 
       frames.push({
         roomId: node.id,
         title: node.title,
         bounds: {
-          x: +(Math.max(1, pos.x - frameWidth / 2)).toFixed(1),
-          y: +(Math.max(2, pos.y - frameHeight / 2)).toFixed(1),
+          x: +frameX.toFixed(1),
+          y: +frameY.toFixed(1),
           width: frameWidth,
           height: frameHeight,
         },
+        contentBounds: contentBoundsForFrame(frameX, frameY, frameWidth, frameHeight, columns),
         childCount: childNodes.length,
+        columns,
+        rows,
       });
     }
   }
 
+  separateExpandedFrames(frames);
   return frames;
 }
 
@@ -627,13 +652,26 @@ export function layoutFlowNodesWithExpandedScopes(
 
   const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout);
   const frameMap = new Map(frames.map((f) => [f.roomId, f]));
+  const basePositionMap = new Map(
+    directNodes.map((node) => [
+      node.id,
+      savedLayout[node.id] ?? directPosMap.get(node.id) ?? { x: 50, y: 50 },
+    ])
+  );
+  const reflowedPositionMap = new Map(
+    directNodes
+      .filter((node) => !(node.kind === "room" && expandedScopeIds.has(node.id)))
+      .map((node) => [node.id, reflowAroundFrames(basePositionMap.get(node.id)!, frames)])
+  );
+  cascadeHorizontalReflow(directNodes, reflowedPositionMap, basePositionMap, frames);
+  packReflowedColumns(directNodes, reflowedPositionMap, basePositionMap, frames);
+  separateReflowedNodes(directNodes, reflowedPositionMap, basePositionMap, frames);
 
   const result: PositionedFlowNode[] = [];
 
   // 1. Position direct scope nodes
   for (const node of directNodes) {
-    const saved = savedLayout[node.id];
-    const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
+    const pos = basePositionMap.get(node.id)!;
 
     if (node.kind === "room" && expandedScopeIds.has(node.id)) {
       const frame = frameMap.get(node.id)!;
@@ -647,24 +685,331 @@ export function layoutFlowNodesWithExpandedScopes(
       // 2. Position child nodes inside the room frame using local area DSL
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       if (childNodes.length > 0) {
-        const localRelPositions = layoutNodesWithAreaDSL(childNodes, node.id, defaultRoomLayoutRules, edges);
-        const padTop = 8.0;
-        const padBottom = 2.5;
-        const padLeft = 4.0;
-        const padRight = 4.0;
-        const innerW = frame.bounds.width - padLeft - padRight;
-        const innerH = frame.bounds.height - padTop - padBottom;
-
+        const localRelPositions = localRoomPositions(childNodes, node.id, edges, savedLayout);
         for (const child of localRelPositions) {
-          const childX = +(frame.bounds.x + padLeft + (child.x * innerW) / 100).toFixed(1);
-          const childY = +(frame.bounds.y + padTop + (child.y * innerH) / 100).toFixed(1);
+          const childX = projectPercentage(child.x, frame.contentBounds.x, frame.contentBounds.width);
+          const childY = projectPercentage(child.y, frame.contentBounds.y, frame.contentBounds.height);
           result.push({ ...child, x: childX, y: childY });
         }
       }
     } else {
-      result.push({ ...node, x: pos.x, y: pos.y });
+      const reflowed = reflowedPositionMap.get(node.id) ?? pos;
+      result.push({ ...node, x: reflowed.x, y: reflowed.y });
     }
   }
 
   return result;
+}
+
+const COORDINATE_CLUSTER_GAP = 10;
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function clusterCoordinates(values: number[]): number[] {
+  const clusters: number[][] = [];
+  for (const value of [...values].sort((left, right) => left - right)) {
+    const cluster = clusters.at(-1);
+    if (!cluster || value - cluster[cluster.length - 1]! > COORDINATE_CLUSTER_GAP) {
+      clusters.push([value]);
+    } else {
+      cluster.push(value);
+    }
+  }
+  return clusters.map((cluster) => cluster.reduce((sum, value) => sum + value, 0) / cluster.length);
+}
+
+function localRoomPositions(
+  nodes: FlowNode[],
+  roomId: string,
+  edges: FlowEdge[],
+  savedLayout: GraphLayout
+): PositionedFlowNode[] {
+  const structural = layoutNodesWithAreaDSL(nodes, roomId, defaultRoomLayoutRules, edges);
+  const xs = structural.map((node) => node.x);
+  const ys = structural.map((node) => node.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  return structural.map((node) => {
+    const normalized = {
+      x: normalizeLocalCoordinate(node.x, minX, maxX),
+      y: normalizeLocalCoordinate(node.y, minY, maxY),
+    };
+    const saved = savedLayout[node.id];
+    const isCustom =
+      saved && (Math.abs(saved.x - node.x) > 0.2 || Math.abs(saved.y - node.y) > 0.2);
+    return { ...node, ...(isCustom ? saved : normalized) };
+  });
+}
+
+function contentBoundsForFrame(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  columns: number
+): LayoutBounds {
+  const insetX = columns <= 2 ? Math.min(4, width * 0.22) : Math.min(1.5, width * 0.055);
+  const headerInset = Math.min(3.5, Math.max(2.5, height * 0.16));
+  const bottomInset = Math.min(1, height * 0.06);
+  return {
+    x: +(x + insetX).toFixed(1),
+    y: +(y + headerInset).toFixed(1),
+    width: +(width - insetX * 2).toFixed(1),
+    height: +(height - headerInset - bottomInset).toFixed(1),
+  };
+}
+
+function normalizeLocalCoordinate(value: number, minimum: number, maximum: number): number {
+  if (maximum - minimum < 0.1) return 50;
+  return +(5 + ((value - minimum) / (maximum - minimum)) * 90).toFixed(1);
+}
+
+function projectPercentage(value: number, start: number, size: number): number {
+  return +(start + (value / 100) * size).toFixed(1);
+}
+
+function separateExpandedFrames(frames: ExpandedRoomFrame[]): void {
+  const gap = 1.3;
+  for (let pass = 0; pass < 8; pass += 1) {
+    let moved = false;
+    for (let leftIndex = 0; leftIndex < frames.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < frames.length; rightIndex += 1) {
+        const left = frames[leftIndex]!;
+        const right = frames[rightIndex]!;
+        const overlapX =
+          Math.min(left.bounds.x + left.bounds.width, right.bounds.x + right.bounds.width) -
+          Math.max(left.bounds.x, right.bounds.x) + gap;
+        const overlapY =
+          Math.min(left.bounds.y + left.bounds.height, right.bounds.y + right.bounds.height) -
+          Math.max(left.bounds.y, right.bounds.y) + gap;
+        if (overlapX <= 0 || overlapY <= 0) continue;
+
+        const useX = overlapX < overlapY;
+        const leftCenter = useX
+          ? left.bounds.x + left.bounds.width / 2
+          : left.bounds.y + left.bounds.height / 2;
+        const rightCenter = useX
+          ? right.bounds.x + right.bounds.width / 2
+          : right.bounds.y + right.bounds.height / 2;
+        const direction = leftCenter <= rightCenter ? -1 : 1;
+        const shift = (useX ? overlapX : overlapY) / 2;
+        if (useX) {
+          left.bounds.x = clamp(left.bounds.x + direction * shift, 1, 99 - left.bounds.width);
+          right.bounds.x = clamp(right.bounds.x - direction * shift, 1, 99 - right.bounds.width);
+        } else {
+          left.bounds.y = clamp(left.bounds.y + direction * shift, 3, 97 - left.bounds.height);
+          right.bounds.y = clamp(right.bounds.y - direction * shift, 3, 97 - right.bounds.height);
+        }
+        left.contentBounds = contentBoundsForFrame(
+          left.bounds.x,
+          left.bounds.y,
+          left.bounds.width,
+          left.bounds.height,
+          left.columns
+        );
+        right.contentBounds = contentBoundsForFrame(
+          right.bounds.x,
+          right.bounds.y,
+          right.bounds.width,
+          right.bounds.height,
+          right.columns
+        );
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+function reflowAroundFrames(
+  position: Pick<FlowNodePosition, "x" | "y">,
+  frames: ExpandedRoomFrame[],
+  attractNearby = true
+): FlowNodePosition {
+  let x = position.x;
+  let y = position.y;
+  const clearanceX = 7;
+  const clearanceY = 4.5;
+  const attraction = 12;
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (const frame of frames) {
+      const left = frame.bounds.x - clearanceX;
+      const right = frame.bounds.x + frame.bounds.width + clearanceX;
+      const top = frame.bounds.y - clearanceY;
+      const bottom = frame.bounds.y + frame.bounds.height + clearanceY;
+
+      // Pull an already-near sibling up to the group's comfort boundary. The
+      // old layout only pushed collisions away, leaving an entire tier-width
+      // of empty space between the expanded Room and its neighbours.
+      const verticallyAligned = y >= top && y <= bottom;
+      if (attractNearby) {
+        if (verticallyAligned && x > right && x < right + attraction) x = right;
+        else if (verticallyAligned && x < left && x > left - attraction) x = left;
+      }
+
+      if (x <= left || x >= right || y <= top || y >= bottom) continue;
+
+      const candidates = [
+        { axis: "x" as const, value: left, distance: x - left },
+        { axis: "x" as const, value: right, distance: right - x },
+        { axis: "y" as const, value: top, distance: y - top },
+        { axis: "y" as const, value: bottom, distance: bottom - y },
+      ].sort((a, b) => a.distance - b.distance);
+      const nearest = candidates[0]!;
+      if (nearest.axis === "x") x = nearest.value;
+      else y = nearest.value;
+    }
+  }
+  return { x: +clamp(x, 5, 95).toFixed(1), y: +clamp(y, 8, 92).toFixed(1) };
+}
+
+function separateReflowedNodes(
+  nodes: FlowNode[],
+  positions: Map<string, FlowNodePosition>,
+  originalPositions: Map<string, FlowNodePosition>,
+  frames: ExpandedRoomFrame[]
+): void {
+  const visible = nodes.filter((node) => positions.has(node.id));
+  const minimumX = 8;
+  const minimumY = 6;
+
+  for (let pass = 0; pass < 6; pass += 1) {
+    let moved = false;
+    for (let leftIndex = 0; leftIndex < visible.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < visible.length; rightIndex += 1) {
+        const leftNode = visible[leftIndex]!;
+        const rightNode = visible[rightIndex]!;
+        const left = positions.get(leftNode.id)!;
+        const right = positions.get(rightNode.id)!;
+        const deltaX = Math.abs(right.x - left.x);
+        const deltaY = Math.abs(right.y - left.y);
+        if (deltaX >= minimumX || deltaY >= minimumY) continue;
+
+        const originalLeft = originalPositions.get(leftNode.id)!;
+        const originalRight = originalPositions.get(rightNode.id)!;
+        const preserveVerticalOrder =
+          Math.abs(originalRight.y - originalLeft.y) >= Math.abs(originalRight.x - originalLeft.x);
+        const candidate = { ...right };
+        if (preserveVerticalOrder) {
+          const direction = originalRight.y >= originalLeft.y ? 1 : -1;
+          candidate.y += direction * (minimumY - deltaY + 0.5);
+        } else {
+          const direction = originalRight.x >= originalLeft.x ? 1 : -1;
+          candidate.x += direction * (minimumX - deltaX + 0.5);
+        }
+        positions.set(rightNode.id, reflowAroundFrames(candidate, frames, false));
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+}
+
+function cascadeHorizontalReflow(
+  nodes: FlowNode[],
+  positions: Map<string, FlowNodePosition>,
+  originalPositions: Map<string, FlowNodePosition>,
+  frames: ExpandedRoomFrame[]
+): void {
+  const movedColumns = nodes
+    .filter((node) => positions.has(node.id))
+    .map((node) => {
+      const original = originalPositions.get(node.id)!;
+      const current = positions.get(node.id)!;
+      return { originalX: original.x, deltaX: current.x - original.x };
+    })
+    .filter(({ deltaX }) => Math.abs(deltaX) >= 1);
+
+  for (const node of nodes) {
+    const current = positions.get(node.id);
+    const original = originalPositions.get(node.id);
+    if (!current || !original || Math.abs(current.x - original.x) >= 1) continue;
+
+    let cascadeDelta = 0;
+    for (const moved of movedColumns) {
+      if (moved.deltaX < 0 && original.x > moved.originalX) {
+        cascadeDelta = Math.min(cascadeDelta, moved.deltaX);
+      } else if (moved.deltaX > 0 && original.x < moved.originalX) {
+        cascadeDelta = Math.max(cascadeDelta, moved.deltaX);
+      }
+    }
+    if (Math.abs(cascadeDelta) < 1) continue;
+    positions.set(
+      node.id,
+      reflowAroundFrames({ x: current.x + cascadeDelta, y: current.y }, frames, false)
+    );
+  }
+}
+
+function packReflowedColumns(
+  nodes: FlowNode[],
+  positions: Map<string, FlowNodePosition>,
+  originalPositions: Map<string, FlowNodePosition>,
+  frames: ExpandedRoomFrame[]
+): void {
+  if (frames.length === 0) return;
+  const groups: Array<{ originalX: number; nodeIds: string[] }> = [];
+  for (const node of nodes
+    .filter((candidate) => positions.has(candidate.id))
+    .sort((left, right) => originalPositions.get(left.id)!.x - originalPositions.get(right.id)!.x)) {
+    const originalX = originalPositions.get(node.id)!.x;
+    const group = groups.at(-1);
+    if (!group || originalX - group.originalX > 4) {
+      groups.push({ originalX, nodeIds: [node.id] });
+    } else {
+      group.nodeIds.push(node.id);
+    }
+  }
+  if (groups.length < 2) return;
+
+  const centerOf = (group: { nodeIds: string[] }) =>
+    group.nodeIds.reduce((sum, nodeId) => sum + positions.get(nodeId)!.x, 0) /
+    group.nodeIds.length;
+  const frameCenter =
+    frames.reduce((sum, frame) => sum + frame.bounds.x + frame.bounds.width / 2, 0) /
+    frames.length;
+  const maximumPitch = 14;
+
+  const moveGroup = (group: { nodeIds: string[] }, delta: number) => {
+    for (const nodeId of group.nodeIds) {
+      const position = positions.get(nodeId)!;
+      positions.set(
+        nodeId,
+        reflowAroundFrames({ x: position.x + delta, y: position.y }, frames, false)
+      );
+    }
+  };
+
+  if (frameCenter <= 50) {
+    const anchorIndex = Math.max(0, groups.findIndex((group) => group.originalX >= frameCenter));
+    for (let index = anchorIndex + 1; index < groups.length; index += 1) {
+      const previousCenter = centerOf(groups[index - 1]!);
+      const currentCenter = centerOf(groups[index]!);
+      if (currentCenter - previousCenter > maximumPitch) {
+        moveGroup(groups[index]!, previousCenter + maximumPitch - currentCenter);
+      }
+    }
+  } else {
+    let foundAnchor = -1;
+    for (let index = groups.length - 1; index >= 0; index -= 1) {
+      if (groups[index]!.originalX <= frameCenter) {
+        foundAnchor = index;
+        break;
+      }
+    }
+    const anchorIndex = foundAnchor < 0 ? groups.length - 1 : foundAnchor;
+    for (let index = anchorIndex - 1; index >= 0; index -= 1) {
+      const nextCenter = centerOf(groups[index + 1]!);
+      const currentCenter = centerOf(groups[index]!);
+      if (nextCenter - currentCenter > maximumPitch) {
+        moveGroup(groups[index]!, nextCenter - maximumPitch - currentCenter);
+      }
+    }
+  }
 }

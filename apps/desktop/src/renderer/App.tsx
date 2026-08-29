@@ -18,13 +18,10 @@ import {
   buildPortalPreview,
   getDebugAreasForScope,
   getExpandedRoomFrames,
-  layoutFlowNodes,
+  getNodeAreaIdsForScope,
   layoutFlowNodesWithExpandedScopes,
-  projectFlowToScope,
   projectFlowWithExpandedScopes,
   scopeBoundaryPorts,
-  type DebugAreaBox,
-  type ExpandedRoomFrame,
   type FlowEdge,
   type FlowNode,
   type GeneratedFlowGraph,
@@ -35,6 +32,7 @@ import { toAppError } from "./lib/error-normalize.js";
 import { providerMeta } from "./lib/constants.js";
 import {
   ancestorWithin,
+  bundleEdgesByVisualArea,
   buildScopePath,
   clearDive,
   connectionSides,
@@ -48,6 +46,7 @@ import {
   parseEvidence,
   portKey,
   prefersReducedMotion,
+  shouldShowNodeAvatar,
   toFlowEdge,
   type RoomEdge,
 } from "./lib/flowfold-helpers.js";
@@ -70,6 +69,7 @@ const emptyNodes: FlowNode[] = [];
 const DIVE_MS = 200;
 const DIVE_SCALE_IN = 2.6;
 const DIVE_SCALE_OUT = 0.42;
+const ROOM_TRANSITION_MS = 180;
 
 export function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -95,7 +95,8 @@ export function App() {
   const [peekNodeId, setPeekNodeId] = useState<string | null>(null);
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
   const [expandedScopeIds, setExpandedScopeIds] = useState<Set<string>>(new Set(["api-gateway"]));
-  const [showDebugAreas, setShowDebugAreas] = useState(true);
+  const [closingScopeIds, setClosingScopeIds] = useState<Set<string>>(new Set());
+  const [showDebugAreas, setShowDebugAreas] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [dive, setDive] = useState<DiveState | null>(null);
   const [frame, setFrame] = useState({ width: 960, height: 700 });
@@ -103,8 +104,11 @@ export function App() {
   const [nodeDraft, setNodeDraft] = useState<NodeDraft | null>(null);
   const [edgeManagerOpen, setEdgeManagerOpen] = useState(false);
   const [edgeDraft, setEdgeDraft] = useState<EdgeDraft | null>(null);
+  const [hoveredEdgeKey, setHoveredEdgeKey] = useState<string | null>(null);
   const canvasRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef<string | null>(null);
+  const roomTransitionTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const setGraph = useCallback((value: GeneratedFlowGraph | null) => {
     graphRef.current = value;
@@ -113,7 +117,7 @@ export function App() {
 
   const reportError = useCallback((reason: unknown) => {
     setError(toAppError(reason));
-  }, []);
+  }, [setError]);
 
   const loadGraph = useCallback(
     async (projectId: string) => {
@@ -184,6 +188,13 @@ export function App() {
   }, [loadGraph, reportError, setGraph]);
 
   useEffect(() => () => clearDive(diveTimers), []);
+  useEffect(
+    () => () => {
+      roomTransitionTimers.current.forEach(clearTimeout);
+      roomTransitionTimers.current.clear();
+    },
+    []
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -203,9 +214,16 @@ export function App() {
 
   const provider = providers.find((item) => item.provider === providerKind) ?? null;
   const meta = providerMeta[providerKind];
+  const renderedExpandedScopeIds = useMemo(
+    () => new Set([...expandedScopeIds, ...closingScopeIds]),
+    [expandedScopeIds, closingScopeIds]
+  );
   const projection = useMemo(
-    () => (graph ? projectFlowWithExpandedScopes(graph.graph, activeScopeId, expandedScopeIds) : null),
-    [graph, activeScopeId, expandedScopeIds]
+    () =>
+      graph
+        ? projectFlowWithExpandedScopes(graph.graph, activeScopeId, renderedExpandedScopeIds)
+        : null,
+    [graph, activeScopeId, renderedExpandedScopeIds]
   );
   const visibleNodes = projection?.nodes ?? emptyNodes;
   const roomEdges = useMemo(
@@ -221,13 +239,25 @@ export function App() {
       layoutFlowNodesWithExpandedScopes(
         visibleNodes,
         activeScopeId,
-        expandedScopeIds,
+        renderedExpandedScopeIds,
         roomEdges.map(toFlowEdge),
         graph?.layout
       ),
-    [visibleNodes, activeScopeId, expandedScopeIds, roomEdges, graph?.layout]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, roomEdges, graph?.layout]
   );
-  const stage = useMemo(() => stageMetrics(flowLayout, frame), [flowLayout, frame]);
+  const stage = useMemo(
+    () => stageMetrics(
+      flowLayout
+        .filter((node) => !renderedExpandedScopeIds.has(node.id))
+        .map((node) => ({
+          ...node,
+          width: node.parentId === activeScopeId ? 190 : 154,
+          height: node.parentId === activeScopeId ? 82 : 60,
+        })),
+      frame
+    ),
+    [flowLayout, frame, renderedExpandedScopeIds, activeScopeId]
+  );
   const stageZoom = zoom * stage.scale;
   const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
   const debugAreas = useMemo(
@@ -239,25 +269,14 @@ export function App() {
       getExpandedRoomFrames(
         visibleNodes,
         activeScopeId,
-        expandedScopeIds,
+        renderedExpandedScopeIds,
         roomEdges.map(toFlowEdge),
         graph?.layout
       ),
-    [visibleNodes, activeScopeId, expandedScopeIds, roomEdges, graph?.layout]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, roomEdges, graph?.layout]
   );
 
-  const positionedNodes = useMemo(
-    () =>
-      flowLayout.map((node) => {
-        // Only apply root saved layout coordinates to direct scope nodes
-        if (node.parentId === activeScopeId) {
-          return { ...node, ...(graph?.layout[node.id] ?? {}) };
-        }
-        // For inline-expanded nested children, keep their tightly bounded frame coordinates
-        return node;
-      }),
-    [flowLayout, graph, activeScopeId]
-  );
+  const positionedNodes = flowLayout;
   const visibleIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
   const editableEdges = useMemo(
     () =>
@@ -279,6 +298,24 @@ export function App() {
     () => new Map(positionedNodes.map((node) => [node.id, node])),
     [positionedNodes]
   );
+  const areaIds = useMemo(
+    () => getNodeAreaIdsForScope(
+      activeScopeId,
+      positionedNodes.filter((node) => node.parentId === activeScopeId)
+    ),
+    [activeScopeId, positionedNodes]
+  );
+  const visualEdges = useMemo(
+    () => bundleEdgesByVisualArea(
+      roomEdges,
+      positionedNodes,
+      activeScopeId,
+      areaIds,
+      roomFrames
+    ),
+    [roomEdges, positionedNodes, activeScopeId, areaIds, roomFrames]
+  );
+  const hoveredEdge = visualEdges.find((edge) => edge.key === hoveredEdgeKey) ?? null;
   const projected = useMemo(
     () => frameProjection(stage.width, stage.height, stageZoom, frame),
     [stage, stageZoom, frame]
@@ -319,29 +356,71 @@ export function App() {
     setZoom(1);
   }
 
-  const toggleScopeExpand = useCallback((roomId: string) => {
-    setExpandedScopeIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(roomId)) {
-        next.delete(roomId);
-      } else {
-        next.add(roomId);
+  const toggleScopeExpand = useCallback(
+    (roomId: string) => {
+      const pending = roomTransitionTimers.current.get(roomId);
+      if (pending) {
+        clearTimeout(pending);
+        roomTransitionTimers.current.delete(roomId);
       }
-      return next;
-    });
-  }, []);
+
+      if (expandedScopeIds.has(roomId)) {
+        setExpandedScopeIds((current) => {
+          const next = new Set(current);
+          next.delete(roomId);
+          return next;
+        });
+        setClosingScopeIds((current) => new Set(current).add(roomId));
+        const timer = setTimeout(() => {
+          setClosingScopeIds((current) => {
+            const next = new Set(current);
+            next.delete(roomId);
+            return next;
+          });
+          roomTransitionTimers.current.delete(roomId);
+        }, ROOM_TRANSITION_MS);
+        roomTransitionTimers.current.set(roomId, timer);
+      } else {
+        setClosingScopeIds((current) => {
+          const next = new Set(current);
+          next.delete(roomId);
+          return next;
+        });
+        setExpandedScopeIds((current) => new Set(current).add(roomId));
+      }
+    },
+    [expandedScopeIds]
+  );
 
   const expandAllRooms = useCallback(() => {
     if (!graph) return;
+    roomTransitionTimers.current.forEach(clearTimeout);
+    roomTransitionTimers.current.clear();
     const roomIds = graph.graph.nodes
-      .filter((n) => n.kind === "room" && (n.parentId === activeScopeId || activeScopeId === null))
+      .filter((n) => n.kind === "room" && n.parentId === activeScopeId)
       .map((n) => n.id);
+    setClosingScopeIds(new Set());
     setExpandedScopeIds(new Set(roomIds));
   }, [graph, activeScopeId]);
 
   const collapseAllRooms = useCallback(() => {
+    roomTransitionTimers.current.forEach(clearTimeout);
+    roomTransitionTimers.current.clear();
+    const closing = new Set(expandedScopeIds);
+    setClosingScopeIds(closing);
     setExpandedScopeIds(new Set());
-  }, []);
+    for (const roomId of closing) {
+      const timer = setTimeout(() => {
+        setClosingScopeIds((current) => {
+          const next = new Set(current);
+          next.delete(roomId);
+          return next;
+        });
+        roomTransitionTimers.current.delete(roomId);
+      }, ROOM_TRANSITION_MS);
+      roomTransitionTimers.current.set(roomId, timer);
+    }
+  }, [expandedScopeIds]);
 
   function selectProject(selected: ProjectSummary) {
     projectIdRef.current = selected.id;
@@ -690,20 +769,34 @@ export function App() {
     const canvas = canvasRef.current;
     if (!drag || drag.pointerId !== event.pointerId || !canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = Math.min(
-      92,
-      Math.max(
-        8,
-        50 + (((event.clientX - rect.left - rect.width / 2) / stageZoom / stage.width) * 100)
-      )
-    );
-    const y = Math.min(
-      87,
-      Math.max(
-        15,
-        50 + (((event.clientY - rect.top - rect.height / 2) / stageZoom / stage.height) * 100)
-      )
-    );
+    let x =
+      50 + (((event.clientX - rect.left - rect.width / 2) / stageZoom / stage.width) * 100);
+    let y =
+      50 + (((event.clientY - rect.top - rect.height / 2) / stageZoom / stage.height) * 100);
+    const draggedNode = graphRef.current?.graph.nodes.find((node) => node.id === drag.nodeId);
+    const parentFrame = draggedNode?.parentId
+      ? roomFrames.find((roomFrame) => roomFrame.roomId === draggedNode.parentId)
+      : undefined;
+    const ownFrame = roomFrames.find((roomFrame) => roomFrame.roomId === drag.nodeId);
+
+    if (parentFrame) {
+      // Persist nested-node drags in the Room's local 0–100 coordinate system.
+      x = Math.min(
+        96,
+        Math.max(4, ((x - parentFrame.contentBounds.x) / parentFrame.contentBounds.width) * 100)
+      );
+      y = Math.min(
+        96,
+        Math.max(4, ((y - parentFrame.contentBounds.y) / parentFrame.contentBounds.height) * 100)
+      );
+    } else if (ownFrame) {
+      // Keep a dragged group fully on the canvas, not merely its center point.
+      x = Math.min(99 - ownFrame.bounds.width / 2, Math.max(1 + ownFrame.bounds.width / 2, x));
+      y = Math.min(97 - ownFrame.bounds.height / 2, Math.max(3 + ownFrame.bounds.height / 2, y));
+    } else {
+      x = Math.min(92, Math.max(8, x));
+      y = Math.min(87, Math.max(15, y));
+    }
     drag.moved = true;
     locallyUpdateGraph((current) => ({
       ...current,
@@ -715,7 +808,13 @@ export function App() {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     dragRef.current = null;
-    if (drag.moved && graphRef.current) persistGraph(graphRef.current);
+    if (drag.moved) {
+      suppressClickRef.current = drag.nodeId;
+      setTimeout(() => {
+        if (suppressClickRef.current === drag.nodeId) suppressClickRef.current = null;
+      }, 0);
+      if (graphRef.current) persistGraph(graphRef.current);
+    }
   }
 
   return (
@@ -895,7 +994,9 @@ export function App() {
                   {roomFrames.map((frame) => (
                     <div
                       key={`room-frame-${frame.roomId}`}
-                      className="expanded-room-frame"
+                      className={`expanded-room-frame${
+                        closingScopeIds.has(frame.roomId) ? " is-closing" : ""
+                      }`}
                       style={{
                         left: `${frame.bounds.x}%`,
                         top: `${frame.bounds.y}%`,
@@ -903,10 +1004,26 @@ export function App() {
                         height: `${frame.bounds.height}%`,
                       }}
                     >
-                      <div className="room-frame-header">
-                        <span className="room-frame-badge">ROOM</span>
+                      <div
+                        aria-label={`${frame.title} Room. Drag to move the group.`}
+                        className="room-frame-header"
+                        onPointerDown={(event) => onNodePointerDown(event, frame.roomId)}
+                        onPointerMove={onNodePointerMove}
+                        onPointerUp={onNodePointerUp}
+                        onPointerCancel={onNodePointerUp}
+                        title="ドラッグしてRoom全体を移動"
+                      >
+                        <span className="room-frame-grip" aria-hidden="true">
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        <span className="room-frame-badge">Room</span>
                         <span className="room-frame-title">{frame.title}</span>
-                        <span className="room-frame-count">{frame.childCount} nodes</span>
+                        <span className="room-frame-count">{frame.childCount}</span>
                         <button
                           type="button"
                           className="room-frame-fold-btn"
@@ -916,7 +1033,7 @@ export function App() {
                           }}
                           title="内部ノードを折りたたむ"
                         >
-                          ⊟ Fold
+                          <span aria-hidden="true">−</span> Fold
                         </button>
                       </div>
                     </div>
@@ -940,24 +1057,33 @@ export function App() {
                         <path d="M 0 0 L 8 3.4 L 0 6.8 z" />
                       </marker>
                     </defs>
-                    {roomEdges.map((edge) => {
-                      const source = positions.get(edge.source);
-                      const target = positions.get(edge.target);
-                      if (!source || !target) return null;
-                      const sx = source.x * 10;
-                      const sy = source.y * 6.2;
-                      const tx = target.x * 10;
-                      const ty = target.y * 6.2;
+                    {visualEdges.map((edge) => {
+                      const sx = edge.sourceX * 10;
+                      const sy = edge.sourceY * 6.2;
+                      const tx = edge.targetX * 10;
+                      const ty = edge.targetY * 6.2;
+                      const path = `M ${sx} ${sy} C ${(sx + tx) / 2} ${sy}, ${
+                        (sx + tx) / 2
+                      } ${ty}, ${tx} ${ty}`;
                       return (
                         <g
-                          className={edge.count > 1 ? "flow-edge bundled" : "flow-edge"}
-                          key={`${edge.source}-${edge.target}`}
+                          className={`flow-edge${edge.bundled ? " bundled area-bundle" : ""}${
+                            hoveredEdgeKey === edge.key ? " hovered" : ""
+                          }`}
+                          key={edge.key}
+                          onMouseEnter={() => edge.bundled && setHoveredEdgeKey(edge.key)}
+                          onMouseLeave={() => edge.bundled && setHoveredEdgeKey(null)}
                         >
+                          {edge.bundled && <path className="edge-hit-target" d={path} />}
                           <path
-                            d={`M ${sx} ${sy} C ${(sx + tx) / 2} ${sy}, ${
-                              (sx + tx) / 2
-                            } ${ty}, ${tx} ${ty}`}
+                            className="edge-visible-path"
+                            d={path}
                             markerEnd="url(#flow-arrow)"
+                            style={{
+                              strokeWidth: edge.bundled
+                                ? Math.min(5.2, 1.9 + Math.log2(edge.count + 1) * 0.85)
+                                : undefined,
+                            }}
                           />
                         </g>
                       );
@@ -972,16 +1098,23 @@ export function App() {
                       selected={selectedNodeId === node.id}
                       isExpanded={expandedNodeIds.has(node.id)}
                       onToggleExpand={() => toggleNodeExpansion(node.id)}
-                      isScopeExpanded={expandedScopeIds.has(node.id)}
+                      isScopeExpanded={renderedExpandedScopeIds.has(node.id)}
                       onToggleScopeExpand={() => toggleScopeExpand(node.id)}
                       isNestedChild={node.parentId !== activeScopeId}
+                      isLeavingScope={
+                        node.parentId !== activeScopeId &&
+                        closingScopeIds.has(node.parentId ?? "")
+                      }
+                      showAvatar={shouldShowNodeAvatar(node, visibleNodes)}
                       connections={connectionSides(node.id, roomEdges, boundaryPorts)}
                       onSelect={() => {
-                        if (!dragRef.current) {
-                          setSelectedNodeId(node.id);
-                          setEvents([]);
-                          toggleNodeExpansion(node.id);
+                        if (suppressClickRef.current === node.id) {
+                          suppressClickRef.current = null;
+                          return;
                         }
+                        setSelectedNodeId(node.id);
+                        setEvents([]);
+                        toggleNodeExpansion(node.id);
                       }}
                       onPeek={() => setPeekNodeId(node.id)}
                       onEnter={() => enterRoom(node)}
@@ -996,22 +1129,19 @@ export function App() {
 
                 {!dive &&
                   lod !== "structure" &&
-                  roomEdges.map((edge) => {
-                    const source = positions.get(edge.source);
-                    const target = positions.get(edge.target);
-                    const label =
-                      edge.count > 1
-                        ? `${edge.labels[0] ?? "flow"} ×${edge.count}`
-                        : edge.labels[0] ?? "";
-                    if (!source || !target || !label) return null;
+                  visualEdges.map((edge) => {
+                    const label = edge.bundled
+                      ? `${edge.count} connections`
+                      : edge.members[0]?.labels[0] ?? "";
+                    if (!label) return null;
                     return (
                       <span
-                        className="edge-label"
-                        key={`label-${edge.source}-${edge.target}`}
+                        className={`edge-label${edge.bundled ? " bundle-label" : ""}`}
+                        key={`label-${edge.key}`}
                         style={{
-                          left: `${projected.x((source.x + target.x) / 2)}%`,
+                          left: `${projected.x((edge.sourceX + edge.targetX) / 2)}%`,
                           top: `${
-                            projected.y((source.y + target.y) / 2) -
+                            projected.y((edge.sourceY + edge.targetY) / 2) -
                             projected.cardHalfHeight -
                             2.2
                           }%`,
@@ -1021,6 +1151,39 @@ export function App() {
                       </span>
                     );
                   })}
+
+                {!dive && hoveredEdge?.bundled && (
+                  <div
+                    className="edge-bundle-popover"
+                    style={{
+                      left: `${projected.x((hoveredEdge.sourceX + hoveredEdge.targetX) / 2)}%`,
+                      top: `${projected.y((hoveredEdge.sourceY + hoveredEdge.targetY) / 2)}%`,
+                    }}
+                  >
+                    <header>
+                      <span>AREA FLOW</span>
+                      <b>{hoveredEdge.count} connections</b>
+                    </header>
+                    <ul>
+                      {hoveredEdge.members.slice(0, 6).map((edge) => (
+                        <li key={`${edge.source}-${edge.target}`}>
+                          <span>
+                            {positions.get(edge.source)?.title ?? edge.source}
+                            <i>→</i>
+                            {positions.get(edge.target)?.title ?? edge.target}
+                          </span>
+                          <em>
+                            {edge.labels.join(" · ") || "flow"}
+                            {edge.count > 1 ? ` ×${edge.count}` : ""}
+                          </em>
+                        </li>
+                      ))}
+                    </ul>
+                    {hoveredEdge.members.length > 6 && (
+                      <small>+{hoveredEdge.members.length - 6} more</small>
+                    )}
+                  </div>
+                )}
 
                 {!dive && portRail.length > 0 && (
                   <svg
