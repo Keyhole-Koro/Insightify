@@ -1,0 +1,17 @@
+node_modules/
+
+# Electron Forge / Vite build output
+.vite/
+out/
+dist/
+
+# Playwright output from the renderer preview harness
+playwright-report/
+test-results/
+
+.env
+tmp/
+
+.claude
+.codex
+.gemini-cache
