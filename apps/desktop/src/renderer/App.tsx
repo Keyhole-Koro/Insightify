@@ -247,8 +247,16 @@ export function App() {
   );
 
   const positionedNodes = useMemo(
-    () => flowLayout.map((node) => ({ ...node, ...(graph?.layout[node.id] ?? {}) })),
-    [flowLayout, graph]
+    () =>
+      flowLayout.map((node) => {
+        // Only apply root saved layout coordinates to direct scope nodes
+        if (node.parentId === activeScopeId) {
+          return { ...node, ...(graph?.layout[node.id] ?? {}) };
+        }
+        // For inline-expanded nested children, keep their tightly bounded frame coordinates
+        return node;
+      }),
+    [flowLayout, graph, activeScopeId]
   );
   const visibleIds = useMemo(() => new Set(visibleNodes.map((node) => node.id)), [visibleNodes]);
   const editableEdges = useMemo(
@@ -966,6 +974,7 @@ export function App() {
                       onToggleExpand={() => toggleNodeExpansion(node.id)}
                       isScopeExpanded={expandedScopeIds.has(node.id)}
                       onToggleScopeExpand={() => toggleScopeExpand(node.id)}
+                      isNestedChild={node.parentId !== activeScopeId}
                       connections={connectionSides(node.id, roomEdges, boundaryPorts)}
                       onSelect={() => {
                         if (!dragRef.current) {

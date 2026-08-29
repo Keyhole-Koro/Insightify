@@ -14,6 +14,7 @@ interface PortalCardProps {
   onToggleExpand?: () => void;
   isScopeExpanded?: boolean;
   onToggleScopeExpand?: () => void;
+  isNestedChild?: boolean;
   connections: { input: boolean; output: boolean };
   onSelect: () => void;
   onPeek: () => void;
@@ -34,6 +35,7 @@ export function PortalCard({
   onToggleExpand,
   isScopeExpanded = false,
   onToggleScopeExpand,
+  isNestedChild = false,
   connections,
   onSelect,
   onPeek,
@@ -108,7 +110,7 @@ export function PortalCard({
         selected ? " selected" : ""
       }${isExpanded ? " is-expanded" : " is-compact"}${isPortal ? " is-portal" : ""}${
         isScopeExpanded ? " is-scope-expanded" : ""
-      }${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
+      }${isNestedChild ? " is-nested-child" : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}

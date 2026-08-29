@@ -588,11 +588,11 @@ export function getExpandedRoomFrames(
       const saved = savedLayout[node.id];
       const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
 
-      // Determine compact frame size based on child count
+      // Determine frame dimensions
       const isMultiLane = childNodes.length > 3;
-      const frameWidth = isMultiLane ? 28.0 : 18.0;
+      const frameWidth = isMultiLane ? 32.0 : 20.0;
       const maxRows = isMultiLane ? Math.ceil(childNodes.length / 2) : childNodes.length;
-      const frameHeight = Math.max(18.0, 8.0 + maxRows * 5.0);
+      const frameHeight = Math.max(22.0, 7.0 + maxRows * 6.5);
 
       frames.push({
         roomId: node.id,
@@ -641,17 +641,17 @@ export function layoutFlowNodesWithExpandedScopes(
       result.push({
         ...node,
         x: +(frame.bounds.x + frame.bounds.width / 2).toFixed(1),
-        y: +(frame.bounds.y + 4.2).toFixed(1),
+        y: +(frame.bounds.y + 3.8).toFixed(1),
       });
 
       // 2. Position child nodes inside the room frame using local area DSL
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       if (childNodes.length > 0) {
         const localRelPositions = layoutNodesWithAreaDSL(childNodes, node.id, defaultRoomLayoutRules, edges);
-        const padTop = 8.5;
-        const padBottom = 3.0;
-        const padLeft = 3.5;
-        const padRight = 3.5;
+        const padTop = 8.0;
+        const padBottom = 2.5;
+        const padLeft = 4.0;
+        const padRight = 4.0;
         const innerW = frame.bounds.width - padLeft - padRight;
         const innerH = frame.bounds.height - padTop - padBottom;
 

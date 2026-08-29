@@ -1473,8 +1473,38 @@ button { color: inherit; }
   background: #222838;
 }
 
-/* Hide parent room node pill when rendered inside frame to avoid duplicate header */
+/* Parent room node in expanded state: handled gracefully by room-frame-header */
 .flow-node.is-scope-expanded {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
+}
+
+/* Compact nested child nodes inside expanded room frame */
+.flow-node.is-nested-child {
+  z-index: 3;
+}
+
+.flow-node.is-nested-child .node-avatar-container {
+  margin-bottom: 2px;
+}
+
+.flow-node.is-nested-child .node-avatar {
+  width: 24px;
+  height: 24px;
+}
+
+.flow-node.is-nested-child .node-compact-pill {
+  max-width: 125px;
+  padding: 2px 6px;
+  font-size: 9px;
+  gap: 4px;
+}
+
+.flow-node.is-nested-child .compact-kind-tag {
+  font-size: 7.5px;
+  padding: 1px 4px;
+}
+
+.flow-node.is-nested-child .compact-title {
+  font-size: 9px;
+  max-width: 80px;
 }
