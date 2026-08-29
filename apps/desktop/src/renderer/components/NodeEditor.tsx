@@ -1,7 +1,9 @@
 import React from "react";
-import type { FlowNodeKind } from "@insightify/graph-domain";
+import type { FlowNodeKind, FlowNodeStatus } from "@insightify/graph-domain";
 import { nodeKinds } from "../lib/constants.js";
 import { InlineError } from "./error/InlineError.js";
+
+export const nodeStatuses: FlowNodeStatus[] = ["idle", "working", "ready", "error"];
 
 export interface NodeDraft {
   nodeId: string;
@@ -9,6 +11,9 @@ export interface NodeDraft {
   summary: string;
   kind: FlowNodeKind;
   evidence: string;
+  tags: string;
+  status: FlowNodeStatus;
+  codeSnippet: string;
 }
 
 interface NodeEditorProps {
@@ -70,24 +75,61 @@ export function NodeEditor({ draft, onChange, onSave, onDelete, onClose }: NodeE
           {isSummaryEmpty && <InlineError message="サマリーは必須です" />}
         </label>
 
+        <div className="editor-row">
+          <label>
+            Kind
+            <select
+              value={draft.kind}
+              onChange={(event) =>
+                onChange({ ...draft, kind: event.target.value as FlowNodeKind })
+              }
+            >
+              {nodeKinds.map((kind) => (
+                <option key={kind} value={kind}>
+                  {kind}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Status
+            <select
+              value={draft.status}
+              onChange={(event) =>
+                onChange({ ...draft, status: event.target.value as FlowNodeStatus })
+              }
+            >
+              {nodeStatuses.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <label>
-          Kind
-          <select
-            value={draft.kind}
-            onChange={(event) =>
-              onChange({ ...draft, kind: event.target.value as FlowNodeKind })
-            }
-          >
-            {nodeKinds.map((kind) => (
-              <option key={kind} value={kind}>
-                {kind}
-              </option>
-            ))}
-          </select>
+          Tags (comma separated)
+          <input
+            value={draft.tags}
+            placeholder="auth, api, database"
+            onChange={(event) => onChange({ ...draft, tags: event.target.value })}
+          />
         </label>
 
         <label>
-          Evidence paths
+          Code / Signature Preview (max 600 chars)
+          <textarea
+            className="code-input"
+            value={draft.codeSnippet}
+            placeholder="type User = { id: string; name: string };&#10;export async function handleAuth(req): Promise<User>"
+            onChange={(event) => onChange({ ...draft, codeSnippet: event.target.value })}
+          />
+        </label>
+
+        <label>
+          Evidence paths (one per line)
           <textarea
             className="evidence-input"
             value={draft.evidence}

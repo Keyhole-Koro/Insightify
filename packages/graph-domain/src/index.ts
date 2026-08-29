@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const flowNodeKindSchema = z.enum(["room", "process", "decision", "data", "external"]);
 
+export const flowNodeStatusSchema = z.enum(["idle", "working", "ready", "error"]);
+
 export const flowNodeSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
   title: z.string().trim().min(1).max(60),
@@ -9,7 +11,11 @@ export const flowNodeSchema = z.object({
   kind: flowNodeKindSchema,
   parentId: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/).nullable(),
   evidence: z.array(z.string().trim().min(1).max(240)).max(4),
+  tags: z.array(z.string().trim().min(1).max(30)).max(6).optional(),
+  status: flowNodeStatusSchema.optional(),
+  codeSnippet: z.string().trim().max(600).optional(),
 });
+export type FlowNodeStatus = z.infer<typeof flowNodeStatusSchema>;
 
 export const flowEdgeSchema = z.object({
   source: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),

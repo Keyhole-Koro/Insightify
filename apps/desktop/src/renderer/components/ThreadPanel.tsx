@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { AgentEvent, ProviderInstallation } from "@insightify/agent-runtime";
 import type {
   ExecutableAgentProvider,
@@ -7,6 +7,7 @@ import type {
 } from "@insightify/desktop-bridge";
 import type { FlowNode, GeneratedFlowGraph } from "@insightify/graph-domain";
 import type { AppError } from "../lib/errors.js";
+import { copyToClipboard } from "../lib/clipboard.js";
 import {
   generationPhase,
   type ApprovalRequestedEvent,
@@ -57,6 +58,17 @@ export function ThreadPanel({
   onErrorDismiss,
   onRespondApproval,
 }: ThreadPanelProps) {
+  const [transcriptCopied, setTranscriptCopied] = useState(false);
+
+  async function handleCopyTranscript() {
+    if (!transcript) return;
+    const ok = await copyToClipboard(transcript);
+    if (ok) {
+      setTranscriptCopied(true);
+      setTimeout(() => setTranscriptCopied(false), 1600);
+    }
+  }
+
   return (
     <aside className="thread-panel" aria-label="Agent execution thread">
       <header className="thread-header">
@@ -68,6 +80,15 @@ export function ThreadPanel({
       </header>
 
       <div className="thread-body">
+        {/* Experimental Note Banner */}
+        <div className="thread-experimental-banner">
+          <span className="banner-icon">ℹ️</span>
+          <div>
+            <strong>試験運用モード (Copy-First)</strong>
+            <p>提案コードや Evidence パスは直接上書きせず、コピーしてご利用ください。</p>
+          </div>
+        </div>
+
         <div className="context-card">
           <span>{anchor ? `Node · ${anchor.kind}` : "Root context"}</span>
           <strong>{anchor?.title ?? project?.displayName ?? "Select a project"}</strong>
@@ -76,8 +97,24 @@ export function ThreadPanel({
               graph?.graph.summary ??
               "Generate a semantic graph to establish the root scope."}
           </p>
+          {anchor?.tags && anchor.tags.length > 0 && (
+            <div className="portal-tags" style={{ marginTop: "6px" }}>
+              {anchor.tags.map((tag) => (
+                <span key={tag} className="portal-tag">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
           {anchor?.evidence.map((item) => (
-            <code key={item}>{item}</code>
+            <code
+              key={item}
+              className="clickable-code"
+              title="クリックしてパスをコピー"
+              onClick={() => copyToClipboard(item)}
+            >
+              📋 {item}
+            </code>
           ))}
         </div>
 
@@ -96,7 +133,16 @@ export function ThreadPanel({
 
         {!generating && transcript && (
           <div className="assistant-message">
-            <span>{meta.label}</span>
+            <div className="assistant-message-header">
+              <span>{meta.label}</span>
+              <button
+                className={`copy-chip ${transcriptCopied ? "copied" : ""}`}
+                onClick={handleCopyTranscript}
+                type="button"
+              >
+                {transcriptCopied ? "Copied! ✓" : "📋 Copy Output"}
+              </button>
+            </div>
             <p>{transcript}</p>
           </div>
         )}

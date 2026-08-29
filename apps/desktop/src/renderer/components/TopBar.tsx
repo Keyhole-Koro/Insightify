@@ -74,7 +74,17 @@ export function TopBar({
           · {boundaryPortsCount} boundary ports · semantic {levelLabels[lod]}
         </div>
       </div>
+
       <div className="topbar-actions">
+        {/* Experimental Note Banner */}
+        <div
+          className="experimental-note-badge"
+          title="試験段階モード：提案コードやファイルパスはクリップボードにコピーして手動適用します"
+        >
+          <span className="badge-icon">🧪</span>
+          <span className="badge-text">試験段階：コードはコピーして利用</span>
+        </div>
+
         {project && graph && (
           <button
             className="quiet-button"

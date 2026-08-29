@@ -106,21 +106,24 @@ export function App() {
     setError(toAppError(reason));
   }, []);
 
-  const loadGraph = useCallback(async (projectId: string) => {
-    setGraphLoading(true);
-    try {
-      const value = await window.insightify.getProjectGraph(projectId);
-      if (projectIdRef.current === projectId) {
-        setGraph(value);
+  const loadGraph = useCallback(
+    async (projectId: string) => {
+      setGraphLoading(true);
+      try {
+        const value = await window.insightify.getProjectGraph(projectId);
+        if (projectIdRef.current === projectId) {
+          setGraph(value);
+        }
+      } catch (reason) {
+        reportError(reason);
+      } finally {
+        if (projectIdRef.current === projectId) {
+          setGraphLoading(false);
+        }
       }
-    } catch (reason) {
-      reportError(reason);
-    } finally {
-      if (projectIdRef.current === projectId) {
-        setGraphLoading(false);
-      }
-    }
-  }, [reportError, setGraph]);
+    },
+    [reportError, setGraph]
+  );
 
   useEffect(() => {
     void Promise.all([window.insightify.listProjects(), window.insightify.probeProviders()])
@@ -356,9 +359,11 @@ export function App() {
       anchor
         ? `Selected node: ${anchor.title}\nNode kind: ${anchor.kind}\nNode summary: ${
             anchor.summary
-          }\nEvidence: ${anchor.evidence.join(", ") || "none"}`
+          }\nTags: ${anchor.tags?.join(", ") || "none"}\nEvidence: ${
+            anchor.evidence.join(", ") || "none"
+          }${anchor.codeSnippet ? `\nCode:\n${anchor.codeSnippet}` : ""}`
         : "Selected node: root scope",
-      "Treat this anchor as the working context. Do not modify unrelated areas.",
+      "Treat this anchor as the working context. Propose implementation code clearly for copying.",
       "",
       prompt,
     ].join("\n");
@@ -449,6 +454,13 @@ export function App() {
     );
   }
 
+  function askAiAboutNode(node: FlowNode) {
+    setSelectedNodeId(node.id);
+    setPrompt(
+      `Examine node "${node.title}" (${node.kind}) and propose the code implementation or changes to be copied.`
+    );
+  }
+
   function openEditNode(node: FlowNode) {
     setSelectedNodeId(node.id);
     setNodeDraft({
@@ -457,6 +469,9 @@ export function App() {
       summary: node.summary,
       kind: node.kind,
       evidence: node.evidence.join("\n"),
+      tags: node.tags?.join(", ") ?? "",
+      status: node.status ?? "idle",
+      codeSnippet: node.codeSnippet ?? "",
     });
   }
 
@@ -468,6 +483,13 @@ export function App() {
       !graphRef.current
     )
       return;
+
+    const parsedTags = nodeDraft.tags
+      .split(",")
+      .map((t) => t.trim().replace(/^#/, ""))
+      .filter(Boolean)
+      .slice(0, 6);
+
     mutateGraph((current) => ({
       ...current,
       graph: {
@@ -480,6 +502,9 @@ export function App() {
                 summary: nodeDraft.summary.trim(),
                 kind: nodeDraft.kind,
                 evidence: parseEvidence(nodeDraft.evidence),
+                tags: parsedTags.length ? parsedTags : undefined,
+                status: nodeDraft.status,
+                codeSnippet: nodeDraft.codeSnippet.trim() || undefined,
               }
             : node
         ),
@@ -786,6 +811,7 @@ export function App() {
                       onPeek={() => setPeekNodeId(node.id)}
                       onEnter={() => enterRoom(node)}
                       onEdit={() => openEditNode(node)}
+                      onAskAi={() => askAiAboutNode(node)}
                       onPointerDown={(event) => onNodePointerDown(event, node.id)}
                       onPointerMove={onNodePointerMove}
                       onPointerUp={onNodePointerUp}
@@ -893,6 +919,7 @@ export function App() {
                     onClose={() => setPeekNodeId(null)}
                     onEnter={() => enterRoom(peekNode)}
                     onEdit={() => openEditNode(peekNode)}
+                    onAskAi={() => askAiAboutNode(peekNode)}
                   />
                 )}
 
