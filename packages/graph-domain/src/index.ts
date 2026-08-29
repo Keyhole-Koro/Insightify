@@ -1078,8 +1078,13 @@ function separateReflowedNodes(
   frames: ExpandedRoomFrame[]
 ): void {
   const visible = nodes.filter((node) => positions.has(node.id));
-  const minimumX = 8;
-  const minimumY = 6;
+  // These are not cosmetic. The stage is sized so that the tightest pair of
+  // cards still clears its neighbour, so the closest two nodes in a scope
+  // decide the scale of every card on the canvas. Letting a reflow squeeze a
+  // pair to 8% made unfolding a Room shrink every card to 63% of its size and
+  // spread the canvas over twice its width.
+  const minimumX = 15;
+  const minimumY = 12;
 
   for (let pass = 0; pass < 6; pass += 1) {
     let moved = false;
@@ -1097,16 +1102,29 @@ function separateReflowedNodes(
         const originalRight = originalPositions.get(rightNode.id)!;
         const preserveVerticalOrder =
           Math.abs(originalRight.y - originalLeft.y) >= Math.abs(originalRight.x - originalLeft.x);
-        const candidate = { ...right };
-        if (preserveVerticalOrder) {
-          const direction = originalRight.y >= originalLeft.y ? 1 : -1;
-          candidate.y += direction * (minimumY - deltaY + 0.5);
-        } else {
-          const direction = originalRight.x >= originalLeft.x ? 1 : -1;
-          candidate.x += direction * (minimumX - deltaX + 0.5);
+
+        // Move along the axis the two nodes were already ordered on, but be
+        // ready to use the other one. Pushing a node sideways into an unfolded
+        // Room only sends it straight back to the edge it came from, and the
+        // pair stays on top of each other however many passes are spent on it.
+        const axes = preserveVerticalOrder ? ["y", "x"] as const : ["x", "y"] as const;
+        for (const axis of axes) {
+          const candidate = { ...right };
+          if (axis === "y") {
+            const direction = originalRight.y >= originalLeft.y ? 1 : -1;
+            candidate.y += direction * (minimumY - deltaY + 0.5);
+          } else {
+            const direction = originalRight.x >= originalLeft.x ? 1 : -1;
+            candidate.x += direction * (minimumX - deltaX + 0.5);
+          }
+          const placed = reflowAroundFrames(candidate, frames, false);
+          const clears =
+            Math.abs(placed.x - left.x) >= minimumX || Math.abs(placed.y - left.y) >= minimumY;
+          if (!clears) continue;
+          positions.set(rightNode.id, placed);
+          moved = true;
+          break;
         }
-        positions.set(rightNode.id, reflowAroundFrames(candidate, frames, false));
-        moved = true;
       }
     }
     if (!moved) break;
@@ -1176,7 +1194,9 @@ function packReflowedColumns(
   const frameCenter =
     frames.reduce((sum, frame) => sum + frame.bounds.x + frame.bounds.width / 2, 0) /
     frames.length;
-  const maximumPitch = 14;
+  // Columns are pulled back together so an unfolded Room leaves no dead band,
+  // but never closer than separateReflowedNodes is about to push them apart.
+  const maximumPitch = 18;
 
   const moveGroup = (group: { nodeIds: string[] }, delta: number) => {
     for (const nodeId of group.nodeIds) {
