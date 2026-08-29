@@ -40,7 +40,11 @@ export function PortalCard({
   const [copied, setCopied] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
-  const tech = node.technology || node.tags?.find((t) => /aws|gcp|azure|docker|k8s|postgres|redis|openai|stripe/i.test(t));
+  const tech =
+    node.technology ||
+    node.tags?.find((t) =>
+      /aws|gcp|azure|docker|k8s|kubernetes|postgres|redis|openai|stripe|github|react|graphql|rest/i.test(t)
+    );
 
   async function handleCopy(event: React.MouseEvent) {
     event.stopPropagation();
@@ -61,14 +65,26 @@ export function PortalCard({
     }
   }
 
+  // Determine geometric avatar shape based on kind & tech
+  const avatarShape = (() => {
+    if (node.kind === "database" || node.kind === "data") return "cylinder";
+    if (node.kind === "decision") return "diamond";
+    if (node.kind === "auth") return "shield";
+    if (node.kind === "queue") return "pipe";
+    if (node.kind === "api") return "capsule";
+    if (node.kind === "external") return "cloud";
+    if (node.kind === "ui") return "window";
+    return "rounded";
+  })();
+
   return (
     <article
       aria-label={`${node.title}. ${node.kind}. ${
         isPortal ? `Portal containing ${preview.descendantCount} nodes` : "No inner flow yet"
       }`}
-      className={`portal-card kind-${node.kind} status-${status}${selected ? " selected" : ""}${
-        isPortal ? " is-portal" : ""
-      }${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
+      className={`flow-node shape-${avatarShape} kind-${node.kind} status-${status}${
+        selected ? " selected" : ""
+      }${isPortal ? " is-portal" : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}
@@ -85,7 +101,7 @@ export function PortalCard({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* Ports */}
+      {/* Wiring Ports on outer container */}
       <span
         className={connections.input ? "card-port in connected" : "card-port in"}
         aria-hidden="true"
@@ -95,134 +111,126 @@ export function PortalCard({
         aria-hidden="true"
       />
 
-      {/* Kind-specific top ornamentation */}
-      {node.kind === "ui" && (
-        <div className="card-window-bar">
-          <i />
-          <i />
-          <i />
-        </div>
-      )}
-      {node.kind === "database" && <div className="card-cylinder-rim" />}
-      {node.kind === "api" && (
-        <div className="card-api-badge">
-          <span>{node.title.startsWith("POST") ? "POST" : node.title.startsWith("DELETE") ? "DEL" : "GET"}</span>
-          <em>API</em>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="portal-header">
-        <span className="portal-icon">
-          <NodeIcon kind={node.kind} technology={tech} size={15} />
-        </span>
-        <span className="node-kind">{tech || node.kind}</span>
-        <div className="portal-header-actions">
-          <button
-            className={`copy-chip ${copied ? "copied" : ""}`}
-            onClick={handleCopy}
-            title="ノード情報をクリップボードにコピー"
-            type="button"
-          >
-            {copied ? "Copied! ✓" : "📋 Copy"}
-          </button>
-          <span className={`status-dot status-${status}`} title={`Status: ${status}`} />
+      {/* TOP AVATAR / ICONIC SHAPE */}
+      <div className="node-avatar-container">
+        <div className={`node-avatar shape-${avatarShape}`}>
+          <NodeIcon kind={node.kind} technology={tech} size={24} />
+          <span className={`node-status-orb status-${status}`} title={`Status: ${status}`} />
         </div>
       </div>
 
-      {/* Title & Tags */}
-      <h2>{node.title}</h2>
-
-      {node.tags && node.tags.length > 0 && lod !== "structure" && (
-        <div className="portal-tags">
-          {node.tags.map((tag) => (
-            <span key={tag} className="portal-tag">
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Summary */}
-      {lod !== "structure" && <p className="portal-summary">{node.summary}</p>}
-
-      {/* Code Snippet / Signature (in implementation LOD) */}
-      {lod === "implementation" && node.codeSnippet && (
-        <div className="portal-code-preview">
-          <code>{node.codeSnippet}</code>
-        </div>
-      )}
-
-      {/* Folded Sheet (miniature of inner flow) */}
-      {isPortal && <PortalFold preview={preview} lod={lod} />}
-
-      {/* Evidence */}
-      {lod === "implementation" && node.evidence.length > 0 && (
-        <div
-          className="portal-evidence"
-          title="クリックしてパスをコピー"
-          onClick={async (e) => {
-            e.stopPropagation();
-            await copyToClipboard(node.evidence[0] ?? "");
-          }}
-        >
-          📄 {node.evidence[0]}
-        </div>
-      )}
-
-      {/* Footer */}
-      {lod !== "structure" && (
-        <div className="portal-footer">
-          <span>
-            {isPortal
-              ? `${preview.childCount} inside · ${preview.descendantCount} deep`
-              : "no inner flow"}
-          </span>
-          <div>
-            {onAskAi && (
-              <button
-                className="ai-action-btn"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAskAi();
-                }}
-                title="このノードについてAIに尋ねる"
-                type="button"
-              >
-                ✦ Ask AI
-              </button>
-            )}
+      {/* BOTTOM DETAIL RECTANGLE PLATE */}
+      <div className="node-detail-plate">
+        {/* Plate Header */}
+        <div className="plate-header">
+          <span className="plate-kind-badge">{tech || node.kind}</span>
+          <div className="plate-header-actions">
             <button
-              onClick={(event) => {
-                event.stopPropagation();
-                onPeek();
-              }}
+              className={`plate-copy-btn ${copied ? "copied" : ""}`}
+              onClick={handleCopy}
+              title="ノード情報をコピー"
               type="button"
             >
-              Peek
-            </button>
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                onEnter();
-              }}
-              type="button"
-            >
-              Enter
-            </button>
-            <button
-              aria-label={`Edit ${node.title}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onEdit();
-              }}
-              type="button"
-            >
-              •••
+              {copied ? "✓" : "📋"}
             </button>
           </div>
         </div>
-      )}
+
+        {/* Title */}
+        <h3 className="plate-title">{node.title}</h3>
+
+        {/* Tags (visible in flow and implementation LOD) */}
+        {node.tags && node.tags.length > 0 && lod !== "structure" && (
+          <div className="plate-tags">
+            {node.tags.map((tag) => (
+              <span key={tag} className="portal-tag">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Summary */}
+        {lod !== "structure" && <p className="plate-summary">{node.summary}</p>}
+
+        {/* Code Snippet in Implementation LOD */}
+        {lod === "implementation" && node.codeSnippet && (
+          <div className="plate-code-block">
+            <code>{node.codeSnippet}</code>
+          </div>
+        )}
+
+        {/* Nested Portal Fold */}
+        {isPortal && <PortalFold preview={preview} lod={lod} />}
+
+        {/* Evidence file path in Implementation LOD */}
+        {lod === "implementation" && node.evidence.length > 0 && (
+          <div
+            className="plate-evidence"
+            title="クリックしてパスをコピー"
+            onClick={async (e) => {
+              e.stopPropagation();
+              await copyToClipboard(node.evidence[0] ?? "");
+            }}
+          >
+            📄 {node.evidence[0]}
+          </div>
+        )}
+
+        {/* Plate Footer */}
+        {lod !== "structure" && (
+          <div className="plate-footer">
+            <span className="plate-inner-count">
+              {isPortal
+                ? `${preview.childCount} inside · ${preview.descendantCount} deep`
+                : "no inner flow"}
+            </span>
+            <div className="plate-actions">
+              {onAskAi && (
+                <button
+                  className="ai-action-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onAskAi();
+                  }}
+                  title="このノードについてAIに尋ねる"
+                  type="button"
+                >
+                  ✦ AI
+                </button>
+              )}
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPeek();
+                }}
+                type="button"
+              >
+                Peek
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEnter();
+                }}
+                type="button"
+              >
+                Enter
+              </button>
+              <button
+                aria-label={`Edit ${node.title}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit();
+                }}
+                type="button"
+              >
+                •••
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </article>
   );
 }

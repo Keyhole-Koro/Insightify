@@ -825,3 +825,343 @@ button { color: inherit; }
   letter-spacing: .12em;
   text-transform: uppercase;
 }
+
+/* ==========================================================================
+   Icon-on-Top + Detail-Plate Architecture Node Design
+   ========================================================================== */
+
+.flow-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 230px;
+  cursor: grab;
+  user-select: none;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), z-index 0ms;
+  z-index: 10;
+}
+.flow-node:hover {
+  transform: translate(-50%, -53%);
+  z-index: 25;
+}
+.flow-node.selected {
+  z-index: 30;
+}
+
+/* TOP AVATAR / ICONIC SHAPE CONTAINER */
+.node-avatar-container {
+  position: relative;
+  margin-bottom: -18px;
+  z-index: 2;
+  transition: transform 180ms ease;
+}
+.flow-node:hover .node-avatar-container {
+  transform: scale(1.08) translateY(-2px);
+}
+
+.node-avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid #3b3f4d;
+  background: linear-gradient(135deg, #222631, #14161c);
+  color: #cfd4e0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transition: all 180ms ease;
+}
+
+/* Specific Geometric Shapes for Avatars */
+.node-avatar.shape-rounded {
+  border-radius: 14px;
+}
+
+/* Database Cylinder Shape */
+.node-avatar.shape-cylinder {
+  border-radius: 20px / 12px;
+  border-top-width: 2px;
+  border-bottom-width: 2px;
+  background: linear-gradient(180deg, #1f382a, #102117);
+  border-color: #3b7352;
+  color: #79e2a0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 2px 4px #79e2a033;
+}
+
+/* Decision Diamond Shape */
+.node-avatar.shape-diamond {
+  width: 44px;
+  height: 44px;
+  transform: rotate(45deg);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #382c16, #21190a);
+  border-color: #7d5f29;
+  color: #ffc566;
+}
+.node-avatar.shape-diamond > * {
+  transform: rotate(-45deg);
+}
+
+/* Auth Shield / Hexagon Shape */
+.node-avatar.shape-shield {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  border-radius: 0;
+  background: linear-gradient(180deg, #3d3412, #211c08);
+  border-color: #8c7621;
+  color: #ffd666;
+}
+
+/* Queue Pipe Shape */
+.node-avatar.shape-pipe {
+  width: 52px;
+  height: 40px;
+  border-radius: 8px;
+  border-left: 3px solid #d46b08;
+  border-right: 3px solid #d46b08;
+  background: linear-gradient(90deg, #241407, #361f0c, #241407);
+  color: #ffa940;
+}
+
+/* API Capsule Shape */
+.node-avatar.shape-capsule {
+  width: 56px;
+  height: 40px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #2b1f47, #170f2b);
+  border-color: #634b9e;
+  color: #b37feb;
+}
+
+/* External Cloud Shape */
+.node-avatar.shape-cloud {
+  border-radius: 24px 24px 18px 18px;
+  background: linear-gradient(135deg, #381f33, #1c0e19);
+  border-color: #7d3f6f;
+  color: #f759ab;
+}
+
+/* UI Window Shape */
+.node-avatar.shape-window {
+  border-radius: 10px;
+  border-top-width: 3px;
+  background: linear-gradient(180deg, #132e2e, #091a1a);
+  border-color: #2b6b6b;
+  color: #36cfc9;
+}
+
+/* Status Orb attached to Avatar */
+.node-status-orb {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #14161c;
+  border-radius: 50%;
+  background: #6e727d;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+}
+.node-status-orb.status-working {
+  background: #faad14;
+  box-shadow: 0 0 10px #faad14cc;
+  animation: working-pulse 1.2s ease-in-out infinite;
+}
+.node-status-orb.status-ready {
+  background: #52c41a;
+  box-shadow: 0 0 8px #52c41a99;
+}
+.node-status-orb.status-error {
+  background: #ff4d4f;
+  box-shadow: 0 0 8px #ff4d4f99;
+}
+
+/* BOTTOM DETAIL RECTANGLE PLATE */
+.node-detail-plate {
+  position: relative;
+  width: 100%;
+  padding: 24px 14px 12px;
+  border: 1px solid #282c36;
+  border-radius: 14px;
+  background: rgba(18, 20, 26, 0.92);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  transition: all 180ms ease;
+}
+
+.flow-node.selected .node-detail-plate {
+  border-color: #c9ff63;
+  box-shadow: 0 0 0 1px #c9ff63, 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+.flow-node.is-portal .node-detail-plate {
+  border-style: dashed;
+}
+
+/* Plate Header */
+.plate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.plate-kind-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid #333845;
+  border-radius: 6px;
+  color: #8c93a3;
+  background: #14161e;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.plate-copy-btn {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #2c303c;
+  border-radius: 5px;
+  color: #8b909e;
+  background: #15171f;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 120ms ease;
+}
+.plate-copy-btn:hover {
+  border-color: #4a5266;
+  color: #ffffff;
+  background: #202430;
+}
+.plate-copy-btn.copied {
+  border-color: #52c41a;
+  color: #73d13d;
+  background: #162614;
+}
+
+/* Plate Title */
+.plate-title {
+  margin: 0 0 6px;
+  color: #edf0f5;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* Plate Tags */
+.plate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+/* Plate Summary */
+.plate-summary {
+  margin: 0 0 8px;
+  color: #8f95a3;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+/* Plate Code Block */
+.plate-code-block {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border: 1px solid #252833;
+  border-radius: 6px;
+  background: #0d0e13;
+}
+.plate-code-block code {
+  display: block;
+  max-height: 48px;
+  overflow: hidden;
+  color: #a3d98b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Plate Evidence */
+.plate-evidence {
+  margin-bottom: 8px;
+  padding: 3px 6px;
+  border: 1px dashed #2d313d;
+  border-radius: 5px;
+  color: #787e8f;
+  background: #111319;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plate-evidence:hover {
+  color: #c9ff63;
+  border-color: #5b732d;
+}
+
+/* Plate Footer */
+.plate-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #22252e;
+}
+.plate-inner-count {
+  color: #5c6270;
+  font-size: 8px;
+}
+.plate-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.plate-actions button {
+  padding: 2px 6px;
+  border: 1px solid #2e3340;
+  border-radius: 5px;
+  color: #9da3b3;
+  background: #151720;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 600;
+  transition: all 120ms ease;
+}
+.plate-actions button:hover {
+  border-color: #4b5369;
+  color: #f0f2f7;
+  background: #1f2330;
+}
+
+/* Ports on Flow Node */
+.flow-node .card-port {
+  position: absolute;
+  top: 60%;
+  width: 9px;
+  height: 9px;
+  transform: translateY(-50%);
+  border: 1px solid #3a3f4d;
+  border-radius: 50%;
+  background: #12141a;
+  z-index: 5;
+}
+.flow-node .card-port.in { left: -5px; }
+.flow-node .card-port.out { right: -5px; }
+.flow-node .card-port.connected {
+  border-color: #7d9a46;
+  background: #2c3a19;
+}
+.flow-node.selected .card-port.connected {
+  border-color: #c9ff63;
+  background: #3e5321;
+}
