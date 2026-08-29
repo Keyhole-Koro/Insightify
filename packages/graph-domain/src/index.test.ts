@@ -240,3 +240,26 @@ describe("portal preview", () => {
     expect(buildPortalPreview(withChildren, "output")).toEqual({ nodes: [], edges: [], childCount: 0, descendantCount: 0, hiddenCount: 0 });
   });
 });
+
+describe("layoutNodesWithAreaDSL", () => {
+  it("organizes API endpoints vertically in left column and other services on right", () => {
+    const apiNodes = [
+      { id: "api-login", title: "POST /login", summary: "Auth login", kind: "api" as const, parentId: "api-gateway", evidence: [] },
+      { id: "api-get", title: "GET /workflows", summary: "Get flows", kind: "api" as const, parentId: "api-gateway", evidence: [] },
+      { id: "api-exec", title: "POST /execute", summary: "Run flow", kind: "api" as const, parentId: "api-gateway", evidence: [] },
+      { id: "api-stream", title: "POST /synthesize", summary: "Stream tokens", kind: "api" as const, parentId: "api-gateway", tags: ["stream", "openai"], evidence: [] },
+      { id: "api-gql", title: "POST /graphql", summary: "GraphQL", kind: "api" as const, parentId: "api-gateway", tags: ["graphql"], evidence: [] },
+    ];
+
+    const positioned = layoutFlowNodes(apiNodes, [], "api-gateway");
+    expect(positioned).toHaveLength(5);
+
+    // REST endpoints should be in the left column (x around 20-35%), stream/graphql in right column (x around 65-80%)
+    const loginNode = positioned.find((n) => n.id === "api-login")!;
+    const streamNode = positioned.find((n) => n.id === "api-stream")!;
+
+    expect(loginNode.x).toBeLessThan(streamNode.x);
+    expect(loginNode.y).toBeGreaterThan(0);
+    expect(loginNode.y).toBeLessThan(100);
+  });
+});

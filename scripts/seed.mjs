@@ -144,18 +144,6 @@ const novaFlowGraphSource = {
       codeSnippet: "router.post('/login', validate(LoginSchema), async (req, reply) => {\n  const token = await authenticateUser(req.body);\n  return reply.send({ token });\n});",
     },
     {
-      id: "api-workflows-get",
-      title: "GET /api/v1/workflows/:id",
-      summary: "Fetches compiled workflow graph topology, step execution logs, and output state.",
-      kind: "api",
-      technology: "REST",
-      parentId: "api-gateway",
-      evidence: ["services/gateway/src/routes/workflows.ts"],
-      tags: ["workflow", "read", "cache-control"],
-      status: "ready",
-      codeSnippet: "router.get('/:id', async (req, reply) => {\n  const flow = await db.workflows.findById(req.params.id);\n  return flow ? reply.send(flow) : reply.status(404).send();\n});",
-    },
-    {
       id: "api-workflows-create",
       title: "POST /api/v1/workflows",
       summary: "Validates workflow schema and stores new workflow definition in PostgreSQL.",
@@ -166,6 +154,18 @@ const novaFlowGraphSource = {
       tags: ["workflow", "create", "validation"],
       status: "ready",
       codeSnippet: "router.post('/', authGuard, async (req, reply) => {\n  const workflow = await createWorkflow(req.user.id, req.body);\n  return reply.status(201).send(workflow);\n});",
+    },
+    {
+      id: "api-workflows-get",
+      title: "GET /api/v1/workflows/:id",
+      summary: "Fetches compiled workflow graph topology, step execution logs, and output state.",
+      kind: "api",
+      technology: "REST",
+      parentId: "api-gateway",
+      evidence: ["services/gateway/src/routes/workflows.ts"],
+      tags: ["workflow", "read", "cache-control"],
+      status: "ready",
+      codeSnippet: "router.get('/:id', async (req, reply) => {\n  const flow = await db.workflows.findById(req.params.id);\n  return flow ? reply.send(flow) : reply.status(404).send();\n});",
     },
     {
       id: "api-workflows-run",
@@ -341,8 +341,57 @@ const novaFlowGraphSource = {
   ],
 };
 
+// Architecture Area DSL Coordinates computation
+function computeSeededLayout(nodes) {
+  const layout = {};
+
+  // 1. Root Level (3-Tier Pipeline)
+  // Left: Ingress / UI / Gateway (x: 18%)
+  layout["frontend-portal"] = { x: 18.0, y: 32.0 };
+  layout["api-gateway"] = { x: 18.0, y: 68.0 };
+
+  // Center: Core Coordination (x: 48%)
+  layout["auth-guard"] = { x: 48.0, y: 32.0 };
+  layout["workflow-engine"] = { x: 48.0, y: 68.0 };
+
+  // Right: Data & Cloud Infrastructure (x: 78%)
+  // Top: Persistence & Buffering
+  layout["event-bus"] = { x: 70.0, y: 26.0 };
+  layout["primary-db"] = { x: 86.0, y: 26.0 };
+  // Bottom: External Integrations & AI
+  layout["ai-synthesizer"] = { x: 68.0, y: 62.0 };
+  layout["cloud-storage"] = { x: 86.0, y: 62.0 };
+  layout["payment-hub"] = { x: 68.0, y: 84.0 };
+  layout["analytics-lake"] = { x: 86.0, y: 84.0 };
+
+  // 2. API Gateway Room (Left Vertical Core REST Lane + Right Async/Stream Lane)
+  // Left: Core REST Endpoints stacked vertically
+  layout["api-auth-login"] = { x: 26.0, y: 20.0 };
+  layout["api-workflows-create"] = { x: 26.0, y: 40.0 };
+  layout["api-workflows-get"] = { x: 26.0, y: 60.0 };
+  layout["api-workflows-run"] = { x: 26.0, y: 80.0 };
+  // Right: AI Stream, Webhooks, GraphQL
+  layout["api-ai-synthesize"] = { x: 74.0, y: 25.0 };
+  layout["api-stripe-webhook"] = { x: 74.0, y: 52.0 };
+  layout["api-graphql"] = { x: 74.0, y: 78.0 };
+
+  // 3. Workflow Engine Room (Horizontal Pipeline)
+  layout["dispatch-service"] = { x: 20.0, y: 50.0 };
+  layout["branch-evaluator"] = { x: 45.0, y: 50.0 };
+  layout["k8s-runner"] = { x: 65.0, y: 50.0 };
+  layout["state-checkpoint"] = { x: 85.0, y: 50.0 };
+
+  // 4. Frontend Portal Room (2-Column Grid)
+  layout["web-dashboard"] = { x: 30.0, y: 32.0 };
+  layout["canvas-editor"] = { x: 30.0, y: 68.0 };
+  layout["mobile-client"] = { x: 70.0, y: 32.0 };
+  layout["auth-modal"] = { x: 70.0, y: 68.0 };
+
+  return layout;
+}
+
 async function runSeed() {
-  console.log("🌱 Seeding Insightify with rich multi-cloud & architectural sample with API endpoints...");
+  console.log("🌱 Seeding Insightify with Recursive Area Layout DSL...");
 
   const platformDir =
     process.platform === "darwin"
@@ -403,29 +452,7 @@ async function runSeed() {
   const sandboxBaseDir = path.join(targetDir, "sandboxes", projectId);
   mkdirSync(sandboxBaseDir, { recursive: true });
 
-  // Compute Layout for visible root nodes
-  const nodes = novaFlowGraphSource.nodes;
-  const layout = {};
-  const visible = nodes.filter((n) => n.parentId === null);
-  visible.forEach((node, i) => {
-    const col = i % 4;
-    const row = Math.floor(i / 4);
-    layout[node.id] = {
-      x: 18 + col * 22,
-      y: 24 + row * 38,
-    };
-  });
-
-  // Compute layout for API gateway child nodes
-  const apiNodes = nodes.filter((n) => n.parentId === "api-gateway");
-  apiNodes.forEach((node, i) => {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    layout[node.id] = {
-      x: 20 + col * 30,
-      y: 25 + row * 35,
-    };
-  });
+  const layout = computeSeededLayout(novaFlowGraphSource.nodes);
 
   db.prepare(`
     INSERT INTO project_graphs (project_id, provider, snapshot_hash, generated_at, graph_json, layout_json)
@@ -439,7 +466,7 @@ async function runSeed() {
   `).run(
     projectId,
     "codex",
-    "seed-hash-novaflow-v2",
+    "seed-hash-novaflow-v3",
     now,
     JSON.stringify(novaFlowGraphSource),
     JSON.stringify(layout)
@@ -447,7 +474,7 @@ async function runSeed() {
 
   console.log(`✅ Project seeded: "${displayName}" (ID: ${projectId})`);
   console.log(`🛡️ Sandbox copy location: ${sandboxBaseDir}`);
-  console.log(`🚀 Seeded ${nodes.length} nodes including 7 API Endpoints (Auth, REST, Webhook, GraphQL, SSE).`);
+  console.log(`🚀 Seeded ${novaFlowGraphSource.nodes.length} nodes structured with Recursive Area DSL Layout.`);
 
   db.close();
   console.log("✨ Seeding complete! Run \`bun dev\` or \`bun preview\` to view the live diagram.");

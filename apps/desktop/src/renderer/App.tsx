@@ -209,8 +209,8 @@ export function App() {
     [graph, activeScopeId]
   );
   const flowLayout = useMemo(
-    () => layoutFlowNodes(visibleNodes, roomEdges.map(toFlowEdge)),
-    [visibleNodes, roomEdges]
+    () => layoutFlowNodes(visibleNodes, roomEdges.map(toFlowEdge), activeScopeId),
+    [visibleNodes, roomEdges, activeScopeId]
   );
   const stage = useMemo(() => stageMetrics(flowLayout, frame), [flowLayout, frame]);
   const stageZoom = zoom * stage.scale;

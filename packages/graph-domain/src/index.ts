@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { defaultRoomLayoutRules, layoutNodesWithAreaDSL } from "./area-layout.js";
+
+export * from "./area-layout.js";
 
 export const flowNodeKindSchema = z.enum([
   "room",
@@ -213,58 +216,14 @@ export function layoutRootNodes(graph: FlowGraph): PositionedFlowNode[] {
   return layoutFlowNodes(visible, graph.edges);
 }
 
-export function layoutFlowNodes(visible: FlowNode[], edges: FlowEdge[] = []): PositionedFlowNode[] {
+export function layoutFlowNodes(
+  visible: FlowNode[],
+  edges: FlowEdge[] = [],
+  roomId: string | null = null
+): PositionedFlowNode[] {
   if (visible.length === 0) return [];
-  const ids = new Set(visible.map((node) => node.id));
-  const order = new Map(visible.map((node, index) => [node.id, index]));
-  const outgoing = new Map(visible.map((node) => [node.id, [] as string[]]));
-  const indegree = new Map(visible.map((node) => [node.id, 0]));
-  for (const edge of edges) {
-    if (!ids.has(edge.source) || !ids.has(edge.target) || edge.source === edge.target) continue;
-    if (outgoing.get(edge.source)!.includes(edge.target)) continue;
-    outgoing.get(edge.source)!.push(edge.target);
-    indegree.set(edge.target, indegree.get(edge.target)! + 1);
-  }
-
-  const ranks = new Map(visible.map((node) => [node.id, 0]));
-  const queue = visible.filter((node) => indegree.get(node.id) === 0).map((node) => node.id);
-  const visited = new Set<string>();
-  while (queue.length) {
-    queue.sort((left, right) => order.get(left)! - order.get(right)!);
-    const source = queue.shift()!;
-    visited.add(source);
-    for (const target of outgoing.get(source)!) {
-      ranks.set(target, Math.max(ranks.get(target)!, ranks.get(source)! + 1));
-      indegree.set(target, indegree.get(target)! - 1);
-      if (indegree.get(target) === 0) queue.push(target);
-    }
-  }
-
-  // A cycle has no topological start. Keep its members together after the acyclic flow.
-  const highestRank = Math.max(0, ...ranks.values());
-  visible.filter((node) => !visited.has(node.id)).forEach((node, index) => {
-    ranks.set(node.id, highestRank + Math.floor(index / 3) + (visited.size ? 1 : 0));
-  });
-
-  const groups = new Map<number, FlowNode[]>();
-  for (const node of visible) {
-    const rank = ranks.get(node.id)!;
-    const group = groups.get(rank) ?? [];
-    group.push(node);
-    groups.set(rank, group);
-  }
-  const orderedRanks = [...groups.keys()].sort((left, right) => left - right);
-  const rankIndex = new Map(orderedRanks.map((rank, index) => [rank, index]));
-  const result = new Map<string, PositionedFlowNode>();
-  for (const [rank, nodes] of groups) {
-    const column = rankIndex.get(rank)!;
-    const x = orderedRanks.length === 1 ? 50 : 15 + (70 * column) / (orderedRanks.length - 1);
-    nodes.forEach((node, row) => {
-      const y = nodes.length === 1 ? 50 : 20 + (60 * row) / (nodes.length - 1);
-      result.set(node.id, { ...node, x, y });
-    });
-  }
-  return visible.map((node) => result.get(node.id)!);
+  // Use the Recursive Area Layout DSL
+  return layoutNodesWithAreaDSL(visible, roomId, defaultRoomLayoutRules, edges);
 }
 
 export function createDefaultGraphLayout(graph: FlowGraph, existing: GraphLayout = {}): GraphLayout {
@@ -276,7 +235,7 @@ export function createDefaultGraphLayout(graph: FlowGraph, existing: GraphLayout
     const projectedEdges = projection.edges
       .filter((edge): edge is ProjectedFlowEdge & { source: string; target: string } => edge.source !== null && edge.target !== null)
       .map((edge) => ({ source: edge.source, target: edge.target, label: edge.labels[0] ?? "" }));
-    for (const node of layoutFlowNodes(nodes, projectedEdges)) {
+    for (const node of layoutFlowNodes(nodes, projectedEdges, parentId)) {
       if (!layout[node.id]) layout[node.id] = { x: node.x, y: node.y };
     }
   }
