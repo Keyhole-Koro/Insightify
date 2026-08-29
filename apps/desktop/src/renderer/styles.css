@@ -853,9 +853,14 @@ button { color: inherit; }
 /* TOP AVATAR / ICONIC SHAPE CONTAINER */
 .node-avatar-container {
   position: relative;
-  margin-bottom: -18px;
   z-index: 2;
   transition: transform 180ms ease;
+}
+.flow-node.is-expanded .node-avatar-container {
+  margin-bottom: -18px;
+}
+.flow-node.is-compact .node-avatar-container {
+  margin-bottom: 6px;
 }
 .flow-node:hover .node-avatar-container {
   transform: scale(1.08) translateY(-2px);
@@ -1177,7 +1182,7 @@ button { color: inherit; }
 }
 
 .flow-node.is-compact .node-avatar-container {
-  margin-bottom: -10px;
+  margin-bottom: 6px;
 }
 
 .flow-node.is-compact .card-port {
