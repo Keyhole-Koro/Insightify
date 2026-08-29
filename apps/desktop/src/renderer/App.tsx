@@ -218,7 +218,10 @@ export function App() {
   const stage = useMemo(() => stageMetrics(flowLayout, frame), [flowLayout, frame]);
   const stageZoom = zoom * stage.scale;
   const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
-  const debugAreas = useMemo(() => getDebugAreasForScope(activeScopeId), [activeScopeId]);
+  const debugAreas = useMemo(
+    () => getDebugAreasForScope(activeScopeId, visibleNodes),
+    [activeScopeId, visibleNodes]
+  );
 
   const positionedNodes = useMemo(
     () => flowLayout.map((node) => ({ ...node, ...(graph?.layout[node.id] ?? {}) })),

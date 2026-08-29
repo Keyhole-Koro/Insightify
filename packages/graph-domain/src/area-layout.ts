@@ -39,6 +39,7 @@ export interface ResolvedArea {
   bounds: LayoutBounds;
   isLeaf: boolean;
   assignedNodes: FlowNode[];
+  fittedBounds?: LayoutBounds;
 }
 
 export interface DebugAreaBox {
@@ -52,7 +53,7 @@ export interface DebugAreaBox {
 }
 
 /**
- * Built-in standard architectural DSL layout rules with tight padding.
+ * Built-in standard architectural DSL layout rules.
  */
 export const defaultRoomLayoutRules: RoomLayoutRule[] = [
   // 1. Root Level 3-Tier Architecture Pipeline
@@ -234,9 +235,9 @@ function getAreaColor(id: string): { bg: string; border: string; text: string } 
   }
   const hue = Math.abs(hash) % 360;
   return {
-    bg: `hsla(${hue}, 70%, 50%, 0.12)`,
-    border: `hsla(${hue}, 80%, 65%, 0.65)`,
-    text: `hsla(${hue}, 90%, 80%, 0.95)`,
+    bg: `hsla(${hue}, 65%, 45%, 0.14)`,
+    border: `hsla(${hue}, 80%, 65%, 0.7)`,
+    text: `hsla(${hue}, 90%, 82%, 0.95)`,
   };
 }
 
@@ -327,7 +328,6 @@ function resolveAreaTree(
 
     let subBounds: LayoutBounds;
     if (direction === "row") {
-      // Split horizontally
       const subWidth = +(currentBounds.width * proportion).toFixed(1);
       const subX = +(currentBounds.x + accumulated).toFixed(1);
       accumulated += subWidth;
@@ -338,7 +338,6 @@ function resolveAreaTree(
         height: currentBounds.height,
       };
     } else {
-      // Split vertically
       const subHeight = +(currentBounds.height * proportion).toFixed(1);
       const subY = +(currentBounds.y + accumulated).toFixed(1);
       accumulated += subHeight;
@@ -358,10 +357,11 @@ function resolveAreaTree(
 }
 
 /**
- * Returns debug bounding boxes with colors for a given Room scope.
+ * Returns content-fitted debug bounding boxes with colors for a given Room scope.
  */
 export function getDebugAreasForScope(
   roomId: string | null = null,
+  nodes: FlowNode[] = [],
   rules: RoomLayoutRule[] = defaultRoomLayoutRules
 ): DebugAreaBox[] {
   const matchedRule =
@@ -372,22 +372,73 @@ export function getDebugAreasForScope(
   const initialBounds: LayoutBounds = { x: 0, y: 0, width: 100, height: 100 };
   const leafAreas = resolveAreaTree(matchedRule.area, initialBounds);
 
-  return leafAreas.map((area) => {
-    const colors = getAreaColor(area.definition.id);
-    return {
-      id: area.definition.id,
-      name: area.definition.name ?? area.definition.id,
-      bounds: area.bounds,
-      backgroundColor: colors.bg,
-      borderColor: colors.border,
-      textColor: colors.text,
-      nodeCount: area.assignedNodes.length,
-    };
-  });
+  // Assign nodes to calculate fitted bounds
+  for (const node of nodes) {
+    let bestArea: ResolvedArea | null = null;
+    let highestScore = 0;
+    for (const area of leafAreas) {
+      const score = calculateMatchScore(node, area.definition.match);
+      if (score > highestScore) {
+        highestScore = score;
+        bestArea = area;
+      }
+    }
+    if (bestArea && highestScore > 0) {
+      bestArea.assignedNodes.push(node);
+    }
+  }
+
+  // Also compute positioned coordinates to get tight fitted bounds
+  const positioned = layoutNodesWithAreaDSL(nodes, roomId, rules);
+  const posMap = new Map(positioned.map((n) => [n.id, n]));
+
+  return leafAreas
+    .filter((area) => area.assignedNodes.length > 0 || nodes.length === 0)
+    .map((area) => {
+      const colors = getAreaColor(area.definition.id);
+      const areaNodePositions = area.assignedNodes
+        .map((n) => posMap.get(n.id))
+        .filter((p): p is PositionedFlowNode => p !== undefined);
+
+      let bounds = area.bounds;
+      if (areaNodePositions.length > 0) {
+        const xs = areaNodePositions.map((p) => p.x);
+        const ys = areaNodePositions.map((p) => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+
+        // Tight Content-Fit with 6% horizontal and 7% vertical padding around nodes
+        const padX = 6.5;
+        const padY = 7.5;
+        const fitX = +(Math.max(2, minX - padX)).toFixed(1);
+        const fitY = +(Math.max(2, minY - padY)).toFixed(1);
+        const fitW = +(Math.max(14, maxX - minX + padX * 2)).toFixed(1);
+        const fitH = +(Math.max(16, maxY - minY + padY * 2)).toFixed(1);
+
+        bounds = {
+          x: fitX,
+          y: fitY,
+          width: fitW,
+          height: fitH,
+        };
+      }
+
+      return {
+        id: area.definition.id,
+        name: area.definition.name ?? area.definition.id,
+        bounds,
+        backgroundColor: colors.bg,
+        borderColor: colors.border,
+        textColor: colors.text,
+        nodeCount: area.assignedNodes.length,
+      };
+    });
 }
 
 /**
- * Computes positions for nodes using a Recursive Area Layout DSL.
+ * Computes dense, well-spaced positions for nodes using Recursive Area Layout DSL.
  */
 export function layoutNodesWithAreaDSL(
   nodes: FlowNode[],
@@ -448,7 +499,7 @@ export function layoutNodesWithAreaDSL(
     }
   }
 
-  // 3. Compute final (x, y) coordinates for nodes inside each leaf area
+  // 3. Compute final compact (x, y) coordinates for nodes inside each leaf area
   const result: PositionedFlowNode[] = [];
 
   for (const area of leafAreas) {
@@ -459,36 +510,50 @@ export function layoutNodesWithAreaDSL(
     const dir = area.definition.direction ?? "column";
 
     if (dir === "column") {
-      // Stack vertically centered horizontally in the area
+      // Tight vertical stack
       const centerX = +(ax + aw / 2).toFixed(1);
       const n = areaNodes.length;
+      // Controlled pitch: 18% to 22% max spacing per node to eliminate sparse vertical gaps
+      const totalSpanY = Math.min(ah * 0.88, Math.max(18, (n - 1) * 20));
+      const startY = +(ay + (ah - totalSpanY) / 2).toFixed(1);
+
       areaNodes.forEach((node, idx) => {
         const y =
           n === 1
             ? +(ay + ah / 2).toFixed(1)
-            : +(ay + (ah * (idx + 0.5)) / n).toFixed(1);
+            : +(startY + (totalSpanY * idx) / (n - 1)).toFixed(1);
         result.push({ ...node, x: centerX, y });
       });
     } else if (dir === "row") {
-      // Place horizontally centered vertically in the area
+      // Tight horizontal row
       const centerY = +(ay + ah / 2).toFixed(1);
       const n = areaNodes.length;
+      const totalSpanX = Math.min(aw * 0.88, Math.max(20, (n - 1) * 22));
+      const startX = +(ax + (aw - totalSpanX) / 2).toFixed(1);
+
       areaNodes.forEach((node, idx) => {
         const x =
           n === 1
             ? +(ax + aw / 2).toFixed(1)
-            : +(ax + (aw * (idx + 0.5)) / n).toFixed(1);
+            : +(startX + (totalSpanX * idx) / (n - 1)).toFixed(1);
         result.push({ ...node, x, y: centerY });
       });
     } else {
-      // Grid placement
+      // Tight grid
       const cols = Math.ceil(Math.sqrt(areaNodes.length));
       const rows = Math.ceil(areaNodes.length / cols);
+      const spanX = Math.min(aw * 0.88, Math.max(20, (cols - 1) * 22));
+      const spanY = Math.min(ah * 0.88, Math.max(18, (rows - 1) * 20));
+      const startX = +(ax + (aw - spanX) / 2).toFixed(1);
+      const startY = +(ay + (ah - spanY) / 2).toFixed(1);
+
       areaNodes.forEach((node, idx) => {
         const col = idx % cols;
         const row = Math.floor(idx / cols);
-        const x = +(ax + (aw * (col + 0.5)) / cols).toFixed(1);
-        const y = +(ay + (ah * (row + 0.5)) / rows).toFixed(1);
+        const x =
+          cols === 1 ? +(ax + aw / 2).toFixed(1) : +(startX + (spanX * col) / (cols - 1)).toFixed(1);
+        const y =
+          rows === 1 ? +(ay + ah / 2).toFixed(1) : +(startY + (spanY * row) / (rows - 1)).toFixed(1);
         result.push({ ...node, x, y });
       });
     }
