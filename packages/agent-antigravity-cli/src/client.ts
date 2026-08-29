@@ -83,8 +83,15 @@ export class AntigravityCliClient {
   async startRun(prompt: string, options: AntigravityRunOptions = {}): Promise<AntigravityRunHandle> {
     const runId = randomUUID();
     const threadId = runId;
-    const args = ["-p", prompt, "--output-format", "stream-json", "--sandbox"];
-    if (options.jsonSchema !== undefined) args.push("--json-schema", JSON.stringify(options.jsonSchema));
+    const args = [
+      "-p",
+      prompt,
+      "--output-format",
+      "stream-json",
+      "--sandbox",
+      "--disable-slash-commands",
+      "--dangerously-skip-permissions",
+    ];
     const child = spawn(
       this.#executable,
       args,
