@@ -14,7 +14,7 @@ export function GraphGenerationStream({ transcript, expansion }: GraphGeneration
     <div className="graph-stream">
       <header>
         <span>LIVE STRUCTURED STREAM</span>
-        <b>{transcript.length.toLocaleString()} chars</b>
+        <b>{transcript.length > 0 ? `${transcript.length.toLocaleString()} chars` : "Thinking…"}</b>
       </header>
       {titles.length > 0 && (
         <div className="stream-discoveries">
@@ -27,7 +27,11 @@ export function GraphGenerationStream({ transcript, expansion }: GraphGeneration
         </div>
       )}
       <pre>
-        {tail || "Waiting for the provider’s first structured output chunk…"}
+        {tail || (
+          <span style={{ color: "#8b92a4", fontStyle: "italic" }}>
+            ✦ Analyzing code snapshot and synthesizing FlowFold nodes… (structured generation in progress)
+          </span>
+        )}
         <i className="stream-cursor" />
       </pre>
     </div>

@@ -457,6 +457,24 @@ export function App() {
                     </button>
                   </div>
                 )}
+                {(generatingGraph || regeneratingLayout || (expandingScopeId !== null && visibleNodes.length > 0)) && (
+                  <div className="canvas-generating-overlay" role="status">
+                    <span className="generating-pulse-dot" aria-hidden="true" />
+                    <div className="generating-text">
+                      <strong>
+                        {generatingGraph
+                          ? `${meta.label} is analyzing snapshot & regenerating graph…`
+                          : regeneratingLayout
+                          ? `${meta.label} is recomputing semantic layout arrangement…`
+                          : `${meta.label} is decomposing Room…`}
+                      </strong>
+                      <span>Read-only · validating locally with structured output</span>
+                    </div>
+                    <button type="button" className="stop-button" onClick={cancelRun}>
+                      Stop
+                    </button>
+                  </div>
+                )}
                 <div className="scope-label">
                   <span>ROOM</span> {scopeNode?.title ?? graph.graph.title}
                 </div>

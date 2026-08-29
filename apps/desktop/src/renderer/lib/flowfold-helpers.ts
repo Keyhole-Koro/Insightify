@@ -286,6 +286,8 @@ export function nodeTitle(nodes: FlowNode[], id: string): string {
 
 export function generationPhase(events: AgentEvent[], transcript: string): string {
   if (transcript) return "Streaming structured graph";
+  if (events.some((event) => event.type === "reasoning.delta")) return "Model thinking & structuring";
+  if (events.some((event) => event.type === "tool.started")) return "Executing agent inspection";
   if (events.some((event) => event.type === "run.started")) return "Analyzing project snapshot";
   if (events.some((event) => event.type === "provider.connected")) return "Provider connected";
   return "Preparing safe snapshot";

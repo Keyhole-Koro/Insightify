@@ -24,10 +24,7 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
       title: "Open an Insightify project",
       properties: ["openDirectory"],
     };
-    const window = options.window();
-    const result = window
-      ? await dialog.showOpenDialog(window, dialogOptions)
-      : await dialog.showOpenDialog(dialogOptions);
+    const result = await dialog.showOpenDialog(dialogOptions);
     if (result.canceled || result.filePaths.length === 0) return null;
     const project = options.projects.openPath(result.filePaths[0]);
     return {
