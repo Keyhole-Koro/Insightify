@@ -663,3 +663,165 @@ button { color: inherit; }
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* Specialized Card Types & Theming */
+.portal-card.kind-api {
+  border-color: #4b3d75;
+  background: linear-gradient(145deg, #1b162d, #120e21);
+}
+.portal-card.kind-api .portal-icon {
+  color: #c09aff;
+  border-color: #5c4794;
+  background: #251d40;
+}
+.portal-card.kind-api .node-kind { color: #a482e8; }
+
+.portal-card.kind-ui {
+  border-color: #2b5454;
+  background: linear-gradient(145deg, #102424, #0b1818);
+}
+.portal-card.kind-ui .portal-icon {
+  color: #5cdbd3;
+  border-color: #356b6b;
+  background: #153333;
+}
+.portal-card.kind-ui .node-kind { color: #62aba6; }
+
+.portal-card.kind-service {
+  border-color: #2e4366;
+  background: linear-gradient(145deg, #131f33, #0d1624);
+}
+.portal-card.kind-service .portal-icon {
+  color: #69c0ff;
+  border-color: #3d5b8c;
+  background: #172945;
+}
+.portal-card.kind-service .node-kind { color: #759cc9; }
+
+.portal-card.kind-database {
+  border-color: #2b543d;
+  background: linear-gradient(145deg, #102419, #0b1811);
+}
+.portal-card.kind-database .portal-icon {
+  color: #85e89d;
+  border-color: #386e4f;
+  background: #163624;
+}
+.portal-card.kind-database .node-kind { color: #6bb386; }
+
+.portal-card.kind-queue {
+  border-color: #5e4529;
+  background: linear-gradient(145deg, #261b0f, #1a1209);
+}
+.portal-card.kind-queue .portal-icon {
+  color: #ffaa40;
+  border-color: #825e36;
+  background: #382613;
+}
+.portal-card.kind-queue .node-kind { color: #bf925a; }
+
+.portal-card.kind-auth {
+  border-color: #5c5228;
+  background: linear-gradient(145deg, #26210e, #1a1608);
+}
+.portal-card.kind-auth .portal-icon {
+  color: #fadb14;
+  border-color: #807233;
+  background: #363012;
+}
+.portal-card.kind-auth .node-kind { color: #b8a649; }
+
+/* Dedicated Visual Ornamentation on Cards */
+.card-window-bar {
+  position: absolute;
+  top: 5px;
+  left: 14px;
+  display: flex;
+  gap: 4px;
+}
+.card-window-bar i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3d5757;
+}
+.portal-card.kind-ui:hover .card-window-bar i:nth-child(1) { background: #ff5f56; }
+.portal-card.kind-ui:hover .card-window-bar i:nth-child(2) { background: #ffbd2e; }
+.portal-card.kind-ui:hover .card-window-bar i:nth-child(3) { background: #27c93f; }
+
+.card-cylinder-rim {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 3px;
+  border-bottom: 1px solid #3c7353;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.card-api-badge {
+  position: absolute;
+  top: -8px;
+  left: 15px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 5px;
+  border: 1px solid #5a4885;
+  border-radius: 4px;
+  background: #1f1836;
+  font-size: 7px;
+  font-weight: 800;
+}
+.card-api-badge span {
+  color: #d3adf7;
+}
+.card-api-badge em {
+  color: #8e7bb0;
+  font-style: normal;
+}
+
+/* Cloud & Brand Theme Accents */
+.portal-card.tech-aws { border-color: #8a5722; }
+.portal-card.tech-aws .portal-icon { color: #ff9900; background: #2e1d0a; border-color: #6b4317; }
+
+.portal-card.tech-gcp { border-color: #2b547d; }
+.portal-card.tech-gcp .portal-icon { color: #4285f4; background: #0f1e2e; border-color: #234669; }
+
+.portal-card.tech-azure { border-color: #1f5982; }
+.portal-card.tech-azure .portal-icon { color: #0078d4; background: #0b1f2e; border-color: #164669; }
+
+.portal-card.tech-docker { border-color: #1d5f80; }
+.portal-card.tech-docker .portal-icon { color: #2496ed; background: #0c202b; border-color: #154661; }
+
+.portal-card.tech-postgres { border-color: #28546b; }
+.portal-card.tech-postgres .portal-icon { color: #336791; background: #0e1e26; border-color: #1f4254; }
+
+.portal-card.tech-redis { border-color: #782924; }
+.portal-card.tech-redis .portal-icon { color: #dc382d; background: #290d0b; border-color: #5c1e1a; }
+
+.portal-card.tech-openai { border-color: #1f5e4e; }
+.portal-card.tech-openai .portal-icon { color: #10a37f; background: #0b241e; border-color: #154a3d; }
+
+.portal-card.tech-stripe { border-color: #4b4182; }
+.portal-card.tech-stripe .portal-icon { color: #635bff; background: #191630; border-color: #3b3369; }
+
+/* Peek Child Node formatting */
+.peek-child-node {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #c4c7cc;
+  font-size: 10px;
+}
+.peek-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #767a85;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}

@@ -1,6 +1,6 @@
 import React from "react";
 import type { FlowNodeKind, FlowNodeStatus } from "@insightify/graph-domain";
-import { nodeKinds } from "../lib/constants.js";
+import { commonTechnologies, nodeKinds } from "../lib/constants.js";
 import { InlineError } from "./error/InlineError.js";
 
 export const nodeStatuses: FlowNodeStatus[] = ["idle", "working", "ready", "error"];
@@ -10,6 +10,7 @@ export interface NodeDraft {
   title: string;
   summary: string;
   kind: FlowNodeKind;
+  technology: string;
   evidence: string;
   tags: string;
   status: FlowNodeStatus;
@@ -109,14 +110,31 @@ export function NodeEditor({ draft, onChange, onSave, onDelete, onClose }: NodeE
           </label>
         </div>
 
-        <label>
-          Tags (comma separated)
-          <input
-            value={draft.tags}
-            placeholder="auth, api, database"
-            onChange={(event) => onChange({ ...draft, tags: event.target.value })}
-          />
-        </label>
+        <div className="editor-row">
+          <label>
+            Technology / Cloud
+            <input
+              list="tech-suggestions"
+              value={draft.technology}
+              placeholder="AWS, GCP, PostgreSQL..."
+              onChange={(event) => onChange({ ...draft, technology: event.target.value })}
+            />
+            <datalist id="tech-suggestions">
+              {commonTechnologies.map((tech) => (
+                <option key={tech} value={tech} />
+              ))}
+            </datalist>
+          </label>
+
+          <label>
+            Tags (comma separated)
+            <input
+              value={draft.tags}
+              placeholder="auth, api, database"
+              onChange={(event) => onChange({ ...draft, tags: event.target.value })}
+            />
+          </label>
+        </div>
 
         <label>
           Code / Signature Preview (max 600 chars)

@@ -1,6 +1,19 @@
 import { z } from "zod";
 
-export const flowNodeKindSchema = z.enum(["room", "process", "decision", "data", "external"]);
+export const flowNodeKindSchema = z.enum([
+  "room",
+  "api",
+  "ui",
+  "service",
+  "database",
+  "queue",
+  "auth",
+  "decision",
+  "external",
+  // Backward compatibility
+  "process",
+  "data",
+]);
 
 export const flowNodeStatusSchema = z.enum(["idle", "working", "ready", "error"]);
 
@@ -13,6 +26,7 @@ export const flowNodeSchema = z.object({
   evidence: z.array(z.string().trim().min(1).max(240)).max(4),
   tags: z.array(z.string().trim().min(1).max(30)).max(6).optional(),
   status: flowNodeStatusSchema.optional(),
+  technology: z.string().trim().max(40).optional(),
   codeSnippet: z.string().trim().max(600).optional(),
 });
 export type FlowNodeStatus = z.infer<typeof flowNodeStatusSchema>;

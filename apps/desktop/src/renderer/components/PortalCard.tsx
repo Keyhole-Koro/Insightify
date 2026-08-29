@@ -1,8 +1,8 @@
 import React, { useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { FlowNode, PortalPreview } from "@insightify/graph-domain";
 import type { SemanticLevel } from "../semantic-zoom.js";
-import { kindIcon } from "../lib/flowfold-helpers.js";
 import { copyToClipboard } from "../lib/clipboard.js";
+import { NodeIcon } from "./NodeIcon.js";
 import { PortalFold } from "./PortalFold.js";
 
 interface PortalCardProps {
@@ -40,11 +40,12 @@ export function PortalCard({
   const [copied, setCopied] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
+  const tech = node.technology || node.tags?.find((t) => /aws|gcp|azure|docker|k8s|postgres|redis|openai|stripe/i.test(t));
 
   async function handleCopy(event: React.MouseEvent) {
     event.stopPropagation();
     const content = [
-      `[Node: ${node.title}] (${node.kind})`,
+      `[Node: ${node.title}] (${node.kind}${tech ? ` · ${tech}` : ""})`,
       node.summary,
       node.tags?.length ? `Tags: ${node.tags.map((t) => `#${t}`).join(" ")}` : "",
       node.evidence.length ? `Evidence: ${node.evidence.join(", ")}` : "",
@@ -67,7 +68,7 @@ export function PortalCard({
       }`}
       className={`portal-card kind-${node.kind} status-${status}${selected ? " selected" : ""}${
         isPortal ? " is-portal" : ""
-      }`}
+      }${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={0}
@@ -84,6 +85,7 @@ export function PortalCard({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
+      {/* Ports */}
       <span
         className={connections.input ? "card-port in connected" : "card-port in"}
         aria-hidden="true"
@@ -93,10 +95,28 @@ export function PortalCard({
         aria-hidden="true"
       />
 
+      {/* Kind-specific top ornamentation */}
+      {node.kind === "ui" && (
+        <div className="card-window-bar">
+          <i />
+          <i />
+          <i />
+        </div>
+      )}
+      {node.kind === "database" && <div className="card-cylinder-rim" />}
+      {node.kind === "api" && (
+        <div className="card-api-badge">
+          <span>{node.title.startsWith("POST") ? "POST" : node.title.startsWith("DELETE") ? "DEL" : "GET"}</span>
+          <em>API</em>
+        </div>
+      )}
+
       {/* Header */}
       <div className="portal-header">
-        <span className="portal-icon">{kindIcon(node.kind)}</span>
-        <span className="node-kind">{node.kind}</span>
+        <span className="portal-icon">
+          <NodeIcon kind={node.kind} technology={tech} size={15} />
+        </span>
+        <span className="node-kind">{tech || node.kind}</span>
         <div className="portal-header-actions">
           <button
             className={`copy-chip ${copied ? "copied" : ""}`}

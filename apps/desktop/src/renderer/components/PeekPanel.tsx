@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import type { FlowNode, GeneratedFlowGraph } from "@insightify/graph-domain";
-import { kindIcon } from "../lib/flowfold-helpers.js";
 import { copyToClipboard } from "../lib/clipboard.js";
+import { NodeIcon } from "./NodeIcon.js";
 
 interface PeekPanelProps {
   node: FlowNode;
@@ -18,11 +18,12 @@ export function PeekPanel({ node, graph, onClose, onEnter, onEdit, onAskAi }: Pe
   const connected = graph.graph.edges.filter(
     (edge) => edge.source === node.id || edge.target === node.id
   );
+  const tech = node.technology || node.tags?.find((t) => /aws|gcp|azure|docker|k8s|postgres|redis|openai|stripe/i.test(t));
 
   async function handleCopyAll() {
     const text = [
       `Node: ${node.title}`,
-      `Kind: ${node.kind}`,
+      `Kind: ${node.kind}${tech ? ` (${tech})` : ""}`,
       `Status: ${node.status ?? "idle"}`,
       `Summary: ${node.summary}`,
       node.tags?.length ? `Tags: ${node.tags.map((t) => `#${t}`).join(", ")}` : "",
@@ -43,8 +44,11 @@ export function PeekPanel({ node, graph, onClose, onEnter, onEdit, onAskAi }: Pe
     <aside className="peek-panel" aria-label="Node preview details">
       <header>
         <div>
-          <span>
-            PEEK · {node.kind} {node.status ? `· ${node.status}` : ""}
+          <span className="peek-eyebrow">
+            <NodeIcon kind={node.kind} technology={tech} size={12} />
+            <span>
+              {tech || node.kind.toUpperCase()} {node.status ? `· ${node.status}` : ""}
+            </span>
           </span>
           <h2>{node.title}</h2>
         </div>
@@ -78,8 +82,9 @@ export function PeekPanel({ node, graph, onClose, onEnter, onEdit, onAskAi }: Pe
         <b>Nested nodes</b>
         {children.length ? (
           children.map((child) => (
-            <span key={child.id}>
-              {kindIcon(child.kind)} {child.title}
+            <span key={child.id} className="peek-child-node">
+              <NodeIcon kind={child.kind} technology={child.technology} size={13} />
+              <span>{child.title}</span>
             </span>
           ))
         ) : (

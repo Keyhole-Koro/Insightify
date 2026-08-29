@@ -19,4 +19,29 @@ export const providerMeta: Record<
   },
 };
 
-export const nodeKinds: FlowNodeKind[] = ["room", "process", "decision", "data", "external"];
+export const nodeKinds: FlowNodeKind[] = [
+  "room",
+  "api",
+  "ui",
+  "service",
+  "database",
+  "queue",
+  "auth",
+  "decision",
+  "external",
+];
+
+export const commonTechnologies = [
+  "AWS",
+  "GCP",
+  "Azure",
+  "Docker",
+  "Kubernetes",
+  "PostgreSQL",
+  "Redis",
+  "OpenAI",
+  "Stripe",
+  "GitHub",
+  "GraphQL",
+  "REST",
+];

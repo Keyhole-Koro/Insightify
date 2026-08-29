@@ -20,6 +20,7 @@
     "@insightify/agent-runtime": "workspace:*",
     "@insightify/desktop-bridge": "workspace:*",
     "@insightify/graph-domain": "workspace:*",
+    "lucide-react": "^1.37.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "scheduler": "^0.27.0",
