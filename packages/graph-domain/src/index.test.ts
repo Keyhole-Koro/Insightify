@@ -169,6 +169,31 @@ describe("semantic layout plans", () => {
     expect(resolveRoomLayoutRules(parsed, invalid)).toEqual(defaultRoomLayoutRules);
   });
 
+  it("derives a Room-specific grid when a legacy document has no plan", () => {
+    const parsed = parseFlowGraph({
+      title: "Gateway",
+      summary: "API gateway",
+      nodes: [
+        { id: "gateway", title: "Gateway", summary: "API room", kind: "room", parentId: null, evidence: [] },
+        ...Array.from({ length: 7 }, (_, index) => ({
+          id: `endpoint-${index}`,
+          title: `Endpoint ${index}`,
+          summary: "HTTP endpoint",
+          kind: "api" as const,
+          parentId: "gateway",
+          evidence: [],
+        })),
+      ],
+      edges: [],
+    });
+    const rules = resolveRoomLayoutRules(parsed);
+    expect(rules.find((rule) => rule.roomId === "gateway")).toMatchObject({
+      area: {
+        subAreas: [{ direction: "grid", match: { nodeIds: expect.arrayContaining(["endpoint-0", "endpoint-6"]) } }],
+      },
+    });
+  });
+
   it("limits an expansion patch to the requested Room", () => {
     const expanded = parseFlowGraph({
       ...graph,
@@ -452,7 +477,7 @@ describe("projectFlowWithExpandedScopes", () => {
     const children = layout.filter((node) => node.parentId === "api-gateway");
 
     expect(frame).toMatchObject({ childCount: 7, columns: 2, rows: 4 });
-    expect(frame!.bounds).toMatchObject({ width: 36, height: 50 });
+    expect(frame!.bounds).toMatchObject({ width: 28, height: 45 });
     expect(auth.x).toBeGreaterThanOrEqual(frame!.bounds.x + frame!.bounds.width + 7);
     expect(children.every((node) =>
       node.x >= frame!.contentBounds.x &&

@@ -4,6 +4,7 @@ import { toProviderJsonSchema } from "./json-schema.js";
 import {
   compileSemanticLayoutPlan,
   defaultRoomLayoutRules,
+  deriveSemanticLayoutPlan,
   layoutNodesWithAreaDSL,
   type ExpandedRoomFrame,
   type LayoutBounds,
@@ -285,12 +286,16 @@ export function resolveRoomLayoutRules(
   graph: FlowGraph,
   plan?: SemanticLayoutPlan
 ): RoomLayoutRule[] {
-  return compileSemanticLayoutPlan(graph, plan);
+  // A missing plan must not make every nested Room reuse the root architecture
+  // rule. That split API endpoints into unrelated root tiers and produced the
+  // characteristic tall-left-lane / bottom-right-lane Inside frame. Derive a
+  // scope-aware deterministic plan for legacy documents and preview fixtures.
+  return compileSemanticLayoutPlan(graph, plan ?? deriveSemanticLayoutPlan(graph));
 }
 
 export function layoutRootNodes(
   graph: FlowGraph,
-  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+  rules: RoomLayoutRule[] = resolveRoomLayoutRules(graph)
 ): PositionedFlowNode[] {
   const roots = graph.nodes.filter((node) => node.parentId === null);
   const visible = roots.length > 0 ? roots : graph.nodes;
@@ -311,7 +316,7 @@ export function layoutFlowNodes(
 export function createDefaultGraphLayout(
   graph: FlowGraph,
   existing: GraphLayout = {},
-  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+  rules: RoomLayoutRule[] = resolveRoomLayoutRules(graph)
 ): GraphLayout {
   const layout: GraphLayout = { ...existing };
   const parentIds = new Set<string | null>([null, ...graph.nodes.map((node) => node.parentId)]);
@@ -435,7 +440,7 @@ export function withLayoutPlan(
   };
 }
 
-export const LAYOUT_ENGINE_VERSION = 3;
+export const LAYOUT_ENGINE_VERSION = 4;
 
 /**
  * Coordinates from an older compiler are not comparable with the current one,
@@ -557,7 +562,7 @@ export function buildPortalPreview(
   graph: FlowGraph,
   nodeId: string,
   limit = PORTAL_PREVIEW_MAX_NODES,
-  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+  rules: RoomLayoutRule[] = resolveRoomLayoutRules(graph)
 ): PortalPreview {
   const children = graph.nodes.filter((node) => node.parentId === nodeId);
   const descendantCount = descendantCountOf(graph, nodeId);
@@ -806,11 +811,15 @@ export function getExpandedRoomFrames(
           structuralPositions.filter((child) => Math.abs(child.x - lane) <= COORDINATE_CLUSTER_GAP).length
         )
       );
-      // A frame's share of the canvas has to grow with what it holds. When it
-      // does not, the stage has to grow instead to fit the pills inside it, and
-      // every card outside the Room is scaled down to pay for it.
-      const frameWidth = clamp(19 + (columns - 1) * 17, 19, 62);
-      const frameHeight = clamp(10 + rows * 10, 20, 78);
+      // Size the frame from the compact child-card pitch, not from a generous
+      // fraction of the whole canvas. The previous 19/36/53% progression made
+      // a three-lane Room occupy more than half the stage even though its cards
+      // only need about two fifths. Reflow now protects surrounding cards from
+      // collapsing, so the frame itself can stay content-tight.
+      const frameWidth = clamp(15 + (columns - 1) * 13, 15, 54);
+      // Vertical space includes the fixed header; each additional row then
+      // contributes one compact-card pitch.
+      const frameHeight = clamp(18 + (rows - 1) * 9, 18, 72);
       const inwardShift = pos.x < 35 ? 12 : pos.x > 65 ? -12 : 0;
       const frameX = clamp(pos.x + inwardShift - frameWidth / 2, 1, 99 - frameWidth);
       const frameY = clamp(pos.y - frameHeight / 2, 3, 97 - frameHeight);
@@ -955,8 +964,11 @@ function contentBoundsForFrame(
   height: number,
   columns: number
 ): LayoutBounds {
-  const insetX = columns <= 2 ? Math.min(4, width * 0.22) : Math.min(1.5, width * 0.055);
-  const headerInset = Math.min(3.5, Math.max(2.5, height * 0.16));
+  // A percentage inset grows with the frame. Capping every lane at the same
+  // small value leaves enough breathing room without stealing most of a
+  // one-column Room's usable width.
+  const insetX = Math.min(1.5, width * 0.1);
+  const headerInset = Math.min(5.5, Math.max(4.5, height * 0.14));
   const bottomInset = Math.min(1, height * 0.06);
   return {
     x: +(x + insetX).toFixed(1),
@@ -1084,7 +1096,7 @@ function separateReflowedNodes(
   // pair to 8% made unfolding a Room shrink every card to 63% of its size and
   // spread the canvas over twice its width.
   const minimumX = 15;
-  const minimumY = 12;
+  const minimumY = 13;
 
   for (let pass = 0; pass < 6; pass += 1) {
     let moved = false;

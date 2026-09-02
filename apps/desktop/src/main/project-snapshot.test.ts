@@ -73,5 +73,8 @@ describe("buildProjectSnapshot", () => {
     expect(prompt).not.toContain("PROJECT_SNAPSHOT_JSON");
     // And it must not be able to change the graph.
     expect(prompt).toContain("never change the graph");
+    // The model, rather than a node-count heuristic, chooses a true vertical Room.
+    expect(prompt).toContain("one vertical stack");
+    expect(prompt).toContain("Node count alone is never a reason to choose grid");
   });
 });

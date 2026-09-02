@@ -13,8 +13,7 @@ import {
 } from "@insightify/desktop-bridge";
 import {
   FLOW_GRAPH_GENERATION_JSON_SCHEMA,
-  defaultRoomLayoutRules,
-  deriveSemanticLayoutPlan,
+  SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
   parseSemanticLayoutPlan,
   parseSemanticLayoutPlanText,
   withLayoutPlan,
@@ -38,6 +37,7 @@ import type { ProjectRepository } from "./project-repository.js";
 import {
   buildFlowGraphExpansionPrompt,
   buildFlowGraphPrompt,
+  buildLayoutPlanPrompt,
   buildProjectSnapshot,
 } from "./project-snapshot.js";
 
@@ -167,27 +167,55 @@ export class AgentRuntimeManager {
    * no project snapshot, only the nodes it has to group.
    */
   async regenerateLayout(provider: ExecutableAgentProvider, projectId: string): Promise<StartRunResult> {
+    if (this.#graphGenerations.some((item) => item.projectId === projectId)) {
+      throw new Error("A graph generation is already running for this project");
+    }
     this.#requireProject(projectId);
     const currentDocument = this.#projects.getGraph(projectId);
     if (!currentDocument) throw new Error("Generate the FlowFold Graph before regenerating its layout");
-
-    const runId = `layout-run-${Date.now()}`;
-    const layoutPlan = deriveSemanticLayoutPlan(currentDocument.graph);
-    const proposed = withLayoutPlan(currentDocument, layoutPlan);
-
-    // Fast-path: Dispatch proposed layout event directly and immediately
-    setTimeout(() => {
-      this.#sendGraphEvent({
-        status: "completed",
-        mode: "layout",
-        value: proposed,
-      });
-    }, 40);
-
-    return {
-      runId,
-      threadId: "",
+    const prompt = buildLayoutPlanPrompt(currentDocument.graph, currentDocument.layoutPlan);
+    const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "insightify-layout-"));
+    const generation: GraphGeneration = {
+      mode: "layout",
+      projectId,
+      provider,
+      runId: null,
+      snapshotHash: currentDocument.snapshotHash,
+      transcript: "",
+      structuredOutput: null,
+      temporaryDirectory,
+      scopeNodeId: null,
+      existingGraph: currentDocument.graph,
+      existingLayout: currentDocument.layout,
+      existingLayoutOverrides: currentDocument.layoutOverrides,
+      existingLayoutPlan: currentDocument.layoutPlan,
     };
+    this.#graphGenerations.push(generation);
+
+    try {
+      const handle = provider === "codex"
+        ? await (await this.#codexFor(projectId)).startRun(prompt, {
+            outputSchema: SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
+            readOnly: true,
+            cwd: temporaryDirectory,
+          })
+        : await (await this.#antigravityFor(projectId)).startRun(prompt, {
+            cwd: temporaryDirectory,
+            jsonSchema: SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
+          });
+      generation.runId = handle.runId;
+      return handle;
+    } catch (error) {
+      this.#removeGeneration(generation);
+      this.#sendGraphEvent({
+        status: "failed",
+        mode: "layout",
+        projectId,
+        provider,
+        message: toMessage(error),
+      });
+      throw error;
+    }
   }
 
   async cancelRun(
@@ -368,9 +396,17 @@ export class AgentRuntimeManager {
     const layoutPlan = generation.structuredOutput === null
       ? parseSemanticLayoutPlanText(generation.transcript)
       : parseSemanticLayoutPlan(generation.structuredOutput);
-    // A plan that names no node of this graph would silently fall back to the
-    // built-in rules, which is not what the user asked for.
-    if (resolveRoomLayoutRules(current.graph, layoutPlan) === defaultRoomLayoutRules) {
+    // A plan that names no direct child of its declared scope would silently
+    // fall back to deterministic rules, which is not what the user asked for.
+    const validAssignments = layoutPlan.scopes.some((scope) => {
+      const directChildren = new Set(
+        current.graph.nodes
+          .filter((node) => node.parentId === scope.roomId)
+          .map((node) => node.id)
+      );
+      return scope.areas.some((area) => area.nodeIds.some((nodeId) => directChildren.has(nodeId)));
+    });
+    if (!validAssignments) {
       throw new Error("The plan did not describe any node of this graph");
     }
     // A relayout is a proposal, not a fact: it is sent to the renderer and only

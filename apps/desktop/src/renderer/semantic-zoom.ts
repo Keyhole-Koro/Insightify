@@ -37,8 +37,10 @@ type StageFrame = {
 };
 
 // A compact pill inside an unfolded Room, and the gap it needs from the next.
+// The pill carries its icon inline rather than stacked above it, which is what
+// keeps the vertical pitch near the height of a single row of text.
 export const NESTED_PITCH_X = 162;
-export const NESTED_PITCH_Y = 66;
+export const NESTED_PITCH_Y = 40;
 
 // layoutFlowNodes keeps the outermost column at 15% of the stage, so the stage
 // must be wide enough for half a card to fit inside that margin.
