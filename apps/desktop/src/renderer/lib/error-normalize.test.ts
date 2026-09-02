@@ -41,4 +41,11 @@ describe("toAppError", () => {
     expect(err.message).toBe("Something broke unexpectedly");
     expect(err.retryable).toBe(false);
   });
+
+  it("classifies Electron structured-clone failures as IPC errors", () => {
+    const error = toAppError(new Error("An object could not be cloned."));
+    expect(error.kind).toBe("ipc");
+    expect(error.code).toBe("IPC_ERROR");
+    expect(error.retryable).toBe(true);
+  });
 });

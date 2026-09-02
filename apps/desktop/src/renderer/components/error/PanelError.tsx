@@ -15,6 +15,7 @@ export function PanelError({ error, onRetry, onDismiss, className = "" }: PanelE
   const message = isObj ? error.message : error;
   const kind = isObj && "kind" in error ? error.kind : "unknown";
   const retryable = isObj && "retryable" in error ? error.retryable : false;
+  const diagnostic = isObj ? formatDiagnostic(error) : null;
 
   const titles: Record<string, string> = {
     provider: "AI プロバイダー エラー",
@@ -48,6 +49,12 @@ export function PanelError({ error, onRetry, onDismiss, className = "" }: PanelE
         <strong>{titles[kind] ?? titles.unknown}</strong>
       </div>
       <p className="panel-error-message">{message}</p>
+      {diagnostic && (
+        <details className="panel-error-details">
+          <summary>詳細を表示</summary>
+          <pre>{diagnostic}</pre>
+        </details>
+      )}
       {(retryable && onRetry || onDismiss) && (
         <div className="panel-error-actions">
           {retryable && onRetry && (
@@ -64,4 +71,29 @@ export function PanelError({ error, onRetry, onDismiss, className = "" }: PanelE
       )}
     </div>
   );
+}
+
+function formatDiagnostic(error: AppError): string {
+  const lines = [
+    `kind: ${error.kind}`,
+    `code: ${error.code ?? "none"}`,
+    `retryable: ${String(error.retryable)}`,
+  ];
+  if (error.stack) lines.push("", "renderer stack:", error.stack);
+  if (error.cause instanceof Error) {
+    lines.push(
+      "",
+      "original cause:",
+      error.cause.stack ?? `${error.cause.name}: ${error.cause.message}`
+    );
+  } else if (error.cause !== undefined) {
+    let cause: string;
+    try {
+      cause = JSON.stringify(error.cause, null, 2);
+    } catch {
+      cause = String(error.cause);
+    }
+    lines.push("", "original cause:", cause);
+  }
+  return lines.join("\n");
 }

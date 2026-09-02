@@ -57,7 +57,7 @@ export function toAppError(err: unknown): AppError {
     });
   }
 
-  if (/ipc|channel|electron/i.test(rawMessage)) {
+  if (/ipc|channel|electron|could not be cloned|dataclone/i.test(rawMessage)) {
     return createAppError({
       kind: "ipc",
       message: `内部通信エラーが発生しました: ${rawMessage}`,

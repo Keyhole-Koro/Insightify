@@ -167,9 +167,13 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
   const generateGraph = useCallback(
     async (scopeNodeId?: string) => {
       if (!projectId || !provider?.installed) return;
+      // React passes a MouseEvent to a bare onClick callback at runtime. Only a
+      // real Room id may cross the context bridge; DOM events cannot be cloned
+      // by Electron IPC.
+      const requestedScopeId = typeof scopeNodeId === "string" ? scopeNodeId : undefined;
       setBusy(true);
-      setGeneratingGraph(!scopeNodeId);
-      setExpandingScopeId(scopeNodeId ?? null);
+      setGeneratingGraph(!requestedScopeId);
+      setExpandingScopeId(requestedScopeId ?? null);
       clearError();
       setEvents([]);
       try {
@@ -177,7 +181,7 @@ export function useAgentSession(options: AgentSessionOptions): AgentSession {
           await bridge.generateFlowGraph({
             provider: providerKind,
             projectId,
-            ...(scopeNodeId ? { scopeNodeId } : {}),
+            ...(requestedScopeId ? { scopeNodeId: requestedScopeId } : {}),
           })
         );
       } catch (reason) {

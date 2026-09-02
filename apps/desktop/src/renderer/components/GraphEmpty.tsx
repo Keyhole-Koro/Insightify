@@ -40,7 +40,7 @@ export function GraphEmpty({
         <button
           className="primary-button"
           disabled={!provider?.installed}
-          onClick={onGenerate}
+          onClick={() => onGenerate()}
           type="button"
         >
           Generate with {meta.label}

@@ -63,7 +63,10 @@ export function App() {
   const [frame, setFrame] = useState({ width: 960, height: 700 });
   const canvasRef = useRef<HTMLElement | null>(null);
 
-  const reportError = useCallback((reason: unknown) => setError(toAppError(reason)), []);
+  const reportError = useCallback((reason: unknown) => {
+    console.error("[Insightify Renderer] operation failed", reason);
+    setError(toAppError(reason));
+  }, []);
   const clearError = useCallback(() => setError(null), []);
 
   const view = useCanvasView();
@@ -385,7 +388,7 @@ export function App() {
                 provider={provider}
                 meta={meta}
                 run={run}
-                onGenerate={generateGraph}
+                onGenerate={() => void generateGraph()}
                 onCancel={cancelRun}
               />
             )}
