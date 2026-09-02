@@ -1,4 +1,4 @@
-import React, { useState, type PointerEvent as ReactPointerEvent } from "react";
+import React, { type PointerEvent as ReactPointerEvent } from "react";
 import { isRoom, type FlowNode, type PortalPreview } from "@insightify/graph-domain";
 import type { SemanticLevel } from "../semantic-zoom.js";
 import { copyToClipboard } from "../lib/clipboard.js";
@@ -51,7 +51,6 @@ export function PortalCard({
   onPointerUp,
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0 || isRoom(node);
-  const [copied, setCopied] = useState(false);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -77,25 +76,6 @@ export function PortalCard({
     event.stopPropagation();
     if (onToggleScopeExpand) {
       onToggleScopeExpand();
-    }
-  }
-
-  async function handleCopy(event: React.MouseEvent) {
-    event.stopPropagation();
-    const content = [
-      `[Node: ${node.title}] (${node.kind}${tech ? ` · ${tech}` : ""})`,
-      node.summary,
-      node.tags?.length ? `Tags: ${node.tags.map((t) => `#${t}`).join(" ")}` : "",
-      node.evidence.length ? `Evidence: ${node.evidence.join(", ")}` : "",
-      node.codeSnippet ? `\nCode:\n${node.codeSnippet}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    const ok = await copyToClipboard(content);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
     }
   }
 
@@ -152,8 +132,10 @@ export function PortalCard({
         aria-hidden="true"
       />
 
-      {/* TOP AVATAR / ICONIC SHAPE (Only rendered when showAvatar is true) */}
-      {showAvatar && (
+      {/* TOP AVATAR / ICONIC SHAPE. A collapsed nested child carries its icon
+          inside the pill instead of above it: stacking the two costs roughly
+          twice the height, and height is what an unfolded Room is short of. */}
+      {showAvatar && !(isNestedChild && !isExpanded) && (
         <div className="node-avatar-container" onClick={handleToggle} title="クリックで詳細を開閉">
           <div className={`node-avatar shape-${avatarShape}`}>
             <NodeIcon kind={node.kind} technology={tech} size={22} />
@@ -165,12 +147,22 @@ export function PortalCard({
       {/* COMPACT PILL (Visible when collapsed) */}
       {!isExpanded && (
         <div className="node-compact-pill" onClick={handleToggle} title="クリックで詳細を展開">
-          {!showAvatar && (
-            <span className={`node-status-dot status-${status}`} title={`Status: ${status}`} />
+          {isNestedChild ? (
+            <span className="compact-icon" aria-hidden="true">
+              <NodeIcon kind={node.kind} technology={tech} size={14} />
+            </span>
+          ) : (
+            !showAvatar && (
+              <span className={`node-status-dot status-${status}`} title={`Status: ${status}`} />
+            )
           )}
-          <span className={`compact-kind-tag${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
-            {tagLabel}
-          </span>
+          {/* The icon already says what kind of node this is. The text tag
+              stays only where it carries something the icon cannot: a method. */}
+          {(!isNestedChild || httpMethod) && (
+            <span className={`compact-kind-tag${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
+              {tagLabel}
+            </span>
+          )}
           <span className="compact-title" title={node.title}>
             {displayTitle}
           </span>
@@ -191,43 +183,15 @@ export function PortalCard({
       {/* EXPANDED DETAIL RECTANGLE PLATE (Visible when expanded) */}
       {isExpanded && (
         <div className="node-detail-plate">
-          {/* Plate Header */}
+          {/* Plate header. Collapsing is the card's own click, unfolding the Room
+              is on the pill and on the Room's frame, and copying is in the Peek
+              panel: none of them need a second button competing for this space. */}
           <div className="plate-header">
             <span className={`plate-kind-badge${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
               {tagLabel}
             </span>
-            <div className="plate-header-actions">
-              {isPortal && onToggleScopeExpand && (
-                <button
-                  className={`plate-scope-toggle-btn ${isScopeExpanded ? "active" : ""}`}
-                  onClick={handleToggleScope}
-                  title={isScopeExpanded ? "内部ノードを折りたたむ" : "内部ノードを展開"}
-                  type="button"
-                >
-                  {isScopeExpanded ? "⊟ Fold Inside" : "⊞ Expand Inside"}
-                </button>
-              )}
-              <button
-                className={`plate-copy-btn ${copied ? "copied" : ""}`}
-                onClick={handleCopy}
-                title="ノード情報をコピー"
-                type="button"
-              >
-                {copied ? "✓" : "📋"}
-              </button>
-              <button
-                className="plate-collapse-btn"
-                onClick={handleToggle}
-                title="折りたたむ"
-                type="button"
-              >
-                ▴
-              </button>
-            </div>
+            <h3 className="plate-title">{node.title}</h3>
           </div>
-
-          {/* Title */}
-          <h3 className="plate-title">{node.title}</h3>
 
           {/* Tags */}
           {node.tags && node.tags.length > 0 && (
@@ -243,28 +207,33 @@ export function PortalCard({
           {/* Summary */}
           <p className="plate-summary">{node.summary}</p>
 
-          {/* Code Snippet */}
-          {node.codeSnippet && (
-            <div className="plate-code-block">
-              <code>{node.codeSnippet}</code>
-            </div>
-          )}
+          {/* Code, evidence and the miniature are what the implementation level
+              exists for. Below it they are unreadable at this width anyway, and
+              they cost the height that hides the cards above and below. The Peek
+              panel carries them at any zoom. */}
+          {lod === "implementation" && (
+            <>
+              {node.codeSnippet && (
+                <div className="plate-code-block">
+                  <code>{node.codeSnippet}</code>
+                </div>
+              )}
 
-          {/* Nested Portal Fold */}
-          {isPortal && <PortalFold preview={preview} lod={lod} />}
+              {isPortal && <PortalFold preview={preview} lod={lod} />}
 
-          {/* Evidence file path */}
-          {node.evidence.length > 0 && (
-            <div
-              className="plate-evidence"
-              title="クリックしてパスをコピー"
-              onClick={async (e) => {
-                e.stopPropagation();
-                await copyToClipboard(node.evidence[0] ?? "");
-              }}
-            >
-              📄 {node.evidence[0]}
-            </div>
+              {node.evidence.length > 0 && (
+                <div
+                  className="plate-evidence"
+                  title="クリックしてパスをコピー"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await copyToClipboard(node.evidence[0] ?? "");
+                  }}
+                >
+                  📄 {node.evidence[0]}
+                </div>
+              )}
+            </>
           )}
 
           {/* Plate Footer */}
@@ -274,6 +243,11 @@ export function PortalCard({
                 ? `${preview.childCount} inside · ${preview.descendantCount} deep`
                 : "no inner flow"}
             </span>
+            {/* Four actions that do four different things. The buttons this
+                plate lost were the ones that repeated something already within
+                reach: collapsing, which is the card's own click; unfolding the
+                Room, which is on the pill and on the Room's frame; and copying,
+                which the Peek panel does. */}
             <div className="plate-actions">
               {onAskAi && (
                 <button
@@ -293,6 +267,7 @@ export function PortalCard({
                   event.stopPropagation();
                   onPeek();
                 }}
+                title="コード・evidence・子ノードを含む詳細を開く"
                 type="button"
               >
                 Peek
