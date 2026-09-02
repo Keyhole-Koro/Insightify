@@ -1,0 +1,30 @@
+{
+  "id": "room-expansion",
+  "title": "Inline Room expansion and detail plate",
+  "viewport": { "width": 1800, "height": 1125 },
+  "readySelector": "[data-vqa=\"graph-stage\"]",
+  "initialWait": 900,
+  "measurements": [
+    { "name": "stage", "selector": "[data-vqa=\"graph-stage\"]", "styles": ["--stage-zoom"] },
+    { "name": "room frames", "selector": "[data-vqa=\"room-frame\"]", "all": true },
+    { "name": "nested nodes", "selector": "[data-vqa-nested=\"true\"]", "all": true },
+    { "name": "detail plates", "selector": "[data-vqa=\"detail-plate\"]", "all": true }
+  ],
+  "steps": [
+    { "name": "root", "screenshot": true },
+    {
+      "name": "inside-frontend",
+      "action": { "type": "click", "selector": "[data-vqa-action=\"toggle-room-inline\"]", "index": 0 },
+      "waitFor": "[data-vqa=\"room-frame\"]",
+      "wait": 700,
+      "screenshot": true
+    },
+    {
+      "name": "detail-postgres",
+      "action": { "type": "clickText", "selector": ".node-compact-pill", "text": "PostgreSQL" },
+      "waitFor": "[data-vqa=\"detail-plate\"]",
+      "wait": 500,
+      "screenshot": true
+    }
+  ]
+}

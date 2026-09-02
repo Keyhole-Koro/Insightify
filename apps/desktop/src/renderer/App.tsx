@@ -529,6 +529,8 @@ export function App() {
                 </div>
                 <div
                   className={`graph-stage lod-${lod}${dive ? ` dive-${dive.phase}` : ""}`}
+                  data-vqa="graph-stage"
+                  data-vqa-lod={lod}
                   style={
                     {
                       width: stage.width,
@@ -595,6 +597,11 @@ export function App() {
                       className={`expanded-room-frame${
                         closingScopeIds.has(frame.roomId) ? " is-closing" : ""
                       }`}
+                      data-vqa="room-frame"
+                      data-vqa-room-id={frame.roomId}
+                      data-vqa-columns={frame.columns}
+                      data-vqa-rows={frame.rows}
+                      data-vqa-child-count={frame.childCount}
                       style={{
                         left: `${frame.bounds.x}%`,
                         top: `${frame.bounds.y}%`,

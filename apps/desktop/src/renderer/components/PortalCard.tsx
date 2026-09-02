@@ -105,6 +105,11 @@ export function PortalCard({
         isLeavingScope ? " is-leaving-scope" : ""
       }${httpMethod ? ` method-${httpMethod.toLowerCase()}` : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
+      data-vqa="flow-node"
+      data-vqa-node-id={node.id}
+      data-vqa-parent-id={node.parentId ?? "root"}
+      data-vqa-nested={isNestedChild || undefined}
+      data-vqa-expanded={isExpanded || undefined}
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={isScopeExpanded ? -1 : 0}
       onClick={() => {
@@ -169,6 +174,8 @@ export function PortalCard({
           {isPortal && onToggleScopeExpand && (
             <button
               className={`pill-scope-expand-btn ${isScopeExpanded ? "active" : ""}`}
+              data-vqa-action="toggle-room-inline"
+              data-vqa-node-id={node.id}
               onClick={handleToggleScope}
               title={isScopeExpanded ? "内部ノードを折りたたむ" : "今いる画面で内部ノードを展開"}
               type="button"
@@ -182,7 +189,7 @@ export function PortalCard({
 
       {/* EXPANDED DETAIL RECTANGLE PLATE (Visible when expanded) */}
       {isExpanded && (
-        <div className="node-detail-plate">
+        <div className="node-detail-plate" data-vqa="detail-plate" data-vqa-node-id={node.id}>
           {/* Plate header. Collapsing is the card's own click, unfolding the Room
               is on the pill and on the Room's frame, and copying is in the Peek
               panel: none of them need a second button competing for this space. */}

@@ -17,6 +17,7 @@
     "test": "bun run --filter '*' test",
     "lint": "bun run --filter '*' lint",
     "seed": "node scripts/seed.mjs",
+    "visual:qa": "bun --cwd apps/desktop visual:qa",
     "build:renderer": "bun run --filter @insightify/desktop build:renderer"
   }
 }

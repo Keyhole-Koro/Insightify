@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "preview": "vite --config vite.preview.config.mts",
+    "visual:qa": "node scripts/visual-qa.mjs",
     "build:renderer": "vite build --config vite.renderer.config.mts",
     "lint": "eslint ."
   },
