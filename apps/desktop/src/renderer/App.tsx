@@ -163,6 +163,7 @@ export function App() {
     editableEdges,
     previews,
     visualEdges,
+    edgeLabels,
     hoveredEdge,
     projected,
     portRail,
@@ -738,28 +739,21 @@ export function App() {
 
                 {!dive &&
                   lod !== "structure" &&
-                  visualEdges.map((edge) => {
-                    const label = edge.bundled
-                      ? `${edge.count} connections`
-                      : edge.members[0]?.labels[0] ?? "";
-                    if (!label) return null;
-                    return (
-                      <span
-                        className={`edge-label${edge.bundled ? " bundle-label" : ""}`}
-                        key={`label-${edge.key}`}
-                        style={{
-                          left: `${projected.x((edge.sourceX + edge.targetX) / 2)}%`,
-                          top: `${
-                            projected.y((edge.sourceY + edge.targetY) / 2) -
-                            projected.cardHalfHeight -
-                            2.2
-                          }%`,
-                        }}
-                      >
-                        {label}
-                      </span>
-                    );
-                  })}
+                  edgeLabels.map((label) => (
+                    <span
+                      className={`edge-label${label.bundled ? " bundle-label" : ""}`}
+                      data-vqa="edge-label"
+                      data-vqa-stage-x={label.x}
+                      data-vqa-stage-y={label.y}
+                      key={`label-${label.key}`}
+                      style={{
+                        left: `${projected.x(label.x)}%`,
+                        top: `${projected.y(label.y)}%`,
+                      }}
+                    >
+                      {label.text}
+                    </span>
+                  ))}
 
                 {!dive && hoveredEdge?.bundled && (
                   <div

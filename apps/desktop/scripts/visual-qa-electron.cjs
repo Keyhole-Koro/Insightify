@@ -259,6 +259,7 @@ function collectPageReport(measurements, thresholds) {
         return pill && visible(pill) ? rect(pill) : (union(regions) ?? rect(element));
       })(),
       regions: regions.length > 0 ? regions : [rect(element)],
+      stage: { x: Number(element.dataset.vqaStageX), y: Number(element.dataset.vqaStageY) },
       declaredExtent: declared.length === 2 && declared.every(Number.isFinite)
         ? { width: declared[0], height: declared[1] }
         : null,
@@ -316,13 +317,24 @@ function collectPageReport(measurements, thresholds) {
       )).map((node) => node.id),
     };
   });
+  // Labels are part of the picture, so they are part of the collision check.
+  const labels = [...document.querySelectorAll('[data-vqa="edge-label"]')].filter(visible)
+    .map((element, index) => ({
+      id: `label:${(element.textContent || index).toString().trim().slice(0, 24)}`,
+      regions: [rect(element)],
+      box: rect(element),
+      stage: { x: Number(element.dataset.vqaStageX), y: Number(element.dataset.vqaStageY) },
+    }));
+  const collidable = [...nodes, ...labels];
   const overlaps = [];
-  for (let left = 0; left < nodes.length; left += 1) {
-    for (let right = left + 1; right < nodes.length; right += 1) {
-      const area = nodes[left].regions.reduce((sum, leftRegion) =>
-        sum + nodes[right].regions.reduce((regionSum, rightRegion) =>
+  for (let left = 0; left < collidable.length; left += 1) {
+    for (let right = left + 1; right < collidable.length; right += 1) {
+      const area = collidable[left].regions.reduce((sum, leftRegion) =>
+        sum + collidable[right].regions.reduce((regionSum, rightRegion) =>
           regionSum + overlapArea(leftRegion, rightRegion), 0), 0);
-      if (area > 4) overlaps.push({ left: nodes[left].id, right: nodes[right].id, area: round(area) });
+      if (area > 4) {
+        overlaps.push({ left: collidable[left].id, right: collidable[right].id, area: round(area) });
+      }
     }
   }
   const contentBounds = union([
@@ -406,6 +418,7 @@ function collectPageReport(measurements, thresholds) {
       text: element.textContent?.trim().replace(/\s+/g, " ").slice(0, 300),
     })),
     overlaps,
+    labels: labels.map((label) => ({ id: label.id, box: label.box, stage: label.stage })),
     readability,
     truncated,
     warnings,

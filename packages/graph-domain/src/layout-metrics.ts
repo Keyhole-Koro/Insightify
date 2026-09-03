@@ -109,6 +109,34 @@ export type RoomFrameMetrics = {
   stageHeight: number;
 };
 
+/**
+ * An edge label is a box too, and it has to be kept off the cards the same way
+ * a card is kept off another card. Its width is estimated from its text rather
+ * than measured: the layout is a pure function with no DOM to ask, and an
+ * estimate that runs a little wide only spreads labels slightly further apart.
+ * `visual:qa` reports a label painted wider than this.
+ */
+// A label is drawn outside the stage transform, at a fixed size on screen. Its
+// size in stage units therefore depends on the zoom — the same label covers
+// twice as much of the arrangement at half the magnification — so the caller
+// passes the zoom in. Measured on the fixture: 4.2px per character plus 14px of
+// padding, 16px tall, capped by the 130px max-width it is drawn with.
+const EDGE_LABEL_CHARACTER_WIDTH = 4.2;
+const EDGE_LABEL_PADDING = 14;
+const EDGE_LABEL_MAX_WIDTH = 144;
+export const EDGE_LABEL_SCREEN_HEIGHT = 16;
+
+export function edgeLabelExtent(text: string, stageZoom = 1): NodeExtent {
+  const zoom = stageZoom > 0 ? stageZoom : 1;
+  return {
+    width:
+      Math.min(EDGE_LABEL_MAX_WIDTH, text.length * EDGE_LABEL_CHARACTER_WIDTH + EDGE_LABEL_PADDING)
+      / zoom,
+    height: EDGE_LABEL_SCREEN_HEIGHT / zoom,
+    offsetY: 0,
+  };
+}
+
 /** The stage, plus the view state that changes how large a node is. */
 export type LayoutView = RoomFrameMetrics & {
   expandedNodeIds?: Set<string>;

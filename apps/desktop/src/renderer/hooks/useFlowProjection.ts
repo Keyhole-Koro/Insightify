@@ -6,9 +6,15 @@ import {
   getExpandedRoomShapes,
   getScopeBasePositions,
   getNodeAreaIdsForScope,
+  edgeLabelExtent,
+  type FlowNodePosition,
+  type OverlapBox,
+  EDGE_LABEL_SCREEN_HEIGHT,
   fitStageToContent,
   layoutFlowNodesWithExpandedScopes,
   nodeExtent,
+  PORTAL_CARD_HEIGHT,
+  resolveOverlaps,
   projectFlowWithExpandedScopes,
   resolveRoomLayoutRules,
   scopeBoundaryPorts,
@@ -247,6 +253,101 @@ export function useFlowProjection(input: FlowProjectionInput) {
   );
   const hoveredEdge = visualEdges.find((edge) => edge.key === hoveredEdgeKey) ?? null;
 
+  // A label is a box on the canvas like any other, so it is kept off the cards
+  // the same way a card is kept off another card. Cards and frames are anchored:
+  // a label yields to the flow it describes, never the other way round.
+  //
+  // It starts just above the middle of its edge, which is where a reader looks
+  // for it, and is moved from there by as little as possible.
+  const edgeLabels = useMemo(() => {
+    const labels = visualEdges
+      .map((edge) => ({
+        key: edge.key,
+        bundled: edge.bundled,
+        text: edge.bundled ? `${edge.count} connections` : edge.members[0]?.labels[0] ?? "",
+        x: (edge.sourceX + edge.targetX) / 2,
+        y: (edge.sourceY + edge.targetY) / 2,
+      }))
+      .filter((label) => label.text.length > 0);
+    if (labels.length === 0) return labels;
+
+    const lift =
+      ((PORTAL_CARD_HEIGHT / 2 + EDGE_LABEL_SCREEN_HEIGHT / stageZoom) / fittedStage.height) * 100;
+    const anchors = new Set<string>();
+    const boxes = [
+      ...positionedNodes.map((node) => {
+        anchors.add(node.id);
+        return {
+          id: node.id,
+          x: node.x,
+          y: node.y,
+          extent: nodeExtent({
+            nested: node.parentId !== activeScopeId,
+            expanded: expandedNodeIds.has(node.id),
+          }),
+        };
+      }),
+      ...roomFrames.map((frame) => {
+        anchors.add(`frame:${frame.roomId}`);
+        return {
+          id: `frame:${frame.roomId}`,
+          x: frame.bounds.x + frame.bounds.width / 2,
+          y: frame.bounds.y + frame.bounds.height / 2,
+          extent: {
+            width: (frame.bounds.width / 100) * fittedStage.width,
+            height: (frame.bounds.height / 100) * fittedStage.height,
+            offsetY: 0,
+          },
+        };
+      }),
+      ...labels.map((label) => ({
+        id: `label:${label.key}`,
+        x: label.x,
+        y: label.y - lift,
+        extent: edgeLabelExtent(label.text, stageZoom),
+      })),
+    ];
+    const placed = resolveOverlaps(boxes, anchors, {
+      stageWidth: fittedStage.width,
+      stageHeight: fittedStage.height,
+    });
+    // Placing eight labels among seven cards is a packing problem, and a
+    // relaxation solver does not always have an answer: some labels are wedged
+    // where nothing fits. Rather than leave those sitting on top of a card,
+    // they are not drawn. A canvas that quietly shows less is easier to read
+    // than one that shows everything on top of everything, and the edge is
+    // still there to hover.
+    //
+    // A bundled label stands for several edges at once, so it is the last thing
+    // to give up its place.
+    const kept: Array<{ box: OverlapBox; label: (typeof labels)[number] & FlowNodePosition }> = [];
+    // Centres, not coordinates: an open plate makes its card's box hang below
+    // the point the card is anchored at.
+    const centreY = (box: OverlapBox) => box.y + (box.extent.offsetY / fittedStage.height) * 100;
+    const clears = (box: OverlapBox, other: OverlapBox): boolean => {
+      const needX = ((box.extent.width + other.extent.width) / 2 + 6) / fittedStage.width * 100;
+      const needY = ((box.extent.height + other.extent.height) / 2 + 6) / fittedStage.height * 100;
+      return (
+        Math.abs(box.x - other.x) >= needX || Math.abs(centreY(box) - centreY(other)) >= needY
+      );
+    };
+    const obstacles = boxes.filter((box) => anchors.has(box.id));
+
+    for (const label of [...labels].sort((left, right) => Number(right.bundled) - Number(left.bundled))) {
+      const position = placed.get(`label:${label.key}`);
+      if (!position) continue;
+      const box: OverlapBox = {
+        id: `label:${label.key}`,
+        ...position,
+        extent: edgeLabelExtent(label.text, stageZoom),
+      };
+      if (!obstacles.every((other) => clears(box, other))) continue;
+      if (!kept.every((other) => clears(box, other.box))) continue;
+      kept.push({ box, label: { ...label, ...position } });
+    }
+    return kept.map((item) => item.label);
+  }, [visualEdges, positionedNodes, roomFrames, activeScopeId, expandedNodeIds, fittedStage, stageZoom]);
+
   const projected = useMemo(
     () => frameProjection(fittedStage.width, fittedStage.height, stageZoom, frame),
     [fittedStage, stageZoom, frame]
@@ -280,6 +381,7 @@ export function useFlowProjection(input: FlowProjectionInput) {
     editableEdges,
     previews,
     visualEdges,
+    edgeLabels,
     hoveredEdge,
     projected,
     portRail,

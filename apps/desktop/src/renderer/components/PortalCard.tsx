@@ -97,6 +97,8 @@ export function PortalCard({
       data-vqa-nested={isNestedChild || undefined}
       data-vqa-expanded={isExpanded || undefined}
       data-vqa-extent={`${extent.width}x${extent.height}`}
+      data-vqa-stage-x={node.x}
+      data-vqa-stage-y={node.y}
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={isScopeExpanded ? -1 : 0}
       onClick={() => {

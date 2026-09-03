@@ -1032,9 +1032,9 @@ export function resolveOverlaps(
 ): Map<string, FlowNodePosition> {
   const toX = (pixels: number) => (pixels / stage.stageWidth) * 100;
   const toY = (pixels: number) => (pixels / stage.stageHeight) * 100;
-  // Work with the centre of each box. A node's coordinate is the centre of its
-  // card, which is not the centre of its box once a plate opens below it.
-  const positions = new Map(boxes.map((box) => [box.id, { x: box.x, y: box.y + toY(box.extent.offsetY) }]));
+  const positions = new Map(
+    boxes.map((box) => [box.id, { x: box.x, y: box.y + toY(box.extent.offsetY) }])
+  );
 
   for (let pass = 0; pass < OVERLAP_PASSES; pass += 1) {
     let moved = false;
@@ -1055,6 +1055,12 @@ export function resolveOverlaps(
           toY((left.extent.height + right.extent.height) / 2 + OVERLAP_GAP) - Math.abs(deltaY);
         if (penetrationX <= 0 || penetrationY <= 0) continue;
 
+        // The two penetrations are compared as shares of the stage rather than
+        // as distances. Measuring them in pixels is the more obvious reading of
+        // "least movement", and it was tried: a stage is much wider than it is
+        // tall, so pixels make the vertical route look cheap and cards start
+        // stacking instead of spreading. Shares keep the arrangement the layout
+        // produced — which is left to right, because that is how a flow reads.
         const useX = penetrationX <= penetrationY;
         const push = useX ? penetrationX : penetrationY;
         // Which side to push towards comes from the coordinates, not from the
@@ -1063,9 +1069,7 @@ export function resolveOverlaps(
         // box — pushing along the boxes then flings it over to the other side
         // of the node it was below. The coordinates never move, so the
         // arrangement keeps the order the layout gave it.
-        const orderX = right.x - left.x;
-        const orderY = right.y - left.y;
-        const order = useX ? orderX : orderY;
+        const order = useX ? right.x - left.x : right.y - left.y;
         const fallback = useX ? deltaX : deltaY;
         const direction = (order !== 0 ? order : fallback) >= 0 ? 1 : -1;
         const leftShare = leftLocked ? 0 : rightLocked ? 1 : 0.5;
