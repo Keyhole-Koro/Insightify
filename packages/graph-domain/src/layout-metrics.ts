@@ -37,6 +37,13 @@ export const PORTAL_PLATE_GAP = 6;
  * so a change to the plate's contents cannot silently invalidate the layout.
  */
 export const PORTAL_PLATE_HEIGHT = 112;
+/**
+ * The button on the plate that opens a node's implementation outline. Reserved
+ * whenever the node has an outline, not only where the button is drawn: which
+ * entry point is offered follows the zoom level, and how large a node is must
+ * not, or placement and the level it produces would each wait on the other.
+ */
+export const PORTAL_PLATE_LAUNCH_HEIGHT = 44;
 
 /** The compact pill drawn for a node inside an unfolded Room. */
 // Matches the width the nested card is drawn with. It was 132 while the CSS
@@ -98,14 +105,21 @@ export type NodeExtent = { width: number; height: number; offsetY: number };
  * — the stage, the reflow that keeps siblings apart, the frame of an unfolded
  * Room — asks here, so none of them can be working from a different figure.
  */
-export function nodeExtent(state: { nested?: boolean; expanded?: boolean }): NodeExtent {
+export function nodeExtent(state: {
+  nested?: boolean;
+  expanded?: boolean;
+  hasImplementation?: boolean;
+}): NodeExtent {
   if (state.nested) {
     return { width: NESTED_CARD_WIDTH, height: NESTED_CARD_HEIGHT, offsetY: 0 };
   }
   if (!state.expanded) {
     return { width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT, offsetY: 0 };
   }
-  const plate = PORTAL_PLATE_GAP + PORTAL_PLATE_HEIGHT;
+  const plate =
+    PORTAL_PLATE_GAP
+    + PORTAL_PLATE_HEIGHT
+    + (state.hasImplementation ? PORTAL_PLATE_LAUNCH_HEIGHT : 0);
   return {
     width: PORTAL_PLATE_WIDTH,
     height: PORTAL_CARD_HEIGHT + plate,

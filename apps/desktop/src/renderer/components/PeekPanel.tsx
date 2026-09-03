@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { FlowNode, GeneratedFlowGraph } from "@insightify/graph-domain";
 import { copyToClipboard } from "../lib/clipboard.js";
 import { NodeIcon } from "./NodeIcon.js";
+import { ImplementationTree } from "./ImplementationTree.js";
 
 interface PeekPanelProps {
   node: FlowNode;
@@ -29,6 +30,7 @@ export function PeekPanel({ node, graph, onClose, onEnter, onEdit, onAskAi }: Pe
       node.tags?.length ? `Tags: ${node.tags.map((t) => `#${t}`).join(", ")}` : "",
       node.evidence.length ? `Evidence:\n${node.evidence.map((e) => `- ${e}`).join("\n")}` : "",
       node.codeSnippet ? `\nCode Snippet:\n\`\`\`\n${node.codeSnippet}\n\`\`\`` : "",
+      node.implementation ? `\nImplementation Outline:\n${JSON.stringify(node.implementation, null, 2)}` : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -69,14 +71,18 @@ export function PeekPanel({ node, graph, onClose, onEnter, onEdit, onAskAi }: Pe
 
       <p>{node.summary}</p>
 
-      {node.codeSnippet && (
+      {node.implementation ? (
+        <section className="peek-implementation-section">
+          <ImplementationTree key={node.id} outline={node.implementation} />
+        </section>
+      ) : node.codeSnippet ? (
         <section className="peek-code-section">
           <b>Code / Interface</b>
           <pre className="peek-code-block">
             <code>{node.codeSnippet}</code>
           </pre>
         </section>
-      )}
+      ) : null}
 
       <section>
         <b>Nested nodes</b>

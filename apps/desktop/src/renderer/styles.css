@@ -1198,6 +1198,504 @@ button { color: inherit; }
   -webkit-line-clamp: 2;
 }
 
+/* Semantic implementation outline. The rails carry containment visually; the
+   labels stay ordinary language rather than pretending a generated outline is
+   source code or exposing the raw AST. */
+.implementation-tree {
+  overflow: hidden;
+  border: 1px solid #2a3038;
+  border-radius: 9px;
+  background: #0d1014;
+  color: #c8cdd4;
+}
+
+.implementation-tree-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 7px;
+  align-items: center;
+  padding: 7px 8px 6px;
+  border-bottom: 1px solid #242a31;
+  background: linear-gradient(100deg, rgba(201, 255, 99, 0.07), transparent 58%);
+}
+
+.implementation-tree-header > span {
+  color: #91a96a;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.implementation-tree-header strong {
+  overflow: hidden;
+  color: #e4e8ec;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 650;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.implementation-tree-header button,
+.implementation-step-detail > button {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  color: #68717b;
+  background: transparent;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 7px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.implementation-tree-header button:hover,
+.implementation-step-detail > button:hover,
+.implementation-tree-header button.copied,
+.implementation-step-detail > button.copied {
+  color: #c9ff63;
+}
+
+.implementation-tree-body {
+  position: relative;
+  height: 174px;
+  overflow: hidden;
+}
+
+.implementation-step-scroll {
+  height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #353d48 transparent;
+}
+
+.implementation-tree.compact .implementation-tree-body {
+  height: 126px;
+}
+
+.implementation-step-list,
+.implementation-step-children {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+}
+
+.implementation-step-list {
+  padding-bottom: 72px;
+}
+
+.implementation-step-children {
+  position: relative;
+  margin: 0 4px 1px 13px;
+  padding: 0 0 0 7px;
+  border-left: 1px solid #343c45;
+}
+
+.implementation-step-children::before {
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 7px;
+  height: 1px;
+  background: #343c45;
+  content: "";
+}
+
+.implementation-step-item {
+  margin: 0;
+  padding: 0;
+}
+
+.implementation-step {
+  display: grid;
+  grid-template-columns: 12px 18px minmax(0, 1fr) auto;
+  gap: 3px;
+  align-items: center;
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  color: #aeb5be;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.implementation-step:hover {
+  color: #edf0f3;
+  background: #171c22;
+}
+
+.implementation-step.selected {
+  color: #ecf6db;
+  background: rgba(201, 255, 99, 0.09);
+  box-shadow: inset 2px 0 #a9d84f;
+}
+
+.implementation-disclosure {
+  display: grid;
+  place-items: center;
+  color: #68727d;
+  transition: transform 120ms ease;
+}
+
+.implementation-step[aria-expanded="true"] .implementation-disclosure {
+  transform: rotate(90deg);
+}
+
+.implementation-disclosure.leaf {
+  visibility: hidden;
+}
+
+.implementation-kind {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid #303841;
+  border-radius: 5px;
+  color: #8da6bd;
+  background: #151a20;
+}
+
+.implementation-kind.kind-condition { color: #d6ae62; border-color: #57472b; background: #211b10; }
+.implementation-kind.kind-call { color: #82abd4; border-color: #31475c; background: #111c27; }
+.implementation-kind.kind-side-effect { color: #d68d75; border-color: #59362c; background: #241510; }
+.implementation-kind.kind-return { color: #99c96b; border-color: #3d5529; background: #14200e; }
+
+.implementation-step-title {
+  overflow: hidden;
+  font-size: 8.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.implementation-step-kind {
+  color: #59616c;
+  font-size: 6.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.implementation-step-detail {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  left: 7px;
+  max-height: 68px;
+  overflow: auto;
+  padding: 7px;
+  border: 1px solid #252d34;
+  border-radius: 6px;
+  background: #12171c;
+  box-shadow: 0 -8px 18px #0d1014;
+}
+
+.implementation-detail-heading {
+  display: none;
+}
+
+.implementation-step-detail p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: #939ca6;
+  font-size: 8px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.implementation-io {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.implementation-io span {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 1px 4px;
+  border: 1px solid #303843;
+  border-radius: 4px;
+  color: #8995a1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 6.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.implementation-io .input { border-color: #34465a; color: #8baed0; }
+.implementation-io .output { border-color: #3c502c; color: #9abd78; }
+
+.implementation-step-detail > button {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.peek-implementation-section .implementation-tree-body {
+  height: 260px;
+}
+
+/* The node is only the doorway into implementation. The outline is attached
+   beside it like another piece of the flow: no backdrop, no modal focus and no
+   contribution to node extents or stage fitting. */
+.implementation-inline-layer {
+  position: absolute;
+  z-index: 38;
+  inset: 0;
+  pointer-events: none;
+  animation: implementation-layer-in 130ms ease-out both;
+}
+
+.implementation-inline-connector {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.implementation-inline-connector path {
+  fill: none;
+  stroke: #789247;
+  stroke-dasharray: 3 4;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.implementation-inline-connector circle {
+  fill: #c9ff63;
+  stroke: #18200f;
+  stroke-width: 2;
+}
+
+.implementation-workspace {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  animation: implementation-workspace-in 160ms cubic-bezier(.2, .85, .25, 1) both;
+}
+
+.implementation-workspace::before {
+  content: none;
+}
+
+.implementation-workspace.inline-left { --implementation-enter-x: 7px; }
+.implementation-workspace.inline-right { --implementation-enter-x: -7px; }
+.implementation-workspace.inline-top { --implementation-enter-y: 7px; }
+.implementation-workspace.inline-bottom { --implementation-enter-y: -7px; }
+
+.implementation-workspace-close {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  color: #656e77;
+  background: transparent;
+  cursor: pointer;
+}
+
+.implementation-workspace-close:hover {
+  color: #dfffa4;
+  background: #222a1b;
+}
+
+.implementation-workspace > .implementation-tree.workspace {
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.implementation-tree.workspace .implementation-tree-header {
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 140px);
+  height: 37px;
+  min-height: 37px;
+  box-sizing: border-box;
+  padding: 6px 37px 6px 9px;
+  border-bottom-color: rgba(70, 80, 89, .52);
+  background: transparent;
+}
+
+.implementation-tree.workspace .implementation-tree-header strong {
+  font-size: 8px;
+  text-align: left;
+}
+
+.implementation-tree.workspace .implementation-tree-header button {
+  grid-column: auto;
+  font-size: 6.5px;
+  text-align: right;
+}
+
+.implementation-tree.workspace .implementation-tree-body {
+  display: grid;
+  height: calc(100% - 37px);
+  grid-template-columns: minmax(190px, .95fr) minmax(0, 1.05fr);
+}
+
+.implementation-tree.workspace .implementation-step-scroll {
+  border-right: 1px solid #272e35;
+}
+
+.implementation-tree.workspace .implementation-step-list {
+  padding: 6px 5px 18px;
+}
+
+.implementation-tree.workspace .implementation-step-children {
+  margin-left: 14px;
+  padding-left: 7px;
+}
+
+.implementation-tree.workspace .implementation-step {
+  grid-template-columns: 11px 19px minmax(0, 1fr) auto;
+  gap: 4px;
+  min-height: 28px;
+  padding: 3px 4px;
+  border-radius: 5px;
+}
+
+.implementation-tree.workspace .implementation-kind {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+
+.implementation-tree.workspace .implementation-step-title {
+  font-size: 8px;
+}
+
+.implementation-tree.workspace .implementation-step-kind {
+  padding-right: 2px;
+  font-size: 5.5px;
+}
+
+.implementation-tree.workspace .implementation-step-detail {
+  position: static;
+  max-height: none;
+  overflow: auto;
+  padding: 13px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.implementation-tree.workspace .implementation-detail-heading {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.implementation-tree.workspace .implementation-detail-heading span {
+  width: max-content;
+  padding: 3px 6px;
+  border: 1px solid #455332;
+  border-radius: 5px;
+  color: #9cbb69;
+  font-size: 6px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.implementation-tree.workspace .implementation-detail-heading strong {
+  color: #e7eae6;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.implementation-tree.workspace .implementation-step-detail p {
+  display: block;
+  margin-bottom: 10px;
+  color: #9ba3ac;
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.implementation-tree.workspace .implementation-io {
+  gap: 4px;
+  margin: 0 0 9px;
+}
+
+.implementation-tree.workspace .implementation-io span {
+  padding: 2px 5px;
+  font-size: 6px;
+}
+
+.implementation-tree.workspace .implementation-step-detail > button {
+  margin-top: 7px;
+  padding: 5px 6px;
+  border: 1px solid #2d353d;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 6.5px;
+}
+
+.plate-implementation-launch {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 8px 9px;
+  border: 1px solid #3d4b2b;
+  border-radius: 7px;
+  color: #a8c677;
+  background: #171d12;
+  cursor: pointer;
+  font-size: 8px;
+}
+
+.plate-implementation-launch span {
+  color: #657052;
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.flow-node.implementation-open .node-compact-pill {
+  border-color: #759244;
+  box-shadow: 0 0 0 1px #9bc64a2e, 0 8px 26px #0008;
+}
+
+@keyframes implementation-layer-in {
+  from { opacity: 0; }
+}
+
+@keyframes implementation-workspace-in {
+  from {
+    transform: translate(
+      var(--implementation-enter-x, 0),
+      var(--implementation-enter-y, 0)
+    ) scale(.985);
+    opacity: 0;
+  }
+}
+
 /* Plate Code Block */
 .plate-code-block {
   margin-bottom: 8px;
@@ -1381,7 +1879,13 @@ button { color: inherit; }
   min-width: 0;
 }
 
+/* A fixed slot for the glyph. It changes with what the card will do — ▾ ▴ for
+   detail, ⊞ ⊟ for a Room, ↗ × for an implementation outline — and the widest of
+   those must not decide how much of the title fits. */
 .compact-toggle-icon {
+  flex: none;
+  width: 10px;
+  text-align: center;
   color: #6c7385;
   font-size: 10px;
   transition: transform 140ms ease, color 140ms ease;

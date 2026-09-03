@@ -1,13 +1,20 @@
 import React, { type PointerEvent as ReactPointerEvent } from "react";
 import { isRoom, nodeExtent, type FlowNode, type PortalPreview } from "@insightify/graph-domain";
+import type { SemanticLevel } from "../semantic-zoom.js";
 import { NodeIcon } from "./NodeIcon.js";
 
 interface PortalCardProps {
   node: FlowNode & { x: number; y: number };
   preview: PortalPreview;
+  /* Which entry point into the implementation outline this card offers: the
+     chevron at the implementation level, the plate's button below it. Only how
+     the card is drawn — how large it is must not depend on the level, because
+     the level follows from the stage the sizes produced. */
+  lod: SemanticLevel;
   selected: boolean;
   isExpanded?: boolean;
   isScopeExpanded?: boolean;
+  implementationOpen?: boolean;
   isNestedChild?: boolean;
   isLeavingScope?: boolean;
   showAvatar?: boolean;
@@ -17,6 +24,7 @@ interface PortalCardProps {
   onEnter: () => void;
   onEdit: () => void;
   onAskAi?: () => void;
+  onOpenImplementation?: () => void;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -25,9 +33,11 @@ interface PortalCardProps {
 export function PortalCard({
   node,
   preview,
+  lod,
   selected,
   isExpanded = false,
   isScopeExpanded = false,
+  implementationOpen = false,
   isNestedChild = false,
   isLeavingScope = false,
   showAvatar = true,
@@ -37,11 +47,13 @@ export function PortalCard({
   onEnter,
   onEdit,
   onAskAi,
+  onOpenImplementation,
   onPointerDown,
   onPointerMove,
   onPointerUp,
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0 || isRoom(node);
+  const hasImplementationWorkspace = lod === "implementation" && Boolean(node.implementation);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -70,7 +82,11 @@ export function PortalCard({
 
   // What the layout has been told this card occupies. Declared on the element
   // so `visual:qa` can check it against what is actually painted.
-  const extent = nodeExtent({ nested: isNestedChild, expanded: isExpanded });
+  const extent = nodeExtent({
+    nested: isNestedChild,
+    expanded: isExpanded,
+    hasImplementation: Boolean(node.implementation),
+  });
 
   return (
     <article
@@ -84,7 +100,7 @@ export function PortalCard({
         isScopeExpanded ? " is-scope-expanded" : ""
       }${isNestedChild ? " is-nested-child" : ""}${!showAvatar ? " no-avatar" : ""}${
         isLeavingScope ? " is-leaving-scope" : ""
-      }${httpMethod ? ` method-${httpMethod.toLowerCase()}` : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
+      }${implementationOpen ? " implementation-open" : ""}${httpMethod ? ` method-${httpMethod.toLowerCase()}` : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       data-vqa="flow-node"
       data-vqa-node-id={node.id}
@@ -170,15 +186,27 @@ export function PortalCard({
             the title. */}
         <span
           className="compact-toggle-icon"
-          data-vqa-action={isPortal ? "toggle-room-inline" : "toggle-detail"}
+          data-vqa-action={
+            isPortal
+              ? "toggle-room-inline"
+              : hasImplementationWorkspace
+                ? "toggle-implementation-workspace"
+                : "toggle-detail"
+          }
           data-vqa-node-id={node.id}
           title={
             isPortal
               ? isScopeExpanded ? "内部ノードを折りたたむ" : "内部ノードを展開"
-              : isExpanded ? "詳細を閉じる" : "詳細を開く"
+              : hasImplementationWorkspace
+                ? implementationOpen ? "実装ワークスペースを閉じる" : "実装ワークスペースを開く"
+                : isExpanded ? "詳細を閉じる" : "詳細を開く"
           }
         >
-          {isPortal ? (isScopeExpanded ? "⊟" : "⊞") : isExpanded ? "▴" : "▾"}
+          {isPortal
+            ? (isScopeExpanded ? "⊟" : "⊞")
+            : hasImplementationWorkspace
+              ? (implementationOpen ? "×" : "↗")
+              : isExpanded ? "▴" : "▾"}
         </span>
       </div>
 
@@ -206,12 +234,30 @@ export function PortalCard({
               exists for. Below it they are unreadable at this width anyway, and
               they cost the height that hides the cards above and below. The Peek
               panel carries them at any zoom. */}
-          {/* Summary only. The code snippet, the child miniature and the
-              evidence were shown here at the implementation level, and they
-              were most of the plate: 206px of it, next to a card 34px tall. A
-              detail view six cards high cannot be opened without covering
-              something or shrinking everything, and all three are already in
-              the Peek panel, which this plate's own footer opens. */}
+          {/* The code snippet, the child miniature and the evidence used to be
+              here at the implementation zoom level, and they were most of the
+              plate: 206px of it, next to a card 34px tall. A detail view six
+              cards high cannot be opened without covering something, and all
+              three are in the Peek panel this plate's own footer opens.
+
+              The way into the implementation outline stays, because nothing
+              else on the card leads there. It is not tied to a zoom level: a
+              plate whose height depends on the level makes how large a node is
+              depend on how large the stage turned out, which is a circle. */}
+          {node.implementation && (
+            <button
+              className="plate-implementation-launch"
+              data-vqa-action="open-implementation-workspace"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenImplementation?.();
+              }}
+              type="button"
+            >
+              <span>Implementation lens</span>
+              Open on canvas <b>↗</b>
+            </button>
+          )}
 
           {/* Plate Footer */}
           <div className="plate-footer">

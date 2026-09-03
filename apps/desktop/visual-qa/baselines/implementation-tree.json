@@ -1,0 +1,24 @@
+{
+  "id": "implementation-tree",
+  "checkpoints": {
+    "root": [
+      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px"
+    ],
+    "implementation-lod": [
+      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px"
+    ],
+    "event-outline": [
+      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px"
+    ],
+    "envelope-expanded": [
+      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px"
+    ],
+    "payload-selected": [
+      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px"
+    ],
+    "root → implementation-lod": [],
+    "implementation-lod → event-outline": [],
+    "event-outline → envelope-expanded": [],
+    "envelope-expanded → payload-selected": []
+  }
+}

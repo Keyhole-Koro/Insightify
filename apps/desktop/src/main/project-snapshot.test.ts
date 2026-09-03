@@ -29,6 +29,8 @@ describe("buildProjectSnapshot", () => {
     expect(snapshot.files).not.toContain("node_modules/ignored.js");
     expect(buildFlowGraphPrompt(snapshot)).toContain("untrusted data");
     expect(buildFlowGraphPrompt(snapshot)).toContain("Never generate coordinates");
+    expect(buildFlowGraphPrompt(snapshot)).toContain('"implementation"');
+    expect(buildFlowGraphPrompt(snapshot)).toContain("not syntax or an AST");
     expect(buildFlowGraphExpansionPrompt(snapshot, {
       title: "Graph",
       summary: "Graph summary",
@@ -41,6 +43,12 @@ describe("buildProjectSnapshot", () => {
       nodes: [{ id: "root", title: "Root", summary: "Root summary", kind: "room", parentId: null, evidence: [] }],
       edges: [],
     }, "root")).toContain("layoutScopes");
+    expect(buildFlowGraphExpansionPrompt(snapshot, {
+      title: "Graph",
+      summary: "Graph summary",
+      nodes: [{ id: "root", title: "Root", summary: "Root summary", kind: "room", parentId: null, evidence: [] }],
+      edges: [],
+    }, "root")).toContain("Never emit an AST");
   });
 
   it("shows a layout run the nodes to arrange and nothing more", () => {

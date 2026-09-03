@@ -47,6 +47,7 @@ import { PeekPanel } from "./components/PeekPanel.js";
 import { NodeEditor } from "./components/NodeEditor.js";
 import { EdgeManager } from "./components/EdgeManager.js";
 import { ThreadPanel } from "./components/ThreadPanel.js";
+import { ImplementationWorkspace } from "./components/ImplementationWorkspace.js";
 
 // App composes the four renderer layers and owns nothing but the transient bits
 // of the shell: the open dialogs, the prompt box, and the canvas element size.
@@ -60,6 +61,9 @@ export function App() {
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const editor = useEditorState();
   const { nodeDraft, edgeDraft } = editor;
+  // The implementation workspace is a canvas overlay rather than an editor, so
+  // it is not part of the editor state and does not close one to open.
+  const [implementationWorkspaceNodeId, setImplementationWorkspaceNodeId] = useState<string | null>(null);
   const [frame, setFrame] = useState({ width: 960, height: 700 });
   const canvasRef = useRef<HTMLElement | null>(null);
 
@@ -196,6 +200,49 @@ export function App() {
     toggleNodeExpansion,
   } = view;
 
+  const closeImplementationWorkspace = useCallback(
+    () => setImplementationWorkspaceNodeId(null),
+    []
+  );
+  // This lens deliberately stays out of expandedNodeIds so opening it cannot
+  // resize or reflow nodes. Other LODs never render a stale implementation UI.
+  const implementationWorkspaceNode = lod === "implementation"
+    ? graph?.graph.nodes.find(
+        (node) => node.id === implementationWorkspaceNodeId && Boolean(node.implementation)
+      ) ?? null
+    : null;
+  const implementationWorkspacePlacement = (() => {
+    if (!implementationWorkspaceNode) return null;
+    const anchor = positions.get(implementationWorkspaceNode.id);
+    if (!anchor) return null;
+    const anchorX = frame.width * projected.x(anchor.x) / 100;
+    const anchorY = frame.height * projected.y(anchor.y) / 100;
+    const width = Math.min(440, Math.max(320, frame.width - 56));
+    const height = Math.min(270, Math.max(240, frame.height - 154));
+    const edgeMargin = 28;
+    const nodeGap = 76;
+    const fitsBelow = anchorY + nodeGap + height <= frame.height - edgeMargin;
+    const fitsAbove = anchorY - nodeGap - height >= 92;
+    const side = fitsBelow
+      ? "bottom" as const
+      : fitsAbove
+        ? "top" as const
+        : anchorX > frame.width / 2 ? "left" as const : "right" as const;
+    const desiredLeft = side === "left"
+      ? anchorX - width - 138
+      : side === "right"
+        ? anchorX + 138
+        : anchorX - width / 2;
+    const desiredTop = side === "bottom"
+      ? anchorY + nodeGap
+      : side === "top"
+        ? anchorY - nodeGap - height
+        : anchorY - height / 2;
+    const left = Math.max(edgeMargin, Math.min(desiredLeft, frame.width - width - edgeMargin));
+    const top = Math.max(92, Math.min(desiredTop, frame.height - height - edgeMargin));
+    return { anchorX, anchorY, height, left, side, top, width };
+  })();
+
   const drag = useNodeDrag({
     disabled: busy || previewing,
     canvasRef,
@@ -222,12 +269,13 @@ export function App() {
   // camera, the selection, the transcript, and any error still on screen.
   const selectProject = useCallback(
     (selected: ProjectSummary) => {
+      closeImplementationWorkspace();
       resetView();
       clearError();
       clearEvents();
       openProject(selected);
     },
-    [clearError, clearEvents, openProject, resetView]
+    [clearError, clearEvents, closeImplementationWorkspace, openProject, resetView]
   );
   const pickProject = useCallback(() => {
     void promptForProject().then((picked) => {
@@ -244,12 +292,16 @@ export function App() {
     () => expandNodes(visibleNodes.map((node) => node.id)),
     [expandNodes, visibleNodes]
   );
-  const collapseAllNodes = view.collapseNodes;
+  const collapseAllNodes = useCallback(() => {
+    closeImplementationWorkspace();
+    view.collapseNodes();
+  }, [closeImplementationWorkspace, view]);
 
   // Entering a Room that has never been decomposed starts its expansion, so the
   // descent never lands the user on an empty canvas.
   function enterRoom(node: FlowNode) {
     if (busy) return;
+    closeImplementationWorkspace();
     const origin = positions.get(node.id);
     diveTo(DIVE_SCALE_IN, origin?.x ?? 50, origin?.y ?? 50, () => {
       view.enterScope(node.id);
@@ -262,6 +314,7 @@ export function App() {
 
   function navigateToScope(scopeId: string | null) {
     if (busy) return;
+    closeImplementationWorkspace();
     const ownerId = ancestorWithin(graph, activeScopeId, scopeId);
     const owner = ownerId
       ? graph?.layoutOverrides?.[ownerId] ?? graph?.layout[ownerId]
@@ -275,6 +328,7 @@ export function App() {
   function handleWheel(event: React.WheelEvent<HTMLElement>) {
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
+      closeImplementationWorkspace();
       view.zoomBy(-event.deltaY * 0.003);
     }
   }
@@ -701,9 +755,11 @@ export function App() {
                       key={node.id}
                       node={node}
                       preview={previews.get(node.id) ?? emptyPreview}
+                      lod={lod}
                       selected={selectedNodeId === node.id}
                       isExpanded={expandedNodeIds.has(node.id)}
                       isScopeExpanded={renderedExpandedScopeIds.has(node.id)}
+                      implementationOpen={implementationWorkspaceNodeId === node.id}
                       isNestedChild={node.parentId !== activeScopeId}
                       isLeavingScope={
                         node.parentId !== activeScopeId &&
@@ -719,13 +775,23 @@ export function App() {
                         // is the flow inside it, unfolded in place; for anything
                         // else it is the node's own detail. One gesture, and
                         // what it reveals is decided by what the node is.
-                        if (isRoom(node)) toggleScopeExpand(node.id);
-                        else toggleNodeExpansion(node.id);
+                        if (isRoom(node)) {
+                          closeImplementationWorkspace();
+                          toggleScopeExpand(node.id);
+                        } else if (lod === "implementation" && node.implementation) {
+                          setImplementationWorkspaceNodeId((current) =>
+                            current === node.id ? null : node.id
+                          );
+                        } else {
+                          closeImplementationWorkspace();
+                          toggleNodeExpansion(node.id);
+                        }
                       }}
                       onPeek={() => view.peekNode(node.id)}
                       onEnter={() => enterRoom(node)}
                       onEdit={() => openEditNode(node)}
                       onAskAi={() => askAiAboutNode(node)}
+                      onOpenImplementation={() => setImplementationWorkspaceNodeId(node.id)}
                       onPointerDown={(event) => onNodePointerDown(event, node.id)}
                       onPointerMove={onNodePointerMove}
                       onPointerUp={onNodePointerUp}
@@ -829,6 +895,14 @@ export function App() {
                     />
                   ))}
 
+                {implementationWorkspaceNode && implementationWorkspacePlacement && (
+                  <ImplementationWorkspace
+                    node={implementationWorkspaceNode}
+                    placement={implementationWorkspacePlacement}
+                    onClose={closeImplementationWorkspace}
+                  />
+                )}
+
                 <div className="zoom-indicator">
                   <button
                     aria-label="すべて折りたたむ"
@@ -848,13 +922,19 @@ export function App() {
                   </button>
                   <button
                     aria-label="縮小"
-                    onClick={() => view.zoomBy(-0.25)}
+                    onClick={() => {
+                      closeImplementationWorkspace();
+                      view.zoomBy(-0.25);
+                    }}
                     type="button"
                   >
                     −
                   </button>
                   <span
-                    onClick={() => view.setZoom(1 / (stage.scale || 1))}
+                    onClick={() => {
+                      closeImplementationWorkspace();
+                      view.setZoom(1 / (stage.scale || 1));
+                    }}
                     title="クリックで 100% にリセット"
                     style={{ cursor: "pointer" }}
                   >
@@ -862,7 +942,10 @@ export function App() {
                   </span>
                   <button
                     aria-label="拡大"
-                    onClick={() => view.zoomBy(0.25)}
+                    onClick={() => {
+                      closeImplementationWorkspace();
+                      view.zoomBy(0.25);
+                    }}
                     type="button"
                   >
                     ＋

@@ -76,6 +76,58 @@ const source: FlowGraph = {
       tags: ["redis", "pubsub", "async", "streaming"],
       status: "working",
       codeSnippet: "export const taskStream = new RedisStream('events:workflow:v1');",
+      implementation: {
+        entrypoint: "taskStream.publish",
+        source: { path: "packages/queue/src/redis.ts", symbol: "RedisStream.publish" },
+        steps: [
+          {
+            id: "validate-event",
+            title: "Validate task event",
+            summary: "Rejects incomplete jobs before anything is written to the shared stream.",
+            kind: "condition",
+            inputs: ["workflow task"],
+            outputs: ["validated task"],
+          },
+          {
+            id: "encode-envelope",
+            title: "Encode stream envelope",
+            summary: "Builds the stable Redis payload shared by producers and workers.",
+            kind: "phase",
+            inputs: ["validated task", "trace context"],
+            outputs: ["stream fields"],
+            children: [
+              {
+                id: "serialize-payload",
+                title: "Serialize task payload",
+                summary: "Encodes the task data without transport-specific objects.",
+                kind: "call",
+              },
+              {
+                id: "attach-trace",
+                title: "Attach trace context",
+                summary: "Carries the request trace into the asynchronous worker.",
+                kind: "phase",
+              },
+            ],
+          },
+          {
+            id: "append-stream",
+            title: "Append to Redis stream",
+            summary: "Persists the envelope to the workflow stream for consumer groups.",
+            kind: "side-effect",
+            inputs: ["stream fields"],
+            outputs: ["Redis entry id"],
+            source: { path: "packages/queue/src/redis.ts", symbol: "RedisStream.publish" },
+          },
+          {
+            id: "return-entry",
+            title: "Return task receipt",
+            summary: "Returns the durable stream id to the calling service.",
+            kind: "return",
+            outputs: ["task receipt"],
+          },
+        ],
+      },
     },
     {
       id: "primary-db",
@@ -372,7 +424,7 @@ const layoutPlan: SemanticLayoutPlan = parseSemanticLayoutPlan({
       direction: "row",
       areas: [
         { id: "entry", label: "Entry", direction: "column", nodeIds: ["frontend-portal", "api-gateway", "auth-guard"] },
-        { id: "processing", label: "Processing", direction: "column", nodeIds: ["workflow-engine", "event-bus"] },
+        { id: "processing", label: "Processing", direction: "column", nodeIds: ["event-bus", "workflow-engine"] },
         { id: "state", label: "State", direction: "column", nodeIds: ["primary-db", "external-services"] },
       ],
     },
