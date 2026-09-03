@@ -209,6 +209,37 @@ export function App() {
         (node) => node.id === implementationWorkspaceNodeId && Boolean(node.implementation)
       ) ?? null
     : null;
+  const implementationWorkspacePlacement = (() => {
+    if (!implementationWorkspaceNode) return null;
+    const anchor = positions.get(implementationWorkspaceNode.id);
+    if (!anchor) return null;
+    const anchorX = frame.width * projected.x(anchor.x) / 100;
+    const anchorY = frame.height * projected.y(anchor.y) / 100;
+    const width = Math.min(440, Math.max(320, frame.width - 56));
+    const height = Math.min(320, Math.max(270, frame.height - 154));
+    const edgeMargin = 28;
+    const nodeGap = 76;
+    const fitsBelow = anchorY + nodeGap + height <= frame.height - edgeMargin;
+    const fitsAbove = anchorY - nodeGap - height >= 92;
+    const side = fitsBelow
+      ? "bottom" as const
+      : fitsAbove
+        ? "top" as const
+        : anchorX > frame.width / 2 ? "left" as const : "right" as const;
+    const desiredLeft = side === "left"
+      ? anchorX - width - 138
+      : side === "right"
+        ? anchorX + 138
+        : anchorX - width / 2;
+    const desiredTop = side === "bottom"
+      ? anchorY + nodeGap
+      : side === "top"
+        ? anchorY - nodeGap - height
+        : anchorY - height / 2;
+    const left = Math.max(edgeMargin, Math.min(desiredLeft, frame.width - width - edgeMargin));
+    const top = Math.max(92, Math.min(desiredTop, frame.height - height - edgeMargin));
+    return { anchorX, anchorY, height, left, side, top, width };
+  })();
 
   const drag = useNodeDrag({
     disabled: busy || previewing,
@@ -865,9 +896,10 @@ export function App() {
                     />
                   ))}
 
-                {implementationWorkspaceNode && (
+                {implementationWorkspaceNode && implementationWorkspacePlacement && (
                   <ImplementationWorkspace
                     node={implementationWorkspaceNode}
+                    placement={implementationWorkspacePlacement}
                     onClose={closeImplementationWorkspace}
                     onPeek={() => {
                       closeImplementationWorkspace();

@@ -26,13 +26,30 @@ const node: FlowNode = {
 };
 
 describe("ImplementationWorkspace", () => {
-  it("renders the implementation as a canvas-level dialog", () => {
+  const placement = {
+    anchorX: 500,
+    anchorY: 300,
+    height: 350,
+    left: 48,
+    side: "left" as const,
+    top: 120,
+    width: 440,
+  };
+
+  it("renders the implementation beside its canvas node", () => {
     const html = renderToStaticMarkup(
-      <ImplementationWorkspace node={node} onAskAi={() => {}} onClose={() => {}} onPeek={() => {}} />
+      <ImplementationWorkspace
+        node={node}
+        placement={placement}
+        onAskAi={() => {}}
+        onClose={() => {}}
+        onPeek={() => {}}
+      />
     );
     expect(html).toContain('data-vqa="implementation-workspace"');
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain("anchored to canvas node");
+    expect(html).toContain('role="region"');
+    expect(html).toContain("attached to node");
+    expect(html).toContain("implementation-inline-connector");
     expect(html).toContain('class="implementation-tree workspace"');
   });
 
@@ -40,6 +57,7 @@ describe("ImplementationWorkspace", () => {
     const html = renderToStaticMarkup(
       <ImplementationWorkspace
         node={{ ...node, implementation: undefined }}
+        placement={placement}
         onAskAi={() => {}}
         onClose={() => {}}
         onPeek={() => {}}

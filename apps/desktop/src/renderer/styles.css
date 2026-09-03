@@ -1441,41 +1441,50 @@ button { color: inherit; }
   height: 260px;
 }
 
-/* The node is only the doorway into implementation. This surface is a sibling
-   of the graph stage, so neither its dimensions nor its animation can affect
-   node extents, stage fitting, or edge routing. */
-.implementation-workspace-layer {
+/* The node is only the doorway into implementation. The outline is attached
+   beside it like another piece of the flow: no backdrop, no modal focus and no
+   contribution to node extents or stage fitting. */
+.implementation-inline-layer {
   position: absolute;
   z-index: 38;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 76px 72px 62px;
-  animation: implementation-layer-in 150ms ease-out both;
+  pointer-events: none;
+  animation: implementation-layer-in 130ms ease-out both;
 }
 
-.implementation-workspace-backdrop {
+.implementation-inline-connector {
   position: absolute;
   inset: 0;
-  border: 0;
-  background: rgba(7, 9, 12, .54);
-  backdrop-filter: blur(1.5px) saturate(.75);
-  cursor: zoom-out;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.implementation-inline-connector path {
+  fill: none;
+  stroke: #789247;
+  stroke-dasharray: 3 4;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.implementation-inline-connector circle {
+  fill: #c9ff63;
+  stroke: #18200f;
+  stroke-width: 2;
 }
 
 .implementation-workspace {
-  position: relative;
+  position: absolute;
   display: flex;
-  width: min(850px, 100%);
-  height: min(570px, 100%);
-  min-height: 360px;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #424a54;
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(25, 29, 34, .99), rgba(12, 15, 19, .99));
-  box-shadow: 0 30px 100px #000d, 0 0 0 1px #0008, inset 0 1px rgba(255,255,255,.035);
-  animation: implementation-workspace-in 180ms cubic-bezier(.2, .85, .25, 1) both;
+  border: 1px solid #3a444d;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(23, 27, 32, .98), rgba(12, 15, 19, .98));
+  box-shadow: 0 14px 42px #000a, 0 0 0 1px #0007, inset 0 1px rgba(255,255,255,.035);
+  pointer-events: auto;
+  animation: implementation-workspace-in 160ms cubic-bezier(.2, .85, .25, 1) both;
 }
 
 .implementation-workspace::before {
@@ -1488,12 +1497,17 @@ button { color: inherit; }
   content: "";
 }
 
+.implementation-workspace.inline-left { --implementation-enter-x: 7px; }
+.implementation-workspace.inline-right { --implementation-enter-x: -7px; }
+.implementation-workspace.inline-top { --implementation-enter-y: 7px; }
+.implementation-workspace.inline-bottom { --implementation-enter-y: -7px; }
+
 .implementation-workspace-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  padding: 19px 21px 15px;
+  gap: 12px;
+  padding: 10px 11px 9px;
   border-bottom: 1px solid #2a3037;
 }
 
@@ -1506,26 +1520,29 @@ button { color: inherit; }
   align-items: center;
   gap: 6px;
   color: #a5c66c;
-  font-size: 8px;
+  font-size: 6.5px;
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
 }
 
 .implementation-workspace-title h2 {
-  margin: 7px 0 4px;
+  overflow: hidden;
+  margin: 4px 0 2px;
   color: #f0f2ef;
-  font-size: 19px;
+  font-size: 13px;
   font-weight: 690;
   letter-spacing: -.015em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .implementation-workspace-title p {
   overflow: hidden;
   margin: 0;
   color: #7f8791;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 8px;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1538,21 +1555,21 @@ button { color: inherit; }
 
 .implementation-workspace-actions button {
   display: flex;
-  min-height: 30px;
+  min-height: 25px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 9px;
+  gap: 4px;
+  padding: 0 6px;
   border: 1px solid #343b44;
-  border-radius: 8px;
+  border-radius: 6px;
   color: #939ba4;
   background: #1b2026;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 7px;
 }
 
 .implementation-workspace-actions button:last-child {
-  width: 30px;
+  width: 25px;
   padding: 0;
 }
 
@@ -1565,28 +1582,31 @@ button { color: inherit; }
 .implementation-workspace-context {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 6px 21px;
+  gap: 4px;
+  min-height: 27px;
+  overflow: hidden;
+  padding: 4px 11px;
   border-bottom: 1px solid #22282e;
   background: rgba(8, 11, 14, .45);
 }
 
 .implementation-workspace-context span {
+  flex: none;
   padding: 3px 6px;
   border: 1px solid #303841;
   border-radius: 5px;
   color: #7f8993;
-  font-size: 7px;
+  font-size: 6px;
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
 }
 
 .implementation-workspace-context em {
+  flex: none;
   margin-left: auto;
   color: #535c66;
-  font-size: 8px;
+  font-size: 6.5px;
   font-style: normal;
 }
 
@@ -1599,31 +1619,31 @@ button { color: inherit; }
 }
 
 .implementation-tree.workspace .implementation-tree-header {
-  grid-template-columns: auto minmax(0, 1fr) minmax(180px, auto);
-  min-height: 45px;
-  padding: 8px 14px;
+  grid-template-columns: auto minmax(0, 1fr) minmax(100px, auto);
+  min-height: 37px;
+  padding: 6px 9px;
   background: rgba(14, 18, 22, .62);
 }
 
 .implementation-tree.workspace .implementation-tree-header > span {
-  font-size: 8px;
+  font-size: 6.5px;
 }
 
 .implementation-tree.workspace .implementation-tree-header strong {
-  font-size: 10px;
+  font-size: 8px;
   text-align: left;
 }
 
 .implementation-tree.workspace .implementation-tree-header button {
   grid-column: auto;
-  font-size: 8px;
+  font-size: 6.5px;
   text-align: right;
 }
 
 .implementation-tree.workspace .implementation-tree-body {
   display: grid;
-  height: calc(100% - 45px);
-  grid-template-columns: minmax(280px, .9fr) minmax(300px, 1.1fr);
+  height: calc(100% - 37px);
+  grid-template-columns: minmax(190px, .95fr) minmax(0, 1.05fr);
 }
 
 .implementation-tree.workspace .implementation-step-scroll {
@@ -1631,42 +1651,42 @@ button { color: inherit; }
 }
 
 .implementation-tree.workspace .implementation-step-list {
-  padding: 10px 9px 30px;
+  padding: 6px 5px 18px;
 }
 
 .implementation-tree.workspace .implementation-step-children {
-  margin-left: 20px;
-  padding-left: 11px;
+  margin-left: 14px;
+  padding-left: 7px;
 }
 
 .implementation-tree.workspace .implementation-step {
-  grid-template-columns: 15px 25px minmax(0, 1fr) auto;
-  gap: 7px;
-  min-height: 38px;
-  padding: 5px 7px;
-  border-radius: 7px;
+  grid-template-columns: 11px 19px minmax(0, 1fr) auto;
+  gap: 4px;
+  min-height: 28px;
+  padding: 3px 4px;
+  border-radius: 5px;
 }
 
 .implementation-tree.workspace .implementation-kind {
-  width: 23px;
-  height: 23px;
-  border-radius: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
 }
 
 .implementation-tree.workspace .implementation-step-title {
-  font-size: 11px;
+  font-size: 8px;
 }
 
 .implementation-tree.workspace .implementation-step-kind {
-  padding-right: 4px;
-  font-size: 7px;
+  padding-right: 2px;
+  font-size: 5.5px;
 }
 
 .implementation-tree.workspace .implementation-step-detail {
   position: static;
   max-height: none;
   overflow: auto;
-  padding: 28px 30px;
+  padding: 13px 14px;
   border: 0;
   border-radius: 0;
   background: radial-gradient(circle at 15% 0, rgba(201, 255, 99, .045), transparent 36%);
@@ -1675,8 +1695,8 @@ button { color: inherit; }
 
 .implementation-tree.workspace .implementation-detail-heading {
   display: grid;
-  gap: 8px;
-  margin-bottom: 18px;
+  gap: 5px;
+  margin-bottom: 10px;
 }
 
 .implementation-tree.workspace .implementation-detail-heading span {
@@ -1685,7 +1705,7 @@ button { color: inherit; }
   border: 1px solid #455332;
   border-radius: 5px;
   color: #9cbb69;
-  font-size: 7px;
+  font-size: 6px;
   font-weight: 800;
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -1693,35 +1713,35 @@ button { color: inherit; }
 
 .implementation-tree.workspace .implementation-detail-heading strong {
   color: #e7eae6;
-  font-size: 17px;
+  font-size: 11px;
   font-weight: 650;
 }
 
 .implementation-tree.workspace .implementation-step-detail p {
   display: block;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   color: #9ba3ac;
-  font-size: 11px;
-  line-height: 1.7;
+  font-size: 8px;
+  line-height: 1.55;
 }
 
 .implementation-tree.workspace .implementation-io {
-  gap: 6px;
-  margin: 0 0 16px;
+  gap: 4px;
+  margin: 0 0 9px;
 }
 
 .implementation-tree.workspace .implementation-io span {
-  padding: 4px 7px;
-  font-size: 8px;
+  padding: 2px 5px;
+  font-size: 6px;
 }
 
 .implementation-tree.workspace .implementation-step-detail > button {
-  margin-top: 12px;
-  padding: 8px 9px;
+  margin-top: 7px;
+  padding: 5px 6px;
   border: 1px solid #2d353d;
   border-radius: 6px;
   background: #12171c;
-  font-size: 8px;
+  font-size: 6.5px;
 }
 
 .plate-implementation-launch {
@@ -1756,12 +1776,13 @@ button { color: inherit; }
 }
 
 @keyframes implementation-workspace-in {
-  from { transform: translateY(10px) scale(.985); opacity: 0; }
-}
-
-@media (max-width: 1050px) {
-  .implementation-workspace-layer { padding: 72px 28px 58px; }
-  .implementation-tree.workspace .implementation-tree-body { grid-template-columns: minmax(240px, .9fr) minmax(260px, 1.1fr); }
+  from {
+    transform: translate(
+      var(--implementation-enter-x, 0),
+      var(--implementation-enter-y, 0)
+    ) scale(.985);
+    opacity: 0;
+  }
 }
 
 /* Plate Code Block */

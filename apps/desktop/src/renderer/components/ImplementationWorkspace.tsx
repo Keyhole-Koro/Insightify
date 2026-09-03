@@ -5,6 +5,15 @@ import { ImplementationTree } from "./ImplementationTree.js";
 
 interface ImplementationWorkspaceProps {
   node: FlowNode;
+  placement: {
+    anchorX: number;
+    anchorY: number;
+    height: number;
+    left: number;
+    side: "bottom" | "left" | "right" | "top";
+    top: number;
+    width: number;
+  };
   onClose: () => void;
   onPeek: () => void;
   onAskAi: () => void;
@@ -12,6 +21,7 @@ interface ImplementationWorkspaceProps {
 
 export function ImplementationWorkspace({
   node,
+  placement,
   onClose,
   onPeek,
   onAskAi,
@@ -26,26 +36,48 @@ export function ImplementationWorkspace({
 
   if (!node.implementation) return null;
 
+  const vertical = placement.side === "top" || placement.side === "bottom";
+  const edgeX = vertical
+    ? Math.max(placement.left + 28, Math.min(placement.anchorX, placement.left + placement.width - 28))
+    : placement.side === "left" ? placement.left + placement.width : placement.left;
+  const edgeY = placement.side === "top"
+    ? placement.top + placement.height
+    : placement.side === "bottom"
+      ? placement.top
+      : Math.max(placement.top + 42, Math.min(placement.anchorY, placement.top + placement.height - 28));
+  const bendX = (placement.anchorX + edgeX) / 2;
+  const bendY = (placement.anchorY + edgeY) / 2;
+  const connector = vertical
+    ? `M ${placement.anchorX} ${placement.anchorY} C ${placement.anchorX} ${bendY}, ${edgeX} ${bendY}, ${edgeX} ${edgeY}`
+    : `M ${placement.anchorX} ${placement.anchorY} C ${bendX} ${placement.anchorY}, ${bendX} ${edgeY}, ${edgeX} ${edgeY}`;
+
   return (
     <div
-      className="implementation-workspace-layer"
-      data-vqa="implementation-workspace"
+      className="implementation-inline-layer"
+      data-vqa="implementation-inline-layer"
       data-vqa-node-id={node.id}
     >
-      <button
-        aria-label="実装ワークスペースを閉じる"
-        className="implementation-workspace-backdrop"
-        onClick={onClose}
-        type="button"
-      />
-      <section
-        aria-label={`${node.title} implementation workspace`}
-        className="implementation-workspace"
-        role="dialog"
+      <svg aria-hidden="true" className="implementation-inline-connector">
+        <path
+          d={connector}
+        />
+        <circle cx={placement.anchorX} cy={placement.anchorY} r="3.5" />
+      </svg>
+      <aside
+        aria-label={`${node.title} implementation outline`}
+        className={`implementation-workspace inline-${placement.side}`}
+        data-vqa="implementation-workspace"
+        role="region"
+        style={{
+          height: placement.height,
+          left: placement.left,
+          top: placement.top,
+          width: placement.width,
+        }}
       >
         <header className="implementation-workspace-header">
           <div className="implementation-workspace-title">
-            <span><Maximize2 aria-hidden="true" size={12} /> Implementation lens</span>
+            <span><Maximize2 aria-hidden="true" size={11} /> Implementation in flow</span>
             <h2>{node.title}</h2>
             <p>{node.summary}</p>
           </div>
@@ -66,11 +98,11 @@ export function ImplementationWorkspace({
           <span>{node.kind}</span>
           {node.technology && <span>{node.technology}</span>}
           {node.tags?.slice(0, 5).map((tag) => <span key={tag}>#{tag}</span>)}
-          <em>anchored to canvas node</em>
+          <em>attached to node</em>
         </div>
 
         <ImplementationTree outline={node.implementation} workspace />
-      </section>
+      </aside>
     </div>
   );
 }
