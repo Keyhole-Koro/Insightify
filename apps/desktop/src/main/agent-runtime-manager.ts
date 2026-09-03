@@ -16,19 +16,17 @@ import {
   SEMANTIC_LAYOUT_PLAN_JSON_SCHEMA,
   parseSemanticLayoutPlan,
   parseSemanticLayoutPlanText,
+  withGraphAndPlan,
   withLayoutPlan,
   isRoom,
-  LAYOUT_ENGINE_VERSION,
   FLOW_GRAPH_GENERATION_EXPANSION_JSON_SCHEMA,
   applyScopeExpansion,
   balanceFlowGraphScopes,
-  createDefaultGraphLayout,
   mergeSemanticLayoutScopes,
   parseFlowGraphGeneration,
   parseFlowGraphGenerationExpansion,
   parseFlowGraphGenerationExpansionText,
   parseFlowGraphGenerationText,
-  resolveRoomLayoutRules,
   type FlowGraph,
   type GeneratedFlowGraph,
   type SemanticLayoutPlan,
@@ -57,7 +55,18 @@ type GraphGeneration = {
   existingLayout: GeneratedFlowGraph["layout"];
   existingLayoutOverrides: GeneratedFlowGraph["layoutOverrides"];
   existingLayoutPlan: SemanticLayoutPlan | undefined;
+  /** Fires when the provider has said nothing for GENERATION_IDLE_TIMEOUT_MS. */
+  idleTimer: ReturnType<typeof setTimeout> | null;
 };
+
+/**
+ * A generation ends when the provider says so, and a provider that stops saying
+ * anything would otherwise leave the run in the list and the renderer busy
+ * forever, with no way back but a restart. The clock measures silence rather
+ * than total time: a long generation that is still reporting progress is
+ * healthy, and only one that has gone quiet is stuck.
+ */
+const GENERATION_IDLE_TIMEOUT_MS = 5 * 60_000;
 
 export class AgentRuntimeManager {
   readonly #projects: ProjectRepository;
@@ -127,8 +136,10 @@ export class AgentRuntimeManager {
       existingLayout: currentDocument?.layout ?? {},
       existingLayoutOverrides: currentDocument?.layoutOverrides,
       existingLayoutPlan: currentDocument?.layoutPlan,
+      idleTimer: null,
     };
     this.#graphGenerations.push(generation);
+    this.#armIdleTimer(generation);
 
     try {
       const handle = provider === "codex"
@@ -189,8 +200,10 @@ export class AgentRuntimeManager {
       existingLayout: currentDocument.layout,
       existingLayoutOverrides: currentDocument.layoutOverrides,
       existingLayoutPlan: currentDocument.layoutPlan,
+      idleTimer: null,
     };
     this.#graphGenerations.push(generation);
+    this.#armIdleTimer(generation);
 
     try {
       const handle = provider === "codex"
@@ -294,12 +307,26 @@ export class AgentRuntimeManager {
     return installation;
   }
 
+  #armIdleTimer(generation: GraphGeneration): void {
+    if (generation.idleTimer) clearTimeout(generation.idleTimer);
+    generation.idleTimer = setTimeout(() => {
+      if (!this.#graphGenerations.includes(generation)) return;
+      this.#failGeneration(
+        generation,
+        `The ${generation.provider} run stopped responding and was cancelled after `
+        + `${Math.round(GENERATION_IDLE_TIMEOUT_MS / 60_000)} minutes of silence.`
+      );
+    }, GENERATION_IDLE_TIMEOUT_MS);
+  }
+
   #forward(event: AgentEvent): void {
     const generation = this.#graphGenerations.find((item) =>
       item.projectId === event.projectId
       && item.provider === event.provider
       && (item.runId === null || event.runId === item.runId),
     );
+    // Any word from the provider is proof it is still working.
+    if (generation) this.#armIdleTimer(generation);
     if (generation) {
       if (event.type === "assistant.delta") generation.transcript += event.text;
       if (event.type === "provider.event" && event.method === "result") {
@@ -353,19 +380,25 @@ export class AgentRuntimeManager {
         layoutPlan = generated.layoutPlan;
       }
       const graph = balanceFlowGraphScopes(generatedGraph);
-      const layoutRules = resolveRoomLayoutRules(graph, layoutPlan);
       const value: GeneratedFlowGraph = {
         projectId: generation.projectId,
         provider: generation.provider,
         snapshotHash: generation.snapshotHash,
         generatedAt: new Date().toISOString(),
-        graph,
-        layoutPlan,
-        layout: createDefaultGraphLayout(graph, generation.existingLayout, layoutRules),
-        ...(generation.existingLayoutOverrides
-          ? { layoutOverrides: generation.existingLayoutOverrides }
-          : {}),
-        layoutEngineVersion: LAYOUT_ENGINE_VERSION,
+        // An expansion rewrites the plan of one scope, so everything else keeps
+        // the coordinates it already had. A full regeneration brings a plan for
+        // the whole graph, and old coordinates would contradict it.
+        ...withGraphAndPlan(
+          {
+            graph: generation.existingGraph,
+            layout: generation.existingLayout,
+            layoutOverrides: generation.existingLayoutOverrides,
+            layoutPlan: generation.existingLayoutPlan,
+          },
+          graph,
+          layoutPlan,
+          { carryGeneratedCoordinates: generation.mode === "expansion" }
+        ),
       };
       this.#projects.saveGraph(value);
       this.#sendGraphEvent({
@@ -429,6 +462,10 @@ export class AgentRuntimeManager {
   #removeGeneration(generation: GraphGeneration): void {
     const index = this.#graphGenerations.indexOf(generation);
     if (index >= 0) this.#graphGenerations.splice(index, 1);
+    if (generation.idleTimer) {
+      clearTimeout(generation.idleTimer);
+      generation.idleTimer = null;
+    }
     if (generation.temporaryDirectory) {
       void rm(generation.temporaryDirectory, { recursive: true, force: true });
     }

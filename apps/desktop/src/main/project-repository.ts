@@ -256,57 +256,81 @@ export class SqliteProjectRepository implements ProjectRepository {
         version INTEGER PRIMARY KEY,
         applied_at TEXT NOT NULL
       );
+    `);
+    const applied = (
+      this.#database.prepare("SELECT MAX(version) AS version FROM schema_migrations").get() as
+        | { version: number | null }
+        | undefined
+    )?.version ?? 0;
+    const record = this.#database.prepare(
+      "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, ?)"
+    );
+    for (const [index, migration] of MIGRATIONS.entries()) {
+      const version = index + 1;
+      if (version <= applied) continue;
+      this.#database.exec("BEGIN");
+      try {
+        migration(this.#database);
+        record.run(version, new Date().toISOString());
+        this.#database.exec("COMMIT");
+      } catch (error) {
+        this.#database.exec("ROLLBACK");
+        throw new Error(`Database migration ${version} failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`, { cause: error });
+      }
+    }
+  }
+}
 
+
+/**
+ * Ordered and append-only: a database records the highest migration it has run,
+ * and every migration above that is applied once, in order, inside its own
+ * transaction. Never edit or reorder an entry — a database that has already run
+ * it will not run it again. Add a new one at the end instead.
+ *
+ * Entries 1-4 are written so that a database created before this list existed —
+ * when the schema was maintained by CREATE TABLE IF NOT EXISTS and PRAGMA-driven
+ * ALTER, and the version rows were decoration — reaches exactly the same shape.
+ */
+type Migration = (database: DatabaseSync) => void;
+
+function addColumn(database: DatabaseSync, table: string, column: string, definition: string): void {
+  const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (columns.some((existing) => existing.name === column)) return;
+  database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+const MIGRATIONS: Migration[] = [
+  (database) => {
+    database.exec(`
       CREATE TABLE IF NOT EXISTS projects (
         id TEXT PRIMARY KEY,
         display_name TEXT NOT NULL,
         canonical_path TEXT NOT NULL UNIQUE,
         last_opened_at TEXT NOT NULL
       );
-
+    `);
+  },
+  (database) => {
+    database.exec(`
       CREATE TABLE IF NOT EXISTS project_graphs (
         project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
         provider TEXT NOT NULL,
         snapshot_hash TEXT NOT NULL,
         generated_at TEXT NOT NULL,
-        graph_json TEXT NOT NULL,
-        layout_json TEXT NOT NULL DEFAULT '{}',
-        layout_overrides_json TEXT NOT NULL DEFAULT '{}',
-        layout_plan_json TEXT,
-        layout_engine_version INTEGER,
-        locked_layout_areas_json TEXT
+        graph_json TEXT NOT NULL
       );
-
-      INSERT OR IGNORE INTO schema_migrations (version, applied_at)
-      VALUES (1, CURRENT_TIMESTAMP);
-
-      INSERT OR IGNORE INTO schema_migrations (version, applied_at)
-      VALUES (2, CURRENT_TIMESTAMP);
     `);
-    const graphColumns = this.#database
-      .prepare("PRAGMA table_info(project_graphs)")
-      .all() as Array<{ name: string }>;
-    if (!graphColumns.some((column) => column.name === "layout_json")) {
-      this.#database.exec(
-        "ALTER TABLE project_graphs ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{}'"
-      );
-    }
-    const additionalGraphColumns = [
-      ["layout_overrides_json", "TEXT NOT NULL DEFAULT '{}'"],
-      ["layout_plan_json", "TEXT"],
-      ["layout_engine_version", "INTEGER"],
-      ["locked_layout_areas_json", "TEXT"],
-    ] as const;
-    for (const [name, definition] of additionalGraphColumns) {
-      if (!graphColumns.some((column) => column.name === name)) {
-        this.#database.exec(`ALTER TABLE project_graphs ADD COLUMN ${name} ${definition}`);
-      }
-    }
-    this.#database.exec(`
-      INSERT OR IGNORE INTO schema_migrations (version, applied_at)
-      VALUES (3, CURRENT_TIMESTAMP);
-      INSERT OR IGNORE INTO schema_migrations (version, applied_at)
-      VALUES (4, CURRENT_TIMESTAMP);
-    `);
-  }
-}
+  },
+  (database) => {
+    addColumn(database, "project_graphs", "layout_json", "TEXT NOT NULL DEFAULT '{}'");
+    addColumn(database, "project_graphs", "layout_overrides_json", "TEXT NOT NULL DEFAULT '{}'");
+  },
+  (database) => {
+    addColumn(database, "project_graphs", "layout_plan_json", "TEXT");
+    addColumn(database, "project_graphs", "layout_engine_version", "INTEGER");
+    addColumn(database, "project_graphs", "locked_layout_areas_json", "TEXT");
+  },
+];

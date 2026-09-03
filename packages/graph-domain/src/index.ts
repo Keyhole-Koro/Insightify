@@ -76,6 +76,27 @@ export const flowGraphSchema = z.object({
       context.addIssue({ code: "custom", path: ["nodes", index, "parentId"], message: "A node cannot parent itself" });
     }
   });
+  // A parent cycle keeps every node in it out of every scope: each one is a
+  // descendant of the others, so no scope ever claims it and it is drawn
+  // nowhere. Each traversal already refuses to loop forever, but the graph is
+  // still unreadable, so reject it once here instead of surviving it everywhere.
+  const parentOf = new Map(graph.nodes.map((node) => [node.id, node.parentId]));
+  graph.nodes.forEach((node, index) => {
+    const seen = new Set<string>([node.id]);
+    let cursor = node.parentId;
+    while (cursor && parentOf.has(cursor)) {
+      if (seen.has(cursor)) {
+        context.addIssue({
+          code: "custom",
+          path: ["nodes", index, "parentId"],
+          message: `Parent cycle through: ${cursor}`,
+        });
+        return;
+      }
+      seen.add(cursor);
+      cursor = parentOf.get(cursor) ?? null;
+    }
+  });
   graph.edges.forEach((edge, index) => {
     if (!ids.has(edge.source) || !ids.has(edge.target)) {
       context.addIssue({ code: "custom", path: ["edges", index], message: "Edge references an unknown node" });
@@ -350,10 +371,7 @@ function scopeRepresentative(graph: FlowGraph, scopeId: string | null): (nodeId:
   };
 }
 
-/**
- * The compiler that turns a semantic layout plan into coordinates. Bump this
- * whenever a change to the compiler would place existing nodes differently.
- */
+/** How many areas one scope may be split into before the rest are dropped. */
 const MAX_AREAS_PER_SCOPE = 4;
 
 /**
@@ -417,29 +435,90 @@ export function applyLayoutAreaLocks(
 }
 
 /**
- * Swaps in a newly generated layout plan without touching the graph. Locked
- * areas are carried over, generated coordinates are rebuilt from the merged
- * plan, and `layoutOverrides` is the user's own work: a relayout never
- * discards it.
+ * A stored coordinate is meaningless without the scope it was captured in: a
+ * node inside a Room is stored in that Room's local 0-100 space, everything
+ * else in stage percentages, and nothing but the node's `parentId` tells the
+ * two apart. So a coordinate must not outlive a re-parenting — and re-parenting
+ * is routine, because `balanceFlowGraphScopes` moves overflow nodes into a
+ * "Continued flow" Room on every generation.
+ */
+export function pruneLayoutToGraph(
+  layout: GraphLayout,
+  previous: FlowGraph | null,
+  next: FlowGraph
+): GraphLayout {
+  const nextParents = new Map(next.nodes.map((node) => [node.id, node.parentId]));
+  const previousParents = new Map((previous?.nodes ?? []).map((node) => [node.id, node.parentId]));
+  const kept: GraphLayout = {};
+  for (const [nodeId, position] of Object.entries(layout)) {
+    if (!nextParents.has(nodeId)) continue;
+    if (previousParents.has(nodeId) && previousParents.get(nodeId) !== nextParents.get(nodeId)) continue;
+    kept[nodeId] = position;
+  }
+  return kept;
+}
+
+/** What a document carries into the next version of itself. */
+export type LayoutCarrier = {
+  graph: FlowGraph | null;
+  layout: GraphLayout;
+  layoutOverrides?: GraphLayout;
+  layoutPlan?: SemanticLayoutPlan;
+  lockedLayoutAreas?: readonly LayoutAreaLock[];
+};
+
+export type LayoutSlice = Required<
+  Pick<GeneratedFlowGraph, "graph" | "layout" | "layoutOverrides" | "layoutPlan" | "layoutEngineVersion">
+>;
+
+/**
+ * The only way a new graph or a new plan may enter a document. Everything that
+ * has to happen together lives here — locks are carried, coordinates that no
+ * longer mean what they did are dropped, the rest is compiled from the merged
+ * plan — so no call site can perform half of it.
+ *
+ * `carryGeneratedCoordinates` is the difference between growing a graph and
+ * replacing it. An expansion rewrites the plan of one scope, so every other
+ * scope should stay exactly where it was. A full regeneration brings a plan for
+ * the whole graph, and keeping the old coordinates would leave a document whose
+ * positions contradict its own plan.
+ */
+export function withGraphAndPlan(
+  previous: LayoutCarrier,
+  graph: FlowGraph,
+  layoutPlan: SemanticLayoutPlan,
+  options: { carryGeneratedCoordinates?: boolean } = {}
+): LayoutSlice {
+  const merged = applyLayoutAreaLocks(previous.layoutPlan, layoutPlan, previous.lockedLayoutAreas);
+  const rules = resolveRoomLayoutRules(graph, merged);
+  const carried = options.carryGeneratedCoordinates
+    ? pruneLayoutToGraph(previous.layout, previous.graph, graph)
+    : {};
+  return {
+    graph,
+    layoutPlan: merged,
+    layout: createDefaultGraphLayout(graph, carried, rules),
+    layoutOverrides: pruneLayoutToGraph(previous.layoutOverrides ?? {}, previous.graph, graph),
+    layoutEngineVersion: LAYOUT_ENGINE_VERSION,
+  };
+}
+
+/**
+ * Swaps in a newly generated layout plan without touching the graph. Generated
+ * coordinates are rebuilt from the merged plan; `layoutOverrides` is the user's
+ * own work, and a relayout never discards it.
  */
 export function withLayoutPlan(
   document: GeneratedFlowGraph,
   layoutPlan: SemanticLayoutPlan
 ): GeneratedFlowGraph {
-  const merged = applyLayoutAreaLocks(
-    document.layoutPlan,
-    layoutPlan,
-    document.lockedLayoutAreas
-  );
-  const rules = resolveRoomLayoutRules(document.graph, merged);
-  return {
-    ...document,
-    layoutPlan: merged,
-    layout: createDefaultGraphLayout(document.graph, {}, rules),
-    layoutEngineVersion: LAYOUT_ENGINE_VERSION,
-  };
+  return { ...document, ...withGraphAndPlan(document, document.graph, layoutPlan) };
 }
 
+/**
+ * The build of the layout compiler that produced a document's coordinates. Bump
+ * it whenever a change to the compiler would place existing nodes differently.
+ */
 export const LAYOUT_ENGINE_VERSION = 4;
 
 /**

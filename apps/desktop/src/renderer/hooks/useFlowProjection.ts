@@ -207,6 +207,8 @@ export function useFlowProjection(input: FlowProjectionInput) {
   return {
     activeScopeId,
     visibleNodes,
+    /** This scope's own children — what the FlowFold density rule is about. */
+    directNodes,
     roomEdges,
     boundaryPorts,
     positionedNodes,

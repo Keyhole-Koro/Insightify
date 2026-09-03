@@ -149,6 +149,7 @@ export function App() {
   const {
     activeScopeId,
     visibleNodes,
+    directNodes,
     roomEdges,
     boundaryPorts,
     positionedNodes,
@@ -367,7 +368,7 @@ export function App() {
             graph={graph}
             scopePath={scopePath}
             scopeNode={scopeNode}
-            visibleNodesCount={visibleNodes.length}
+            visibleNodesCount={directNodes.length}
             boundaryPortsCount={boundaryPorts.length}
             lod={lod}
             busy={busy}
