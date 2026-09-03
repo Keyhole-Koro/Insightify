@@ -1215,25 +1215,44 @@ export function layoutFlowNodesWithExpandedScopes(
     ...frames.map((frame) => frame.roomId),
     ...(view?.expandedNodeIds ?? []),
   ]);
+  const roomBoxes = frames.map((frame) => ({
+    id: frame.roomId,
+    x: frame.bounds.x + frame.bounds.width / 2,
+    y: frame.bounds.y + frame.bounds.height / 2,
+    extent: {
+      width: (frame.bounds.width / 100) * resolved.stageWidth,
+      height: (frame.bounds.height / 100) * resolved.stageHeight,
+      offsetY: 0,
+    },
+  }));
+  const loose = directNodes.filter((node) => !isExpandedRoom(node, expandedScopeIds));
+
+  // Solved twice, and the first time as if nothing were open. A node that is
+  // anchored is not displaced, so a node that becomes anchored the moment its
+  // plate opens would snap back to where the layout had put it — the card the
+  // user just clicked, jumping. Anchoring it at the arrangement it was already
+  // part of holds it still.
+  const settled = resolveOverlaps(
+    [
+      ...roomBoxes,
+      ...loose.map((node) => ({
+        id: node.id,
+        ...basePositionMap.get(node.id)!,
+        extent: nodeExtent({}),
+      })),
+    ],
+    new Set(frames.map((frame) => frame.roomId)),
+    resolved
+  );
+
   const reflowedPositionMap = resolveOverlaps(
     [
-      ...frames.map((frame) => ({
-        id: frame.roomId,
-        x: frame.bounds.x + frame.bounds.width / 2,
-        y: frame.bounds.y + frame.bounds.height / 2,
-        extent: {
-          width: (frame.bounds.width / 100) * resolved.stageWidth,
-          height: (frame.bounds.height / 100) * resolved.stageHeight,
-          offsetY: 0,
-        },
+      ...roomBoxes,
+      ...loose.map((node) => ({
+        id: node.id,
+        ...(settled.get(node.id) ?? basePositionMap.get(node.id)!),
+        extent: nodeExtent({ expanded: view?.expandedNodeIds?.has(node.id) }),
       })),
-      ...directNodes
-        .filter((node) => !isExpandedRoom(node, expandedScopeIds))
-        .map((node) => ({
-          id: node.id,
-          ...basePositionMap.get(node.id)!,
-          extent: nodeExtent({ expanded: view?.expandedNodeIds?.has(node.id) }),
-        })),
     ],
     anchors,
     resolved

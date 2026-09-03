@@ -1,14 +1,10 @@
 import React, { type PointerEvent as ReactPointerEvent } from "react";
 import { isRoom, nodeExtent, type FlowNode, type PortalPreview } from "@insightify/graph-domain";
-import type { SemanticLevel } from "../semantic-zoom.js";
-import { copyToClipboard } from "../lib/clipboard.js";
 import { NodeIcon } from "./NodeIcon.js";
-import { PortalFold } from "./PortalFold.js";
 
 interface PortalCardProps {
   node: FlowNode & { x: number; y: number };
   preview: PortalPreview;
-  lod: SemanticLevel;
   selected: boolean;
   isExpanded?: boolean;
   isScopeExpanded?: boolean;
@@ -29,7 +25,6 @@ interface PortalCardProps {
 export function PortalCard({
   node,
   preview,
-  lod,
   selected,
   isExpanded = false,
   isScopeExpanded = false,
@@ -211,30 +206,12 @@ export function PortalCard({
               exists for. Below it they are unreadable at this width anyway, and
               they cost the height that hides the cards above and below. The Peek
               panel carries them at any zoom. */}
-          {lod === "implementation" && (
-            <>
-              {node.codeSnippet && (
-                <div className="plate-code-block">
-                  <code>{node.codeSnippet}</code>
-                </div>
-              )}
-
-              {isPortal && <PortalFold preview={preview} lod={lod} />}
-
-              {node.evidence.length > 0 && (
-                <div
-                  className="plate-evidence"
-                  title="クリックしてパスをコピー"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await copyToClipboard(node.evidence[0] ?? "");
-                  }}
-                >
-                  📄 {node.evidence[0]}
-                </div>
-              )}
-            </>
-          )}
+          {/* Summary only. The code snippet, the child miniature and the
+              evidence were shown here at the implementation level, and they
+              were most of the plate: 206px of it, next to a card 34px tall. A
+              detail view six cards high cannot be opened without covering
+              something or shrinking everything, and all three are already in
+              the Peek panel, which this plate's own footer opens. */}
 
           {/* Plate Footer */}
           <div className="plate-footer">

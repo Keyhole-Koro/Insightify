@@ -227,6 +227,19 @@ function collectPageReport(measurements, thresholds) {
       };
     });
 
+  // The icon leads the card, so it must not sit on the name it leads. This is
+  // the kind of thing that is easy to miss by eye at a glance and trivial to
+  // check: does the title start after the icon ends?
+  const iconOverText = [...document.querySelectorAll('[data-vqa="flow-node"]')].filter(visible)
+    .map((element) => {
+      const avatar = element.querySelector(":scope > .node-avatar-container");
+      const title = element.querySelector(".compact-title");
+      if (!avatar || !title || !visible(avatar) || !visible(title)) return null;
+      const overlap = round(rect(avatar).right - rect(title).x);
+      return overlap > 0 ? { id: element.dataset.vqaNodeId, overlap } : null;
+    })
+    .filter(Boolean);
+
   const readability = [...document.querySelectorAll(
     ".compact-title, .compact-kind-tag, .plate-summary, .portal-tag, .room-frame-title, .edge-label, .flow-edge-label"
   )].filter(visible).map((element) => ({
@@ -387,6 +400,7 @@ function collectPageReport(measurements, thresholds) {
     .map((item) => `${item.ratio}:1 at ${item.fontSize}px — "${item.text}"`);
 
   const warnings = [
+    ...iconOverText.map((item) => `icon covers the title — ${item.id} by ${item.overlap}px`),
     ...truncated.map((item) =>
       `title cut off — "${item.text}" needs ${item.needed}px, has ${item.shown}px`),
     ...unreadable.map((item) => `low contrast — ${item}`),

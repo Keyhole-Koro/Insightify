@@ -704,7 +704,6 @@ export function App() {
                       key={node.id}
                       node={node}
                       preview={previews.get(node.id) ?? emptyPreview}
-                      lod={lod}
                       selected={selectedNodeId === node.id}
                       isExpanded={expandedNodeIds.has(node.id)}
                       isScopeExpanded={renderedExpandedScopeIds.has(node.id)}

@@ -951,7 +951,10 @@ button { color: inherit; }
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* The card fills its declared width instead of shrinking to its title, so the
+     icon at its left edge lines up with the pill rather than sitting on the
+     text, and every card is exactly the size the layout reserved for it. */
+  align-items: stretch;
   width: 190px;
   cursor: grab;
   user-select: none;
@@ -980,25 +983,27 @@ button { color: inherit; }
 }
 
 /* TOP AVATAR / ICONIC SHAPE CONTAINER */
+/* The icon leads the card instead of standing on top of it. Stacked, the two
+   read as two objects and cost twice the height — which is the same reason a
+   nested child already carries its icon inline. Here it keeps its shape and
+   colour, and becomes the head of one horizontal card. */
 .node-avatar-container {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 0;
   z-index: 2;
+  transform: translateY(-50%);
   transition: transform 180ms ease;
 }
-/* The avatar no longer has to tuck itself behind a plate that grew upwards. */
-.flow-node.is-expanded .node-avatar-container,
-.flow-node.is-compact .node-avatar-container {
-  margin-bottom: 6px;
-}
 .flow-node:hover .node-avatar-container {
-  transform: scale(1.08) translateY(-2px);
+  transform: translateY(-50%) scale(1.08);
 }
 
 .node-avatar {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   border: 1px solid #3b3f4d;
   background: linear-gradient(135deg, #222631, #14161c);
   color: #cfd4e0;
@@ -1008,7 +1013,7 @@ button { color: inherit; }
 
 /* Specific Geometric Shapes for Avatars */
 .node-avatar.shape-rounded {
-  border-radius: 14px;
+  border-radius: 10px;
 }
 
 /* Database Cylinder Shape */
@@ -1024,8 +1029,8 @@ button { color: inherit; }
 
 /* Decision Diamond Shape */
 .node-avatar.shape-diamond {
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   transform: rotate(45deg);
   border-radius: 8px;
   background: linear-gradient(135deg, #382c16, #21190a);
@@ -1047,8 +1052,8 @@ button { color: inherit; }
 
 /* Queue Pipe Shape */
 .node-avatar.shape-pipe {
-  width: 52px;
-  height: 40px;
+  width: 38px;
+  height: 28px;
   border-radius: 8px;
   border-left: 3px solid #d46b08;
   border-right: 3px solid #d46b08;
@@ -1058,8 +1063,8 @@ button { color: inherit; }
 
 /* API Capsule Shape */
 .node-avatar.shape-capsule {
-  width: 56px;
-  height: 40px;
+  width: 40px;
+  height: 28px;
   border-radius: 20px;
   background: linear-gradient(135deg, #2b1f47, #170f2b);
   border-color: #634b9e;
@@ -1310,6 +1315,16 @@ button { color: inherit; }
 }
 
 /* Compact Pill */
+/* Room for the icon that leads the card, wide enough for the broadest of its
+   shapes. A node drawn without one starts at its own edge. */
+.flow-node:not(.no-avatar):not(.is-nested-child) .node-compact-pill {
+  padding-left: 46px;
+}
+/* A nested card is its own size, and the frame that holds it is measured from
+   that size. */
+.flow-node.is-nested-child {
+  width: 132px;
+}
 .node-compact-pill {
   display: flex;
   align-items: center;

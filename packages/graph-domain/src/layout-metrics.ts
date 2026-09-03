@@ -17,36 +17,26 @@ export type SemanticLevel = "structure" | "flow" | "implementation";
 
 /** The card drawn for a node in its own scope, in every state it can be in. */
 export const PORTAL_CARD_WIDTH = 190;
-/** The tallest a collapsed card gets: avatar, gap, pill. */
-export const PORTAL_CARD_HEIGHT = 92;
+/**
+ * The tallest a collapsed card gets. It used to be 92: the icon stood above the
+ * pill and the two together were most of it. The icon leads the card now, so
+ * the card is one row.
+ */
+export const PORTAL_CARD_HEIGHT = 38;
 
 /** The plate that opens below a card, and the gap between the two. */
 export const PORTAL_PLATE_WIDTH = 240;
 export const PORTAL_PLATE_GAP = 6;
 /**
- * Measured, not guessed: the plate carries a code block, a child miniature and
- * its evidence only at the implementation level, which is most of its height.
+ * Measured, not guessed. The plate shows a summary and nothing else, so it is
+ * one height rather than one per zoom level — which also means how large a node
+ * is no longer depends on the level it is drawn at, and the level is free to be
+ * decided last, from the stage that placement produced.
+ *
  * `visual:qa` warns when a card is painted larger than the size declared here,
  * so a change to the plate's contents cannot silently invalidate the layout.
  */
-export const PORTAL_PLATE_HEIGHT: Record<SemanticLevel, number> = {
-  structure: 112,
-  flow: 112,
-  implementation: 210,
-};
-
-/**
- * An open plate always reserves the tallest it could be, not the height it
- * happens to have right now.
- *
- * The level a card is drawn at follows how large the stage ends up, the stage
- * follows where everything was placed, and placement follows how much room each
- * node needs — so letting the level decide that last figure closes the loop.
- * Reserving the maximum breaks it. The cost is bounded: while a plate is open
- * below the implementation level, its neighbours are pushed about a hundred
- * pixels further than strictly necessary. Under-reserving costs an overlap.
- */
-const RESERVED_PLATE_HEIGHT = Math.max(...Object.values(PORTAL_PLATE_HEIGHT));
+export const PORTAL_PLATE_HEIGHT = 112;
 
 /** The compact pill drawn for a node inside an unfolded Room. */
 export const NESTED_CARD_WIDTH = 132;
@@ -94,7 +84,7 @@ export function nodeExtent(state: { nested?: boolean; expanded?: boolean }): Nod
   if (!state.expanded) {
     return { width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT, offsetY: 0 };
   }
-  const plate = PORTAL_PLATE_GAP + RESERVED_PLATE_HEIGHT;
+  const plate = PORTAL_PLATE_GAP + PORTAL_PLATE_HEIGHT;
   return {
     width: PORTAL_PLATE_WIDTH,
     height: PORTAL_CARD_HEIGHT + plate,
