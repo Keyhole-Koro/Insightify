@@ -126,7 +126,7 @@ export function ImplementationTree({
       onPointerDown={(event) => event.stopPropagation()}
     >
       <header className="implementation-tree-header">
-        <span>Implementation</span>
+        {!workspace && <span>Implementation</span>}
         <strong title={outline.entrypoint}>{outline.entrypoint}</strong>
         <button
           className={copiedSource === sourceLabel(outline.source) ? "copied" : ""}

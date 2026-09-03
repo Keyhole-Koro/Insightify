@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Maximize2, MessageSquareText, PanelRightOpen, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { FlowNode } from "@insightify/graph-domain";
 import { ImplementationTree } from "./ImplementationTree.js";
 
@@ -15,16 +15,12 @@ interface ImplementationWorkspaceProps {
     width: number;
   };
   onClose: () => void;
-  onPeek: () => void;
-  onAskAi: () => void;
 }
 
 export function ImplementationWorkspace({
   node,
   placement,
   onClose,
-  onPeek,
-  onAskAi,
 }: ImplementationWorkspaceProps) {
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -75,32 +71,14 @@ export function ImplementationWorkspace({
           width: placement.width,
         }}
       >
-        <header className="implementation-workspace-header">
-          <div className="implementation-workspace-title">
-            <span><Maximize2 aria-hidden="true" size={11} /> Implementation in flow</span>
-            <h2>{node.title}</h2>
-            <p>{node.summary}</p>
-          </div>
-          <div className="implementation-workspace-actions">
-            <button onClick={onPeek} title="ノードの全情報をサイドパネルで見る" type="button">
-              <PanelRightOpen aria-hidden="true" size={14} /> Peek
-            </button>
-            <button onClick={onAskAi} title="この実装についてAIに尋ねる" type="button">
-              <MessageSquareText aria-hidden="true" size={14} /> Ask AI
-            </button>
-            <button aria-label="実装ワークスペースを閉じる" onClick={onClose} type="button">
-              <X aria-hidden="true" size={16} />
-            </button>
-          </div>
-        </header>
-
-        <div className="implementation-workspace-context">
-          <span>{node.kind}</span>
-          {node.technology && <span>{node.technology}</span>}
-          {node.tags?.slice(0, 5).map((tag) => <span key={tag}>#{tag}</span>)}
-          <em>attached to node</em>
-        </div>
-
+        <button
+          aria-label="実装アウトラインを閉じる"
+          className="implementation-workspace-close"
+          onClick={onClose}
+          type="button"
+        >
+          <X aria-hidden="true" size={13} />
+        </button>
         <ImplementationTree outline={node.implementation} workspace />
       </aside>
     </div>

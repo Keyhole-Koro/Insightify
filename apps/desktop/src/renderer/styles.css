@@ -1502,115 +1502,30 @@ button { color: inherit; }
 .implementation-workspace.inline-top { --implementation-enter-y: 7px; }
 .implementation-workspace.inline-bottom { --implementation-enter-y: -7px; }
 
-.implementation-workspace-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 11px 9px;
-  border-bottom: 1px solid #2a3037;
-}
-
-.implementation-workspace-title {
-  min-width: 0;
-}
-
-.implementation-workspace-title > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #a5c66c;
-  font-size: 6.5px;
-  font-weight: 800;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-}
-
-.implementation-workspace-title h2 {
-  overflow: hidden;
-  margin: 4px 0 2px;
-  color: #f0f2ef;
-  font-size: 13px;
-  font-weight: 690;
-  letter-spacing: -.015em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.implementation-workspace-title p {
-  overflow: hidden;
-  margin: 0;
-  color: #7f8791;
-  font-size: 8px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.implementation-workspace-actions {
-  display: flex;
-  flex: none;
-  gap: 6px;
-}
-
-.implementation-workspace-actions button {
-  display: flex;
-  min-height: 25px;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 6px;
-  border: 1px solid #343b44;
-  border-radius: 6px;
-  color: #939ba4;
-  background: #1b2026;
-  cursor: pointer;
-  font-size: 7px;
-}
-
-.implementation-workspace-actions button:last-child {
-  width: 25px;
+.implementation-workspace-close {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 24px;
+  height: 24px;
   padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  color: #656e77;
+  background: transparent;
+  cursor: pointer;
 }
 
-.implementation-workspace-actions button:hover {
-  border-color: #627443;
+.implementation-workspace-close:hover {
   color: #dfffa4;
   background: #222a1b;
 }
 
-.implementation-workspace-context {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 27px;
-  overflow: hidden;
-  padding: 4px 11px;
-  border-bottom: 1px solid #22282e;
-  background: rgba(8, 11, 14, .45);
-}
-
-.implementation-workspace-context span {
-  flex: none;
-  padding: 3px 6px;
-  border: 1px solid #303841;
-  border-radius: 5px;
-  color: #7f8993;
-  font-size: 6px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-
-.implementation-workspace-context em {
-  flex: none;
-  margin-left: auto;
-  color: #535c66;
-  font-size: 6.5px;
-  font-style: normal;
-}
-
 .implementation-workspace > .implementation-tree.workspace {
+  height: 100%;
   min-height: 0;
   flex: 1;
   border: 0;
@@ -1619,14 +1534,12 @@ button { color: inherit; }
 }
 
 .implementation-tree.workspace .implementation-tree-header {
-  grid-template-columns: auto minmax(0, 1fr) minmax(100px, auto);
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 140px);
+  height: 37px;
   min-height: 37px;
-  padding: 6px 9px;
+  box-sizing: border-box;
+  padding: 6px 37px 6px 9px;
   background: rgba(14, 18, 22, .62);
-}
-
-.implementation-tree.workspace .implementation-tree-header > span {
-  font-size: 6.5px;
 }
 
 .implementation-tree.workspace .implementation-tree-header strong {

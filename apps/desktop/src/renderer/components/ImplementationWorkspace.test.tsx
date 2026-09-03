@@ -41,14 +41,11 @@ describe("ImplementationWorkspace", () => {
       <ImplementationWorkspace
         node={node}
         placement={placement}
-        onAskAi={() => {}}
         onClose={() => {}}
-        onPeek={() => {}}
       />
     );
     expect(html).toContain('data-vqa="implementation-workspace"');
     expect(html).toContain('role="region"');
-    expect(html).toContain("attached to node");
     expect(html).toContain("implementation-inline-connector");
     expect(html).toContain('class="implementation-tree workspace"');
   });
@@ -58,9 +55,7 @@ describe("ImplementationWorkspace", () => {
       <ImplementationWorkspace
         node={{ ...node, implementation: undefined }}
         placement={placement}
-        onAskAi={() => {}}
         onClose={() => {}}
-        onPeek={() => {}}
       />
     );
     expect(html).toBe("");

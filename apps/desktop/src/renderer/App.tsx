@@ -216,7 +216,7 @@ export function App() {
     const anchorX = frame.width * projected.x(anchor.x) / 100;
     const anchorY = frame.height * projected.y(anchor.y) / 100;
     const width = Math.min(440, Math.max(320, frame.width - 56));
-    const height = Math.min(320, Math.max(270, frame.height - 154));
+    const height = Math.min(270, Math.max(240, frame.height - 154));
     const edgeMargin = 28;
     const nodeGap = 76;
     const fitsBelow = anchorY + nodeGap + height <= frame.height - edgeMargin;
@@ -901,11 +901,6 @@ export function App() {
                     node={implementationWorkspaceNode}
                     placement={implementationWorkspacePlacement}
                     onClose={closeImplementationWorkspace}
-                    onPeek={() => {
-                      closeImplementationWorkspace();
-                      view.peekNode(implementationWorkspaceNode.id);
-                    }}
-                    onAskAi={() => askAiAboutNode(implementationWorkspaceNode)}
                   />
                 )}
 
