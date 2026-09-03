@@ -1,6 +1,6 @@
 import React from "react";
 import type { ProviderInstallation } from "@insightify/agent-runtime";
-import type { ExecutableAgentProvider, ProjectSummary } from "@insightify/desktop-bridge";
+import type { ExecutableAgentProvider, GraphFreshness, ProjectSummary } from "@insightify/desktop-bridge";
 import { FLOWFOLD_ROOM_MAX_NODES, type FlowNode, type GeneratedFlowGraph } from "@insightify/graph-domain";
 import type { SemanticLevel } from "../semantic-zoom.js";
 import { ProviderSwitcher } from "./ProviderSwitcher.js";
@@ -18,6 +18,7 @@ interface TopBarProps {
   scopeNode: FlowNode | null;
   visibleNodesCount: number;
   boundaryPortsCount: number;
+  freshness: GraphFreshness["state"];
   lod: SemanticLevel;
   busy: boolean;
   provider: ProviderInstallation | null;
@@ -35,6 +36,7 @@ export function TopBar({
   scopeNode,
   visibleNodesCount,
   boundaryPortsCount,
+  freshness,
   lod,
   busy,
   provider,
@@ -72,6 +74,19 @@ export function TopBar({
             {visibleNodesCount}/{FLOWFOLD_ROOM_MAX_NODES} portals
           </span>{" "}
           · {boundaryPortsCount} boundary ports · semantic {levelLabels[lod]}
+          {freshness === "stale" && (
+            <>
+              {" · "}
+              <button
+                className="stale-graph-badge"
+                onClick={onRegenerateGraph}
+                title="このグラフが生成されたあとにソースが変更されています。クリックで再生成します。"
+                type="button"
+              >
+                ソース変更あり
+              </button>
+            </>
+          )}
         </div>
       </div>
 

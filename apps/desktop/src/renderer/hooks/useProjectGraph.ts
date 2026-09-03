@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ProjectSummary } from "@insightify/desktop-bridge";
+import type { GraphFreshness, ProjectSummary } from "@insightify/desktop-bridge";
 import type { GeneratedFlowGraph } from "@insightify/graph-domain";
 import { useBridge } from "../lib/bridge.js";
 
@@ -17,6 +17,8 @@ export type ProjectGraphStore = {
   graphLoading: boolean;
   /** True while a generated layout is on screen but not yet accepted. */
   previewing: boolean;
+  /** Whether the saved graph still describes the project it was generated from. */
+  freshness: GraphFreshness["state"];
   /** Reads the newest graph synchronously, for pointer handlers that cannot wait for a render. */
   currentGraph: () => GeneratedFlowGraph | null;
   /** Opens the picker and registers the choice. Returns null when cancelled. */
@@ -48,6 +50,7 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
   // against the saved document, and accepting is the only way to replace it.
   const [proposal, setProposal] = useState<GeneratedFlowGraph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
+  const [freshness, setFreshness] = useState<GraphFreshness["state"]>("unknown");
   const projectIdRef = useRef<string | null>(null);
   const graphRef = useRef<GeneratedFlowGraph | null>(null);
   // Saves are serialized: a drag can outrun a write, and the last position must win.
@@ -59,19 +62,37 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
     setProposal(null);
   }, []);
 
+  // Answering this means hashing the whole project, so it runs once per load
+  // rather than on every render, and a failure here must never surface as an
+  // error over the graph the user can already see.
+  const refreshFreshness = useCallback(
+    (projectId: string) => {
+      setFreshness("unknown");
+      void bridge
+        .checkGraphFreshness(projectId)
+        .then((result) => {
+          if (projectIdRef.current === projectId) setFreshness(result.state);
+        })
+        .catch(() => setFreshness("unknown"));
+    },
+    [bridge]
+  );
+
   const loadGraph = useCallback(
     async (projectId: string) => {
       setGraphLoading(true);
       try {
         const value = await bridge.getProjectGraph(projectId);
-        if (projectIdRef.current === projectId) setGraph(value);
+        if (projectIdRef.current !== projectId) return;
+        setGraph(value);
+        if (value) refreshFreshness(projectId);
       } catch (reason) {
         onError(reason);
       } finally {
         if (projectIdRef.current === projectId) setGraphLoading(false);
       }
     },
-    [bridge, onError, setGraph]
+    [bridge, onError, refreshFreshness, setGraph]
   );
 
   useEffect(() => {
@@ -125,6 +146,9 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
     (value: GeneratedFlowGraph) => {
       if (value.projectId !== projectIdRef.current) return false;
       setGraph(value);
+      // A graph that has just been generated was hashed from the snapshot it
+      // was generated from, so it is fresh without asking.
+      setFreshness("fresh");
       return true;
     },
     [setGraph]
@@ -168,6 +192,7 @@ export function useProjectGraph(options: ProjectGraphOptions): ProjectGraphStore
     graph: proposal ?? graph,
     graphLoading,
     previewing: proposal !== null,
+    freshness,
     currentGraph: () => graphRef.current,
     pickProject,
     selectProject,

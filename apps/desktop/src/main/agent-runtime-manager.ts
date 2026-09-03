@@ -9,6 +9,7 @@ import {
   IPC_CHANNELS,
   type ExecutableAgentProvider,
   type GenerationMode,
+  type GraphFreshness,
   type StartRunResult,
 } from "@insightify/desktop-bridge";
 import {
@@ -89,6 +90,29 @@ export class AgentRuntimeManager {
       }
     }
     return installations;
+  }
+
+  /**
+   * Whether the saved graph still describes the project it came from. The hash
+   * it compares against is the one the generation recorded, which is the only
+   * thing that ever gave `snapshotHash` a purpose. No progress callback is
+   * passed: this is a background question, not a run the canvas should narrate.
+   */
+  async checkGraphFreshness(projectId: string): Promise<GraphFreshness> {
+    const checkedAt = new Date().toISOString();
+    const document = this.#projects.getGraph(projectId);
+    const project = this.#projects.resolve(projectId);
+    if (!document || !project) return { state: "unknown", checkedAt };
+    try {
+      const snapshot = await buildProjectSnapshot(project.canonicalPath);
+      return {
+        state: snapshot.hash === document.snapshotHash ? "fresh" : "stale",
+        checkedAt,
+      };
+    } catch {
+      // A directory that has moved or become unreadable is not a stale graph.
+      return { state: "unknown", checkedAt };
+    }
   }
 
   async startRun(provider: ExecutableAgentProvider, projectId: string, prompt: string): Promise<StartRunResult> {

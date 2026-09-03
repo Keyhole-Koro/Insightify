@@ -7,6 +7,8 @@ const api: InsightifyDesktopApi = {
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.projectList),
   getProjectGraph: (projectId) => ipcRenderer.invoke(IPC_CHANNELS.projectGraphGet, { projectId }),
   saveProjectGraph: (value) => ipcRenderer.invoke(IPC_CHANNELS.projectGraphSave, value),
+  checkGraphFreshness: (projectId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.projectGraphFreshness, { projectId }),
   probeProviders: () => ipcRenderer.invoke(IPC_CHANNELS.providersProbe),
   startAgentRun: (input) => ipcRenderer.invoke(IPC_CHANNELS.agentStartRun, input),
   generateFlowGraph: (input) => ipcRenderer.invoke(IPC_CHANNELS.graphGenerate, input),

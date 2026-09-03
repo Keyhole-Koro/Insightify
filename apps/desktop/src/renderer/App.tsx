@@ -79,6 +79,7 @@ export function App() {
     graph,
     graphLoading,
     previewing,
+    freshness,
     currentGraph,
     receiveGraph,
     proposeGraph,
@@ -370,6 +371,7 @@ export function App() {
             scopeNode={scopeNode}
             visibleNodesCount={directNodes.length}
             boundaryPortsCount={boundaryPorts.length}
+            freshness={freshness}
             lod={lod}
             busy={busy}
             provider={provider}

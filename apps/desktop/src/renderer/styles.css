@@ -2045,3 +2045,19 @@ button { color: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The graph no longer matches the source it was generated from. Loud enough to
+   notice in the meta line, quiet enough not to compete with the canvas. */
+.stale-graph-badge {
+  padding: 1px 7px;
+  border: 1px solid rgba(240, 180, 90, 0.34);
+  border-radius: 999px;
+  color: #f0b45a;
+  background: rgba(240, 180, 90, 0.1);
+  font: inherit;
+  cursor: pointer;
+}
+.stale-graph-badge:hover {
+  border-color: rgba(240, 180, 90, 0.6);
+  background: rgba(240, 180, 90, 0.18);
+}

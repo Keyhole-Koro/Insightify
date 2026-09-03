@@ -91,6 +91,10 @@ export function registerIpc(options: RegisterIpcOptions): () => void {
     options.projects.saveGraph(value);
     return value;
   });
+  handleIpc(IPC_CHANNELS.projectGraphFreshness, async (_event, raw: unknown) => {
+    const input = projectGraphInputSchema.parse(raw);
+    return options.agents.checkGraphFreshness(input.projectId);
+  });
   handleIpc(IPC_CHANNELS.providersProbe, () => options.agents.probeProviders());
   handleIpc(IPC_CHANNELS.agentStartRun, async (_event, raw: unknown) => {
     const input = startAgentRunInputSchema.parse(raw);

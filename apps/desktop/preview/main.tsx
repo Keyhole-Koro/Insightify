@@ -29,6 +29,9 @@ const api: InsightifyDesktopApi = {
   listProjects: async () => [project],
   getProjectGraph: async () => stored,
   saveProjectGraph: async (value) => { stored = value; return value; },
+  // The fixture has no project directory to hash, so the honest answer is
+  // that freshness cannot be established.
+  checkGraphFreshness: async () => ({ state: "unknown" as const, checkedAt: previewGraph.generatedAt }),
   probeProviders: async () => [installed("antigravity-cli"), installed("codex")],
   startAgentRun: async () => ({ threadId: "preview-thread", runId: "preview-run" }),
   generateFlowGraph: async () => ({ threadId: "preview-thread", runId: "preview-run" }),

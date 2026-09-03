@@ -7,6 +7,7 @@ export const IPC_CHANNELS = {
   projectList: "insightify:project:list",
   projectGraphGet: "insightify:project:graph:get",
   projectGraphSave: "insightify:project:graph:save",
+  projectGraphFreshness: "insightify:project:graph:freshness",
   graphGenerate: "insightify:graph:generate",
   layoutGenerate: "insightify:layout:generate",
   graphGeneration: "insightify:graph:generation",
@@ -42,6 +43,17 @@ export const startAgentRunInputSchema = z.object({
 });
 
 export const projectGraphInputSchema = z.object({ projectId: projectIdSchema });
+
+/**
+ * Whether a saved graph still describes the project it was generated from.
+ * `unknown` covers the cases where the question cannot be asked: no graph yet,
+ * or a project directory that has gone away.
+ */
+export const graphFreshnessSchema = z.object({
+  state: z.enum(["fresh", "stale", "unknown"]),
+  checkedAt: z.string().min(1).max(64),
+});
+export type GraphFreshness = z.infer<typeof graphFreshnessSchema>;
 export const saveProjectGraphInputSchema = generatedFlowGraphSchema.extend({
   provider: executableAgentProviderSchema,
 });
@@ -110,6 +122,7 @@ export interface InsightifyDesktopApi {
   listProjects(): Promise<ProjectSummary[]>;
   getProjectGraph(projectId: string): Promise<GeneratedFlowGraph | null>;
   saveProjectGraph(value: GeneratedFlowGraph): Promise<GeneratedFlowGraph>;
+  checkGraphFreshness(projectId: string): Promise<GraphFreshness>;
   probeProviders(): Promise<ProviderInstallation[]>;
   startAgentRun(input: StartAgentRunInput): Promise<StartRunResult>;
   generateFlowGraph(input: GenerateFlowGraphInput): Promise<StartRunResult>;
