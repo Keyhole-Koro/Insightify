@@ -149,9 +149,14 @@ export function PortalCard({
         </div>
       )}
 
-      {/* COMPACT PILL (Visible when collapsed) */}
-      {!isExpanded && (
-        <div className="node-compact-pill" onClick={handleToggle} title="クリックで詳細を展開">
+      {/* THE CARD ITSELF. Drawn whether or not the plate below it is open: it is
+          what the node's coordinate points at, so a node that swapped it for the
+          plate moved under the cursor of the user who had just clicked it. */}
+      <div
+        className="node-compact-pill"
+        onClick={handleToggle}
+        title={isExpanded ? "クリックで詳細を閉じる" : "クリックで詳細を展開"}
+      >
           {isNestedChild ? (
             <span className="compact-icon" aria-hidden="true">
               <NodeIcon kind={node.kind} technology={tech} size={14} />
@@ -183,22 +188,16 @@ export function PortalCard({
               {isScopeExpanded ? "⊟ Fold" : "⊞ Inside"}
             </button>
           )}
-          <span className="compact-toggle-icon" title="詳細を開く">▾</span>
-        </div>
-      )}
+        <span className="compact-toggle-icon" title={isExpanded ? "詳細を閉じる" : "詳細を開く"}>
+          {isExpanded ? "▴" : "▾"}
+        </span>
+      </div>
 
       {/* EXPANDED DETAIL RECTANGLE PLATE (Visible when expanded) */}
       {isExpanded && (
         <div className="node-detail-plate" data-vqa="detail-plate" data-vqa-node-id={node.id}>
-          {/* Plate header. Collapsing is the card's own click, unfolding the Room
-              is on the pill and on the Room's frame, and copying is in the Peek
-              panel: none of them need a second button competing for this space. */}
-          <div className="plate-header">
-            <span className={`plate-kind-badge${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
-              {tagLabel}
-            </span>
-            <h3 className="plate-title">{node.title}</h3>
-          </div>
+          {/* No header: the card above the plate already carries the kind badge
+              and the title, and repeating them was most of the plate's height. */}
 
           {/* Tags */}
           {node.tags && node.tags.length > 0 && (

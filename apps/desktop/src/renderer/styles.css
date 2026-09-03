@@ -969,6 +969,11 @@ button { color: inherit; }
 .flow-node.selected {
   z-index: 30;
 }
+/* Until the layout pushes neighbours aside, an open plate at least draws over
+   them rather than under. */
+.flow-node.is-expanded {
+  z-index: 26;
+}
 
 /* TOP AVATAR / ICONIC SHAPE CONTAINER */
 .node-avatar-container {
@@ -976,9 +981,8 @@ button { color: inherit; }
   z-index: 2;
   transition: transform 180ms ease;
 }
-.flow-node.is-expanded .node-avatar-container {
-  margin-bottom: -18px;
-}
+/* The avatar no longer has to tuck itself behind a plate that grew upwards. */
+.flow-node.is-expanded .node-avatar-container,
 .flow-node.is-compact .node-avatar-container {
   margin-bottom: 6px;
 }
@@ -1102,10 +1106,16 @@ button { color: inherit; }
 }
 
 /* BOTTOM DETAIL RECTANGLE PLATE */
+/* The plate hangs below the collapsed card instead of growing the node in both
+   directions from its centre. Two things follow: the card the user clicked does
+   not slide out from under the cursor, and the space the expansion needs is all
+   on one side, so half as much has to be pushed out of the way. */
 .node-detail-plate {
-  position: relative;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
   width: 100%;
-  padding: 24px 14px 12px;
+  padding: 12px 14px;
   border: 1px solid #282c36;
   border-radius: 14px;
   background: rgba(18, 20, 26, 0.92);
@@ -1123,7 +1133,6 @@ button { color: inherit; }
   border-style: dashed;
 }
 
-/* Plate Header */
 .plate-header {
   display: flex;
   align-items: baseline;
