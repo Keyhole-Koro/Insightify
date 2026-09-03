@@ -54,8 +54,13 @@ export const ROOM_FRAME_PADDING = 12;
  */
 export const MAX_ROOM_FRAME_SHARE = 0.55;
 
-/** How much room a node occupies on the canvas, in pixels. */
-export type NodeExtent = { width: number; height: number };
+/**
+ * How much room a node occupies, in pixels, and where that room sits relative to
+ * the node's coordinate. The coordinate is the centre of the *card*, and the
+ * plate opens below it, so an expanded node's box is not centred on its own
+ * position — `offsetY` is how far down the middle of the box actually is.
+ */
+export type NodeExtent = { width: number; height: number; offsetY: number };
 
 /**
  * The one answer to "how big is this node". Everything that has to avoid a node
@@ -67,17 +72,34 @@ export function nodeExtent(state: {
   expanded?: boolean;
   lod?: SemanticLevel;
 }): NodeExtent {
-  if (state.nested) return { width: NESTED_CARD_WIDTH, height: NESTED_CARD_HEIGHT };
-  if (!state.expanded) return { width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT };
+  if (state.nested) {
+    return { width: NESTED_CARD_WIDTH, height: NESTED_CARD_HEIGHT, offsetY: 0 };
+  }
+  if (!state.expanded) {
+    return { width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT, offsetY: 0 };
+  }
+  const plate = PORTAL_PLATE_GAP + PORTAL_PLATE_HEIGHT[state.lod ?? "flow"];
   return {
     width: PORTAL_PLATE_WIDTH,
-    height: PORTAL_CARD_HEIGHT + PORTAL_PLATE_GAP + PORTAL_PLATE_HEIGHT[state.lod ?? "flow"],
+    height: PORTAL_CARD_HEIGHT + plate,
+    // The card keeps its place and the plate is added underneath, so the box
+    // reaches half the plate further down than the coordinate it belongs to.
+    offsetY: plate / 2,
   };
 }
 
 export type RoomFrameMetrics = {
   stageWidth: number;
   stageHeight: number;
+};
+
+/**
+ * The stage, plus the view state that changes how large a node is. The layout
+ * needs both: which plates are open, and at which level they are drawn.
+ */
+export type LayoutView = RoomFrameMetrics & {
+  expandedNodeIds?: Set<string>;
+  lod?: SemanticLevel;
 };
 
 /**

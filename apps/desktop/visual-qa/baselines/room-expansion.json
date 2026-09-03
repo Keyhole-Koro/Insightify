@@ -3,11 +3,7 @@
   "checkpoints": {
     "root": [],
     "inside-frontend": [],
-    "detail-postgres": [
-      "node overlap: primary-db / external-services (10349.9px²)"
-    ],
-    "detail-flow-lod": [
-      "node overlap: primary-db / external-services (2593.7px²)"
-    ]
+    "detail-postgres": [],
+    "detail-flow-lod": []
   }
 }

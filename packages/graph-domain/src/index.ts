@@ -3,6 +3,9 @@ import { isExpandedRoom } from "./room.js";
 import { toProviderJsonSchema } from "./json-schema.js";
 import {
   DEFAULT_STAGE,
+  nodeExtent,
+  type LayoutView,
+  type NodeExtent,
   MAX_ROOM_FRAME_SHARE,
   PORTAL_CARD_HEIGHT,
   PORTAL_CARD_WIDTH,
@@ -1002,6 +1005,90 @@ export function getScopeBasePositions(
   }));
 }
 
+/** A node's centre and the room it takes, ready to be pushed apart. */
+export type OverlapBox = { id: string; x: number; y: number; extent: NodeExtent };
+
+// Enough space between two cards to read them as separate, and enough passes
+// for a push to propagate along a row without running forever.
+const OVERLAP_GAP = 10;
+const OVERLAP_PASSES = 12;
+
+/**
+ * Moves boxes apart until none of them overlap, and does nothing else.
+ *
+ * Two rules make the result feel deliberate rather than random. A pair is
+ * separated along whichever axis needs the least movement, so cards slide the
+ * shortest distance that resolves the collision. And an anchored box never
+ * moves: the Room the user unfolded, and the node whose plate they just opened,
+ * are the things they are looking at, so everything else yields to them.
+ *
+ * Positions are percentages of the stage and sizes are pixels, so the work is
+ * done in pixels and converted back once.
+ */
+export function resolveOverlaps(
+  boxes: OverlapBox[],
+  anchors: Set<string>,
+  stage: RoomFrameMetrics
+): Map<string, FlowNodePosition> {
+  const toX = (pixels: number) => (pixels / stage.stageWidth) * 100;
+  const toY = (pixels: number) => (pixels / stage.stageHeight) * 100;
+  // Work with the centre of each box. A node's coordinate is the centre of its
+  // card, which is not the centre of its box once a plate opens below it.
+  const positions = new Map(boxes.map((box) => [box.id, { x: box.x, y: box.y + toY(box.extent.offsetY) }]));
+
+  for (let pass = 0; pass < OVERLAP_PASSES; pass += 1) {
+    let moved = false;
+    for (let leftIndex = 0; leftIndex < boxes.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < boxes.length; rightIndex += 1) {
+        const left = boxes[leftIndex]!;
+        const right = boxes[rightIndex]!;
+        const leftLocked = anchors.has(left.id);
+        const rightLocked = anchors.has(right.id);
+        if (leftLocked && rightLocked) continue;
+        const leftPosition = positions.get(left.id)!;
+        const rightPosition = positions.get(right.id)!;
+        const deltaX = rightPosition.x - leftPosition.x;
+        const deltaY = rightPosition.y - leftPosition.y;
+        const penetrationX =
+          toX((left.extent.width + right.extent.width) / 2 + OVERLAP_GAP) - Math.abs(deltaX);
+        const penetrationY =
+          toY((left.extent.height + right.extent.height) / 2 + OVERLAP_GAP) - Math.abs(deltaY);
+        if (penetrationX <= 0 || penetrationY <= 0) continue;
+
+        const useX = penetrationX <= penetrationY;
+        const push = useX ? penetrationX : penetrationY;
+        const direction = (useX ? deltaX : deltaY) >= 0 ? 1 : -1;
+        const leftShare = leftLocked ? 0 : rightLocked ? 1 : 0.5;
+        if (useX) {
+          leftPosition.x -= direction * push * leftShare;
+          rightPosition.x += direction * push * (1 - leftShare);
+        } else {
+          leftPosition.y -= direction * push * leftShare;
+          rightPosition.y += direction * push * (1 - leftShare);
+        }
+        moved = true;
+      }
+    }
+    for (const box of boxes) {
+      if (anchors.has(box.id)) continue;
+      const position = positions.get(box.id)!;
+      position.x = clamp(position.x, toX(box.extent.width / 2) + 1, 99 - toX(box.extent.width / 2));
+      position.y = clamp(position.y, toY(box.extent.height / 2) + 1, 99 - toY(box.extent.height / 2));
+    }
+    if (!moved) break;
+  }
+
+  return new Map(
+    boxes.map((box) => {
+      const position = positions.get(box.id)!;
+      return [
+        box.id,
+        { x: +position.x.toFixed(1), y: +(position.y - toY(box.extent.offsetY)).toFixed(1) },
+      ];
+    })
+  );
+}
+
 export function layoutFlowNodesWithExpandedScopes(
   visibleNodes: FlowNode[],
   scopeId: string | null = null,
@@ -1009,24 +1096,50 @@ export function layoutFlowNodesWithExpandedScopes(
   edges: FlowEdge[] = [],
   savedLayout: GraphLayout = {},
   rules: RoomLayoutRule[] = defaultRoomLayoutRules,
-  metrics?: RoomFrameMetrics
+  view?: LayoutView
 ): PositionedFlowNode[] {
-  const resolved = metrics ?? DEFAULT_STAGE;
+  const resolved = view ?? DEFAULT_STAGE;
   const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
-  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout, rules, metrics);
+  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout, rules, view);
   const frameMap = new Map(frames.map((f) => [f.roomId, f]));
   const basePositionMap = new Map(
     getScopeBasePositions(visibleNodes, scopeId, edges, savedLayout, rules)
       .map((node) => [node.id, { x: node.x, y: node.y }])
   );
-  const reflowedPositionMap = new Map(
-    directNodes
-      .filter((node) => !isExpandedRoom(node, expandedScopeIds))
-      .map((node) => [node.id, reflowAroundFrames(basePositionMap.get(node.id)!, frames)])
+  // One pass over rectangles replaces four passes over special cases. An
+  // unfolded Room is no longer a different kind of obstacle from an open plate:
+  // both are boxes, and both are anchored, because they are what the user just
+  // acted on and must not slide out from under them.
+  const anchors = new Set<string>([
+    ...frames.map((frame) => frame.roomId),
+    ...(view?.expandedNodeIds ?? []),
+  ]);
+  const reflowedPositionMap = resolveOverlaps(
+    [
+      ...frames.map((frame) => ({
+        id: frame.roomId,
+        x: frame.bounds.x + frame.bounds.width / 2,
+        y: frame.bounds.y + frame.bounds.height / 2,
+        extent: {
+          width: (frame.bounds.width / 100) * resolved.stageWidth,
+          height: (frame.bounds.height / 100) * resolved.stageHeight,
+          offsetY: 0,
+        },
+      })),
+      ...directNodes
+        .filter((node) => !isExpandedRoom(node, expandedScopeIds))
+        .map((node) => ({
+          id: node.id,
+          ...basePositionMap.get(node.id)!,
+          extent: nodeExtent({
+            expanded: view?.expandedNodeIds?.has(node.id),
+            lod: view?.lod,
+          }),
+        })),
+    ],
+    anchors,
+    resolved
   );
-  cascadeHorizontalReflow(directNodes, reflowedPositionMap, basePositionMap, frames);
-  packReflowedColumns(directNodes, reflowedPositionMap, basePositionMap, frames, resolved);
-  separateReflowedNodes(directNodes, reflowedPositionMap, basePositionMap, frames, resolved);
 
   const result: PositionedFlowNode[] = [];
 
@@ -1165,211 +1278,6 @@ function separateExpandedFrames(frames: ExpandedRoomFrame[]): void {
   }
 }
 
-function reflowAroundFrames(
-  position: Pick<FlowNodePosition, "x" | "y">,
-  frames: ExpandedRoomFrame[],
-  attractNearby = true
-): FlowNodePosition {
-  let x = position.x;
-  let y = position.y;
-  const clearanceX = 7;
-  const clearanceY = 4.5;
-  const attraction = 12;
 
-  for (let pass = 0; pass < 3; pass += 1) {
-    for (const frame of frames) {
-      const left = frame.bounds.x - clearanceX;
-      const right = frame.bounds.x + frame.bounds.width + clearanceX;
-      const top = frame.bounds.y - clearanceY;
-      const bottom = frame.bounds.y + frame.bounds.height + clearanceY;
 
-      // Pull an already-near sibling up to the group's comfort boundary. The
-      // old layout only pushed collisions away, leaving an entire tier-width
-      // of empty space between the expanded Room and its neighbours.
-      const verticallyAligned = y >= top && y <= bottom;
-      if (attractNearby) {
-        if (verticallyAligned && x > right && x < right + attraction) x = right;
-        else if (verticallyAligned && x < left && x > left - attraction) x = left;
-      }
 
-      if (x <= left || x >= right || y <= top || y >= bottom) continue;
-
-      const candidates = [
-        { axis: "x" as const, value: left, distance: x - left },
-        { axis: "x" as const, value: right, distance: right - x },
-        { axis: "y" as const, value: top, distance: y - top },
-        { axis: "y" as const, value: bottom, distance: bottom - y },
-      ].sort((a, b) => a.distance - b.distance);
-      const nearest = candidates[0]!;
-      if (nearest.axis === "x") x = nearest.value;
-      else y = nearest.value;
-    }
-  }
-  return { x: +clamp(x, 5, 95).toFixed(1), y: +clamp(y, 8, 92).toFixed(1) };
-}
-
-function separateReflowedNodes(
-  nodes: FlowNode[],
-  positions: Map<string, FlowNodePosition>,
-  originalPositions: Map<string, FlowNodePosition>,
-  frames: ExpandedRoomFrame[],
-  metrics: RoomFrameMetrics
-): void {
-  const visible = nodes.filter((node) => positions.has(node.id));
-  // Two cards must not overlap, which is a statement about pixels: a fixed
-  // percentage means one thing on a wide stage and another on a narrow one.
-  // Deriving the gap from the card and the stage is the same fact the stage
-  // sizing uses, so the two can no longer disagree.
-  const minimumX = (PORTAL_CARD_WIDTH / metrics.stageWidth) * 100;
-  const minimumY = (PORTAL_CARD_HEIGHT / metrics.stageHeight) * 100;
-
-  for (let pass = 0; pass < 6; pass += 1) {
-    let moved = false;
-    for (let leftIndex = 0; leftIndex < visible.length; leftIndex += 1) {
-      for (let rightIndex = leftIndex + 1; rightIndex < visible.length; rightIndex += 1) {
-        const leftNode = visible[leftIndex]!;
-        const rightNode = visible[rightIndex]!;
-        const left = positions.get(leftNode.id)!;
-        const right = positions.get(rightNode.id)!;
-        const deltaX = Math.abs(right.x - left.x);
-        const deltaY = Math.abs(right.y - left.y);
-        if (deltaX >= minimumX || deltaY >= minimumY) continue;
-
-        const originalLeft = originalPositions.get(leftNode.id)!;
-        const originalRight = originalPositions.get(rightNode.id)!;
-        const preserveVerticalOrder =
-          Math.abs(originalRight.y - originalLeft.y) >= Math.abs(originalRight.x - originalLeft.x);
-
-        // Move along the axis the two nodes were already ordered on, but be
-        // ready to use the other one. Pushing a node sideways into an unfolded
-        // Room only sends it straight back to the edge it came from, and the
-        // pair stays on top of each other however many passes are spent on it.
-        const axes = preserveVerticalOrder ? ["y", "x"] as const : ["x", "y"] as const;
-        for (const axis of axes) {
-          const candidate = { ...right };
-          if (axis === "y") {
-            const direction = originalRight.y >= originalLeft.y ? 1 : -1;
-            candidate.y += direction * (minimumY - deltaY + 0.5);
-          } else {
-            const direction = originalRight.x >= originalLeft.x ? 1 : -1;
-            candidate.x += direction * (minimumX - deltaX + 0.5);
-          }
-          const placed = reflowAroundFrames(candidate, frames, false);
-          const clears =
-            Math.abs(placed.x - left.x) >= minimumX || Math.abs(placed.y - left.y) >= minimumY;
-          if (!clears) continue;
-          positions.set(rightNode.id, placed);
-          moved = true;
-          break;
-        }
-      }
-    }
-    if (!moved) break;
-  }
-}
-
-function cascadeHorizontalReflow(
-  nodes: FlowNode[],
-  positions: Map<string, FlowNodePosition>,
-  originalPositions: Map<string, FlowNodePosition>,
-  frames: ExpandedRoomFrame[]
-): void {
-  const movedColumns = nodes
-    .filter((node) => positions.has(node.id))
-    .map((node) => {
-      const original = originalPositions.get(node.id)!;
-      const current = positions.get(node.id)!;
-      return { originalX: original.x, deltaX: current.x - original.x };
-    })
-    .filter(({ deltaX }) => Math.abs(deltaX) >= 1);
-
-  for (const node of nodes) {
-    const current = positions.get(node.id);
-    const original = originalPositions.get(node.id);
-    if (!current || !original || Math.abs(current.x - original.x) >= 1) continue;
-
-    let cascadeDelta = 0;
-    for (const moved of movedColumns) {
-      if (moved.deltaX < 0 && original.x > moved.originalX) {
-        cascadeDelta = Math.min(cascadeDelta, moved.deltaX);
-      } else if (moved.deltaX > 0 && original.x < moved.originalX) {
-        cascadeDelta = Math.max(cascadeDelta, moved.deltaX);
-      }
-    }
-    if (Math.abs(cascadeDelta) < 1) continue;
-    positions.set(
-      node.id,
-      reflowAroundFrames({ x: current.x + cascadeDelta, y: current.y }, frames, false)
-    );
-  }
-}
-
-function packReflowedColumns(
-  nodes: FlowNode[],
-  positions: Map<string, FlowNodePosition>,
-  originalPositions: Map<string, FlowNodePosition>,
-  frames: ExpandedRoomFrame[],
-  metrics: RoomFrameMetrics
-): void {
-  if (frames.length === 0) return;
-  const groups: Array<{ originalX: number; nodeIds: string[] }> = [];
-  for (const node of nodes
-    .filter((candidate) => positions.has(candidate.id))
-    .sort((left, right) => originalPositions.get(left.id)!.x - originalPositions.get(right.id)!.x)) {
-    const originalX = originalPositions.get(node.id)!.x;
-    const group = groups.at(-1);
-    if (!group || originalX - group.originalX > 4) {
-      groups.push({ originalX, nodeIds: [node.id] });
-    } else {
-      group.nodeIds.push(node.id);
-    }
-  }
-  if (groups.length < 2) return;
-
-  const centerOf = (group: { nodeIds: string[] }) =>
-    group.nodeIds.reduce((sum, nodeId) => sum + positions.get(nodeId)!.x, 0) /
-    group.nodeIds.length;
-  const frameCenter =
-    frames.reduce((sum, frame) => sum + frame.bounds.x + frame.bounds.width / 2, 0) /
-    frames.length;
-  // Columns are pulled back together so an unfolded Room leaves no dead band,
-  // but never closer than separateReflowedNodes is about to push them apart.
-  const maximumPitch = (PORTAL_CARD_WIDTH * 1.2 / metrics.stageWidth) * 100;
-
-  const moveGroup = (group: { nodeIds: string[] }, delta: number) => {
-    for (const nodeId of group.nodeIds) {
-      const position = positions.get(nodeId)!;
-      positions.set(
-        nodeId,
-        reflowAroundFrames({ x: position.x + delta, y: position.y }, frames, false)
-      );
-    }
-  };
-
-  if (frameCenter <= 50) {
-    const anchorIndex = Math.max(0, groups.findIndex((group) => group.originalX >= frameCenter));
-    for (let index = anchorIndex + 1; index < groups.length; index += 1) {
-      const previousCenter = centerOf(groups[index - 1]!);
-      const currentCenter = centerOf(groups[index]!);
-      if (currentCenter - previousCenter > maximumPitch) {
-        moveGroup(groups[index]!, previousCenter + maximumPitch - currentCenter);
-      }
-    }
-  } else {
-    let foundAnchor = -1;
-    for (let index = groups.length - 1; index >= 0; index -= 1) {
-      if (groups[index]!.originalX <= frameCenter) {
-        foundAnchor = index;
-        break;
-      }
-    }
-    const anchorIndex = foundAnchor < 0 ? groups.length - 1 : foundAnchor;
-    for (let index = anchorIndex - 1; index >= 0; index -= 1) {
-      const nextCenter = centerOf(groups[index + 1]!);
-      const currentCenter = centerOf(groups[index]!);
-      if (nextCenter - currentCenter > maximumPitch) {
-        moveGroup(groups[index]!, nextCenter - maximumPitch - currentCenter);
-      }
-    }
-  }
-}

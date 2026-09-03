@@ -7,18 +7,14 @@ import {
   getScopeBasePositions,
   getNodeAreaIdsForScope,
   layoutFlowNodesWithExpandedScopes,
+  nodeExtent,
   projectFlowWithExpandedScopes,
   resolveRoomLayoutRules,
   scopeBoundaryPorts,
   type FlowNode,
   type GeneratedFlowGraph,
 } from "@insightify/graph-domain";
-import {
-  PORTAL_CARD_HEIGHT,
-  PORTAL_CARD_WIDTH,
-  semanticLevelForZoom,
-  stageMetrics,
-} from "../semantic-zoom.js";
+import { semanticLevelForZoom, stageMetrics } from "../semantic-zoom.js";
 import {
   buildScopePath,
   bundleEdgesByVisualArea,
@@ -44,6 +40,8 @@ type FlowProjectionInput = {
   hoveredEdgeKey: string | null;
   selectedNodeId: string | null;
   peekNodeId: string | null;
+  /** Nodes whose detail plate is open. They are larger, and they do not move. */
+  expandedNodeIds: Set<string>;
 };
 
 export function useFlowProjection(input: FlowProjectionInput) {
@@ -56,6 +54,7 @@ export function useFlowProjection(input: FlowProjectionInput) {
     hoveredEdgeKey,
     selectedNodeId,
     peekNodeId,
+    expandedNodeIds,
   } = input;
 
   // A Room the user was standing in can disappear when a graph is regenerated.
@@ -117,16 +116,21 @@ export function useFlowProjection(input: FlowProjectionInput) {
       stageMetrics(
         getScopeBasePositions(visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules)
           .filter((node) => !renderedExpandedScopeIds.has(node.id))
-          .map((node) => ({ ...node, width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT })),
+          .map((node) => ({ ...node, ...nodeExtent({}) })),
         frame,
         roomShapes
       ),
     [visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules, frame, renderedExpandedScopeIds, roomShapes]
   );
 
-  const stageMetricsForFrames = useMemo(
-    () => ({ stageWidth: stage.width, stageHeight: stage.height }),
-    [stage.width, stage.height]
+  // The level a card is drawn at follows the stage's scale, and it decides how
+  // large an open plate is, so it has to be known before anything is placed.
+  const stageZoom = zoom * stage.scale;
+  const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
+
+  const layoutView = useMemo(
+    () => ({ stageWidth: stage.width, stageHeight: stage.height, expandedNodeIds, lod }),
+    [stage.width, stage.height, expandedNodeIds, lod]
   );
 
   const positionedNodes = useMemo(
@@ -138,9 +142,9 @@ export function useFlowProjection(input: FlowProjectionInput) {
         flowEdges,
         savedLayout,
         layoutRules,
-        stageMetricsForFrames
+        layoutView
       ),
-    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, stageMetricsForFrames]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, layoutView]
   );
 
   const roomFrames = useMemo(
@@ -152,13 +156,10 @@ export function useFlowProjection(input: FlowProjectionInput) {
         flowEdges,
         savedLayout,
         layoutRules,
-        stageMetricsForFrames
+        layoutView
       ),
-    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, stageMetricsForFrames]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, layoutView]
   );
-  const stageZoom = zoom * stage.scale;
-  const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
-
   // Areas describe how this scope arranges its own nodes. Feeding the children
   // of an unfolded Room into that calculation moved and stretched the areas of
   // the scope above them, which own neither those nodes nor that space.

@@ -179,6 +179,7 @@ export function App() {
     hoveredEdgeKey: view.hoveredEdgeKey,
     selectedNodeId: view.selectedNodeId,
     peekNodeId: view.peekNodeId,
+    expandedNodeIds: view.expandedNodeIds,
   });
 
   const {
