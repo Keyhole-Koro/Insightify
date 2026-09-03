@@ -1479,22 +1479,14 @@ button { color: inherit; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #3a444d;
-  border-radius: 12px;
-  background: linear-gradient(145deg, rgba(23, 27, 32, .98), rgba(12, 15, 19, .98));
-  box-shadow: 0 14px 42px #000a, 0 0 0 1px #0007, inset 0 1px rgba(255,255,255,.035);
+  border: 0;
+  background: transparent;
   pointer-events: auto;
   animation: implementation-workspace-in 160ms cubic-bezier(.2, .85, .25, 1) both;
 }
 
 .implementation-workspace::before {
-  position: absolute;
-  top: 0;
-  right: 20%;
-  left: 20%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #b7e85b99, transparent);
-  content: "";
+  content: none;
 }
 
 .implementation-workspace.inline-left { --implementation-enter-x: 7px; }
@@ -1539,7 +1531,8 @@ button { color: inherit; }
   min-height: 37px;
   box-sizing: border-box;
   padding: 6px 37px 6px 9px;
-  background: rgba(14, 18, 22, .62);
+  border-bottom-color: rgba(70, 80, 89, .52);
+  background: transparent;
 }
 
 .implementation-tree.workspace .implementation-tree-header strong {
@@ -1602,7 +1595,7 @@ button { color: inherit; }
   padding: 13px 14px;
   border: 0;
   border-radius: 0;
-  background: radial-gradient(circle at 15% 0, rgba(201, 255, 99, .045), transparent 36%);
+  background: transparent;
   box-shadow: none;
 }
 
@@ -1653,7 +1646,7 @@ button { color: inherit; }
   padding: 5px 6px;
   border: 1px solid #2d353d;
   border-radius: 6px;
-  background: #12171c;
+  background: transparent;
   font-size: 6.5px;
 }
 
