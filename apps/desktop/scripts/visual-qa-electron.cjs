@@ -139,6 +139,7 @@ function collectPageReport(measurements, thresholds) {
     const regions = [...element.querySelectorAll(":scope > .node-avatar-container .node-avatar, :scope > .node-compact-pill, :scope > .node-detail-plate")]
       .filter(visible)
       .map(rect);
+    const declared = (element.dataset.vqaExtent || "").split("x").map(Number);
     return {
       id: element.dataset.vqaNodeId,
       parentId: element.dataset.vqaParentId,
@@ -146,6 +147,9 @@ function collectPageReport(measurements, thresholds) {
       expanded: element.dataset.vqaExpanded === "true",
       box: union(regions) ?? rect(element),
       regions: regions.length > 0 ? regions : [rect(element)],
+      declaredExtent: declared.length === 2 && declared.every(Number.isFinite)
+        ? { width: declared[0], height: declared[1] }
+        : null,
     };
   });
   const frames = [...document.querySelectorAll('[data-vqa="room-frame"]')].filter(visible).map((element) => {
@@ -240,7 +244,20 @@ function collectPageReport(measurements, thresholds) {
     maximumGapRatio: 1.5,
     ...(thresholds ?? {}),
   };
+  // The layout reserves the size a node declares. If the DOM paints something
+  // larger, every gap the layout computed is too small by the difference, and
+  // no amount of tuning downstream will fix it.
+  const scale = stage ? Number(getComputedStyle(document.querySelector('[data-vqa="graph-stage"]'))
+    .getPropertyValue("--stage-zoom")) || 1 : 1;
+  const understated = nodes.filter((node) => {
+    if (!node.declaredExtent) return false;
+    return node.box.width / scale > node.declaredExtent.width + 1
+      || node.box.height / scale > node.declaredExtent.height + 1;
+  }).map((node) => `${node.id}: painted ${round(node.box.width / scale)}x${round(node.box.height / scale)}`
+    + ` but declares ${node.declaredExtent.width}x${node.declaredExtent.height}`);
+
   const warnings = [
+    ...understated.map((item) => `extent understated — ${item}`),
     ...frames.filter((frame) => frame.occupancy && frame.occupancy.height < limits.minimumFrameOccupancy)
       .map((frame) => `${frame.roomId}: children occupy only ${frame.occupancy.height} of frame height`),
     ...frames.filter((frame) => frame.spacing.rowGapToChildHeight > limits.maximumGapRatio)

@@ -1,5 +1,5 @@
 import React, { type PointerEvent as ReactPointerEvent } from "react";
-import { isRoom, type FlowNode, type PortalPreview } from "@insightify/graph-domain";
+import { isRoom, nodeExtent, type FlowNode, type PortalPreview } from "@insightify/graph-domain";
 import type { SemanticLevel } from "../semantic-zoom.js";
 import { copyToClipboard } from "../lib/clipboard.js";
 import { NodeIcon } from "./NodeIcon.js";
@@ -91,6 +91,10 @@ export function PortalCard({
     return "rounded";
   })();
 
+  // What the layout has been told this card occupies. Declared on the element
+  // so `visual:qa` can check it against what is actually painted.
+  const extent = nodeExtent({ nested: isNestedChild, expanded: isExpanded, lod });
+
   return (
     <article
       aria-label={`${node.title}. ${node.kind}. ${
@@ -110,6 +114,7 @@ export function PortalCard({
       data-vqa-parent-id={node.parentId ?? "root"}
       data-vqa-nested={isNestedChild || undefined}
       data-vqa-expanded={isExpanded || undefined}
+      data-vqa-extent={`${extent.width}x${extent.height}`}
       style={{ left: `${node.x}%`, top: `${node.y}%` }}
       tabIndex={isScopeExpanded ? -1 : 0}
       onClick={() => {

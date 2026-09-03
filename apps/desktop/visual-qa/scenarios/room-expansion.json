@@ -61,6 +61,15 @@
       "waitFor": "[data-vqa=\"detail-plate\"]",
       "wait": 500,
       "screenshot": true
+    },
+    {
+      "name": "detail-flow-lod",
+      "action": {
+        "type": "evaluate",
+        "expression": "(() => { const b = document.querySelector('button[aria-label=\"\u7e2e\u5c0f\"]'); if (!b) throw new Error('zoom-out button not found'); b.click(); b.click(); return { clicked: 'zoom out x2' }; })()"
+      },
+      "wait": 700,
+      "screenshot": true
     }
   ]
 }

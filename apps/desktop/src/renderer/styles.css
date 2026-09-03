@@ -948,7 +948,7 @@ button { color: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 230px;
+  width: 190px;
   cursor: grab;
   user-select: none;
   transition:
@@ -1113,8 +1113,9 @@ button { color: inherit; }
 .node-detail-plate {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
-  width: 100%;
+  left: 50%;
+  width: 240px;
+  transform: translateX(-50%);
   padding: 12px 14px;
   border: 1px solid #282c36;
   border-radius: 14px;
@@ -1309,6 +1310,12 @@ button { color: inherit; }
   display: flex;
   align-items: center;
   gap: 5px;
+  /* The card is 230px, and the layout reserves exactly that. A pill that sizes
+     itself to its kind tag and title instead grew to 263px on the widest node,
+     so every card was a different size and none of them the size the layout had
+     been told about. */
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 4px 8px 4px 6px;
   border: 1px solid #2f3442;
   border-radius: 20px;
@@ -1348,7 +1355,10 @@ button { color: inherit; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 95px;
+  /* Whatever is left after the fixed parts of the pill, and no more: the title
+     is the one piece that may be cut, so it is the one that gives way. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .compact-toggle-icon {
@@ -1362,10 +1372,6 @@ button { color: inherit; }
 }
 
 /* Expanded Plate Animation */
-.flow-node.is-expanded {
-  width: 240px;
-}
-
 .flow-node.is-expanded .node-detail-plate {
   animation: expand-plate 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: top center;
@@ -1374,11 +1380,11 @@ button { color: inherit; }
 @keyframes expand-plate {
   0% {
     opacity: 0;
-    transform: scale(0.92) translateY(-8px);
+    transform: translateX(-50%) scale(0.92) translateY(-8px);
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateX(-50%) scale(1) translateY(0);
   }
 }
 

@@ -8,7 +8,10 @@ import {
   type RoomGridShape,
 } from "@insightify/graph-domain";
 
-export type SemanticLevel = "structure" | "flow" | "implementation";
+// The level decides how large a card is, and size is a layout concern, so the
+// definition lives with the other measurements rather than here.
+export type { SemanticLevel } from "@insightify/graph-domain";
+import type { SemanticLevel } from "@insightify/graph-domain";
 
 export { PORTAL_CARD_WIDTH, PORTAL_CARD_HEIGHT };
 export const SEMANTIC_THRESHOLDS = { flow: 112, implementation: 230 } as const;

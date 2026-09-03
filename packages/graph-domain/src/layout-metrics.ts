@@ -9,9 +9,31 @@
 // disagreed. So the frame is computed in pixels from what it must hold, and
 // converted to a percentage of the stage exactly once.
 
-/** The card drawn for a node in its own scope. */
+/**
+ * Which abstraction level a Portal presents. It belongs here because the level
+ * decides how large a node is, and how large a node is decides the layout.
+ */
+export type SemanticLevel = "structure" | "flow" | "implementation";
+
+/** The card drawn for a node in its own scope, in every state it can be in. */
 export const PORTAL_CARD_WIDTH = 190;
-export const PORTAL_CARD_HEIGHT = 82;
+/** The tallest a collapsed card gets: avatar, gap, pill. */
+export const PORTAL_CARD_HEIGHT = 92;
+
+/** The plate that opens below a card, and the gap between the two. */
+export const PORTAL_PLATE_WIDTH = 240;
+export const PORTAL_PLATE_GAP = 6;
+/**
+ * Measured, not guessed: the plate carries a code block, a child miniature and
+ * its evidence only at the implementation level, which is most of its height.
+ * `visual:qa` warns when a card is painted larger than the size declared here,
+ * so a change to the plate's contents cannot silently invalidate the layout.
+ */
+export const PORTAL_PLATE_HEIGHT: Record<SemanticLevel, number> = {
+  structure: 112,
+  flow: 112,
+  implementation: 210,
+};
 
 /** The compact pill drawn for a node inside an unfolded Room. */
 export const NESTED_CARD_WIDTH = 132;
@@ -31,6 +53,27 @@ export const ROOM_FRAME_PADDING = 12;
  * neighbours keep their own space rather than being squeezed out by it.
  */
 export const MAX_ROOM_FRAME_SHARE = 0.55;
+
+/** How much room a node occupies on the canvas, in pixels. */
+export type NodeExtent = { width: number; height: number };
+
+/**
+ * The one answer to "how big is this node". Everything that has to avoid a node
+ * — the stage, the reflow that keeps siblings apart, the frame of an unfolded
+ * Room — asks here, so none of them can be working from a different figure.
+ */
+export function nodeExtent(state: {
+  nested?: boolean;
+  expanded?: boolean;
+  lod?: SemanticLevel;
+}): NodeExtent {
+  if (state.nested) return { width: NESTED_CARD_WIDTH, height: NESTED_CARD_HEIGHT };
+  if (!state.expanded) return { width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT };
+  return {
+    width: PORTAL_PLATE_WIDTH,
+    height: PORTAL_CARD_HEIGHT + PORTAL_PLATE_GAP + PORTAL_PLATE_HEIGHT[state.lod ?? "flow"],
+  };
+}
 
 export type RoomFrameMetrics = {
   stageWidth: number;
