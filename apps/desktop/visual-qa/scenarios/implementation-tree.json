@@ -5,6 +5,7 @@
   "readySelector": "[data-vqa=\"graph-stage\"]",
   "initialWait": 900,
   "measurements": [
+    { "name": "implementation workspace", "selector": "[data-vqa=\"implementation-workspace\"]", "all": true },
     { "name": "implementation tree", "selector": "[data-vqa=\"implementation-tree\"]", "all": true },
     { "name": "visible steps", "selector": "[data-vqa=\"implementation-step\"]", "all": true },
     { "name": "selected detail", "selector": "[data-vqa=\"implementation-step-detail\"]", "all": true }
@@ -25,9 +26,10 @@
     {
       "name": "event-outline",
       "action": { "type": "clickText", "selector": ".node-compact-pill", "text": "Event Bus & Task Queue" },
-      "waitFor": "[data-vqa=\"implementation-tree\"]",
+      "waitFor": "[data-vqa=\"implementation-workspace\"]",
       "wait": 500,
-      "screenshot": true
+      "screenshot": true,
+      "thresholds": { "maximumMedianTravel": 0, "maximumZoomChange": 0 }
     },
     {
       "name": "envelope-expanded",

@@ -1393,6 +1393,10 @@ button { color: inherit; }
   box-shadow: 0 -8px 18px #0d1014;
 }
 
+.implementation-detail-heading {
+  display: none;
+}
+
 .implementation-step-detail p {
   display: -webkit-box;
   overflow: hidden;
@@ -1435,6 +1439,329 @@ button { color: inherit; }
 
 .peek-implementation-section .implementation-tree-body {
   height: 260px;
+}
+
+/* The node is only the doorway into implementation. This surface is a sibling
+   of the graph stage, so neither its dimensions nor its animation can affect
+   node extents, stage fitting, or edge routing. */
+.implementation-workspace-layer {
+  position: absolute;
+  z-index: 38;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 76px 72px 62px;
+  animation: implementation-layer-in 150ms ease-out both;
+}
+
+.implementation-workspace-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(7, 9, 12, .54);
+  backdrop-filter: blur(1.5px) saturate(.75);
+  cursor: zoom-out;
+}
+
+.implementation-workspace {
+  position: relative;
+  display: flex;
+  width: min(850px, 100%);
+  height: min(570px, 100%);
+  min-height: 360px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #424a54;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(25, 29, 34, .99), rgba(12, 15, 19, .99));
+  box-shadow: 0 30px 100px #000d, 0 0 0 1px #0008, inset 0 1px rgba(255,255,255,.035);
+  animation: implementation-workspace-in 180ms cubic-bezier(.2, .85, .25, 1) both;
+}
+
+.implementation-workspace::before {
+  position: absolute;
+  top: 0;
+  right: 20%;
+  left: 20%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #b7e85b99, transparent);
+  content: "";
+}
+
+.implementation-workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 19px 21px 15px;
+  border-bottom: 1px solid #2a3037;
+}
+
+.implementation-workspace-title {
+  min-width: 0;
+}
+
+.implementation-workspace-title > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a5c66c;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.implementation-workspace-title h2 {
+  margin: 7px 0 4px;
+  color: #f0f2ef;
+  font-size: 19px;
+  font-weight: 690;
+  letter-spacing: -.015em;
+}
+
+.implementation-workspace-title p {
+  overflow: hidden;
+  margin: 0;
+  color: #7f8791;
+  font-size: 10px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.implementation-workspace-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.implementation-workspace-actions button {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid #343b44;
+  border-radius: 8px;
+  color: #939ba4;
+  background: #1b2026;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.implementation-workspace-actions button:last-child {
+  width: 30px;
+  padding: 0;
+}
+
+.implementation-workspace-actions button:hover {
+  border-color: #627443;
+  color: #dfffa4;
+  background: #222a1b;
+}
+
+.implementation-workspace-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 21px;
+  border-bottom: 1px solid #22282e;
+  background: rgba(8, 11, 14, .45);
+}
+
+.implementation-workspace-context span {
+  padding: 3px 6px;
+  border: 1px solid #303841;
+  border-radius: 5px;
+  color: #7f8993;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.implementation-workspace-context em {
+  margin-left: auto;
+  color: #535c66;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.implementation-workspace > .implementation-tree.workspace {
+  min-height: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.implementation-tree.workspace .implementation-tree-header {
+  grid-template-columns: auto minmax(0, 1fr) minmax(180px, auto);
+  min-height: 45px;
+  padding: 8px 14px;
+  background: rgba(14, 18, 22, .62);
+}
+
+.implementation-tree.workspace .implementation-tree-header > span {
+  font-size: 8px;
+}
+
+.implementation-tree.workspace .implementation-tree-header strong {
+  font-size: 10px;
+  text-align: left;
+}
+
+.implementation-tree.workspace .implementation-tree-header button {
+  grid-column: auto;
+  font-size: 8px;
+  text-align: right;
+}
+
+.implementation-tree.workspace .implementation-tree-body {
+  display: grid;
+  height: calc(100% - 45px);
+  grid-template-columns: minmax(280px, .9fr) minmax(300px, 1.1fr);
+}
+
+.implementation-tree.workspace .implementation-step-scroll {
+  border-right: 1px solid #272e35;
+}
+
+.implementation-tree.workspace .implementation-step-list {
+  padding: 10px 9px 30px;
+}
+
+.implementation-tree.workspace .implementation-step-children {
+  margin-left: 20px;
+  padding-left: 11px;
+}
+
+.implementation-tree.workspace .implementation-step {
+  grid-template-columns: 15px 25px minmax(0, 1fr) auto;
+  gap: 7px;
+  min-height: 38px;
+  padding: 5px 7px;
+  border-radius: 7px;
+}
+
+.implementation-tree.workspace .implementation-kind {
+  width: 23px;
+  height: 23px;
+  border-radius: 6px;
+}
+
+.implementation-tree.workspace .implementation-step-title {
+  font-size: 11px;
+}
+
+.implementation-tree.workspace .implementation-step-kind {
+  padding-right: 4px;
+  font-size: 7px;
+}
+
+.implementation-tree.workspace .implementation-step-detail {
+  position: static;
+  max-height: none;
+  overflow: auto;
+  padding: 28px 30px;
+  border: 0;
+  border-radius: 0;
+  background: radial-gradient(circle at 15% 0, rgba(201, 255, 99, .045), transparent 36%);
+  box-shadow: none;
+}
+
+.implementation-tree.workspace .implementation-detail-heading {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.implementation-tree.workspace .implementation-detail-heading span {
+  width: max-content;
+  padding: 3px 6px;
+  border: 1px solid #455332;
+  border-radius: 5px;
+  color: #9cbb69;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.implementation-tree.workspace .implementation-detail-heading strong {
+  color: #e7eae6;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.implementation-tree.workspace .implementation-step-detail p {
+  display: block;
+  margin-bottom: 18px;
+  color: #9ba3ac;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.implementation-tree.workspace .implementation-io {
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.implementation-tree.workspace .implementation-io span {
+  padding: 4px 7px;
+  font-size: 8px;
+}
+
+.implementation-tree.workspace .implementation-step-detail > button {
+  margin-top: 12px;
+  padding: 8px 9px;
+  border: 1px solid #2d353d;
+  border-radius: 6px;
+  background: #12171c;
+  font-size: 8px;
+}
+
+.plate-implementation-launch {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 8px 9px;
+  border: 1px solid #3d4b2b;
+  border-radius: 7px;
+  color: #a8c677;
+  background: #171d12;
+  cursor: pointer;
+  font-size: 8px;
+}
+
+.plate-implementation-launch span {
+  color: #657052;
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.flow-node.implementation-open .node-compact-pill {
+  border-color: #759244;
+  box-shadow: 0 0 0 1px #9bc64a2e, 0 8px 26px #0008;
+}
+
+@keyframes implementation-layer-in {
+  from { opacity: 0; }
+}
+
+@keyframes implementation-workspace-in {
+  from { transform: translateY(10px) scale(.985); opacity: 0; }
+}
+
+@media (max-width: 1050px) {
+  .implementation-workspace-layer { padding: 72px 28px 58px; }
+  .implementation-tree.workspace .implementation-tree-body { grid-template-columns: minmax(240px, .9fr) minmax(260px, 1.1fr); }
 }
 
 /* Plate Code Block */

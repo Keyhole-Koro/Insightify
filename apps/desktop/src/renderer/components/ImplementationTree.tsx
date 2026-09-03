@@ -19,6 +19,7 @@ import { copyToClipboard } from "../lib/clipboard.js";
 interface ImplementationTreeProps {
   outline: ImplementationOutline;
   compact?: boolean;
+  workspace?: boolean;
 }
 
 type TreeItem = ImplementationStep | ImplementationLeaf;
@@ -43,7 +44,11 @@ function childrenOf(item: TreeItem): ImplementationLeaf[] {
   return "children" in item ? item.children ?? [] : [];
 }
 
-export function ImplementationTree({ outline, compact = false }: ImplementationTreeProps) {
+export function ImplementationTree({
+  outline,
+  compact = false,
+  workspace = false,
+}: ImplementationTreeProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [selectedId, setSelectedId] = useState<string>(() => outline.steps[0]?.id ?? "");
   const [copiedSource, setCopiedSource] = useState<string | null>(null);
@@ -114,7 +119,7 @@ export function ImplementationTree({ outline, compact = false }: ImplementationT
 
   return (
     <div
-      className={`implementation-tree${compact ? " compact" : ""}`}
+      className={`implementation-tree${compact ? " compact" : ""}${workspace ? " workspace" : ""}`}
       data-vqa="implementation-tree"
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -140,6 +145,10 @@ export function ImplementationTree({ outline, compact = false }: ImplementationT
         </div>
         {selected && (
           <div className="implementation-step-detail" data-vqa="implementation-step-detail">
+            <div className="implementation-detail-heading">
+              <span>{selected.kind}</span>
+              <strong>{selected.title}</strong>
+            </div>
             <p>{selected.summary}</p>
             {(selected.inputs?.length || selected.outputs?.length) && (
               <div className="implementation-io">

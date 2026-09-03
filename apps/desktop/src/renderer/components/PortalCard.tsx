@@ -4,7 +4,6 @@ import type { SemanticLevel } from "../semantic-zoom.js";
 import { copyToClipboard } from "../lib/clipboard.js";
 import { NodeIcon } from "./NodeIcon.js";
 import { PortalFold } from "./PortalFold.js";
-import { ImplementationTree } from "./ImplementationTree.js";
 
 interface PortalCardProps {
   node: FlowNode & { x: number; y: number };
@@ -13,6 +12,7 @@ interface PortalCardProps {
   selected: boolean;
   isExpanded?: boolean;
   isScopeExpanded?: boolean;
+  implementationOpen?: boolean;
   isNestedChild?: boolean;
   isLeavingScope?: boolean;
   showAvatar?: boolean;
@@ -22,6 +22,7 @@ interface PortalCardProps {
   onEnter: () => void;
   onEdit: () => void;
   onAskAi?: () => void;
+  onOpenImplementation?: () => void;
   onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -34,6 +35,7 @@ export function PortalCard({
   selected,
   isExpanded = false,
   isScopeExpanded = false,
+  implementationOpen = false,
   isNestedChild = false,
   isLeavingScope = false,
   showAvatar = true,
@@ -43,12 +45,13 @@ export function PortalCard({
   onEnter,
   onEdit,
   onAskAi,
+  onOpenImplementation,
   onPointerDown,
   onPointerMove,
   onPointerUp,
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0 || isRoom(node);
-  const showsImplementationTree = lod === "implementation" && Boolean(node.implementation);
+  const hasImplementationWorkspace = lod === "implementation" && Boolean(node.implementation);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -91,7 +94,7 @@ export function PortalCard({
         isScopeExpanded ? " is-scope-expanded" : ""
       }${isNestedChild ? " is-nested-child" : ""}${!showAvatar ? " no-avatar" : ""}${
         isLeavingScope ? " is-leaving-scope" : ""
-      }${httpMethod ? ` method-${httpMethod.toLowerCase()}` : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
+      }${implementationOpen ? " implementation-open" : ""}${httpMethod ? ` method-${httpMethod.toLowerCase()}` : ""}${tech ? ` tech-${tech.toLowerCase()}` : ""}`}
       role="button"
       data-vqa="flow-node"
       data-vqa-node-id={node.id}
@@ -177,15 +180,27 @@ export function PortalCard({
             the title. */}
         <span
           className="compact-toggle-icon"
-          data-vqa-action={isPortal ? "toggle-room-inline" : "toggle-detail"}
+          data-vqa-action={
+            isPortal
+              ? "toggle-room-inline"
+              : hasImplementationWorkspace
+                ? "toggle-implementation-workspace"
+                : "toggle-detail"
+          }
           data-vqa-node-id={node.id}
           title={
             isPortal
               ? isScopeExpanded ? "内部ノードを折りたたむ" : "内部ノードを展開"
-              : isExpanded ? "詳細を閉じる" : "詳細を開く"
+              : hasImplementationWorkspace
+                ? implementationOpen ? "実装ワークスペースを閉じる" : "実装ワークスペースを開く"
+                : isExpanded ? "詳細を閉じる" : "詳細を開く"
           }
         >
-          {isPortal ? (isScopeExpanded ? "⊟" : "⊞") : isExpanded ? "▴" : "▾"}
+          {isPortal
+            ? (isScopeExpanded ? "⊟" : "⊞")
+            : hasImplementationWorkspace
+              ? (implementationOpen ? "×" : "↗")
+              : isExpanded ? "▴" : "▾"}
         </span>
       </div>
 
@@ -196,7 +211,7 @@ export function PortalCard({
               and the title, and repeating them was most of the plate's height. */}
 
           {/* Tags */}
-          {!showsImplementationTree && node.tags && node.tags.length > 0 && (
+          {node.tags && node.tags.length > 0 && (
             <div className="plate-tags">
               {node.tags.map((tag) => (
                 <span key={tag} className="portal-tag">
@@ -207,7 +222,7 @@ export function PortalCard({
           )}
 
           {/* Summary */}
-          {!showsImplementationTree && <p className="plate-summary">{node.summary}</p>}
+          <p className="plate-summary">{node.summary}</p>
 
           {/* Code, evidence and the miniature are what the implementation level
               exists for. Below it they are unreadable at this width anyway, and
@@ -215,7 +230,18 @@ export function PortalCard({
               panel carries them at any zoom. */}
           {lod === "implementation" && (
             node.implementation ? (
-              <ImplementationTree compact outline={node.implementation} />
+              <button
+                className="plate-implementation-launch"
+                data-vqa-action="open-implementation-workspace"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenImplementation?.();
+                }}
+                type="button"
+              >
+                <span>Implementation lens</span>
+                Open on canvas <b>↗</b>
+              </button>
             ) : (
               <>
                 {node.codeSnippet && (
