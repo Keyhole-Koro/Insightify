@@ -93,7 +93,7 @@ export function PortalCard({
 
   // What the layout has been told this card occupies. Declared on the element
   // so `visual:qa` can check it against what is actually painted.
-  const extent = nodeExtent({ nested: isNestedChild, expanded: isExpanded, lod });
+  const extent = nodeExtent({ nested: isNestedChild, expanded: isExpanded });
 
   return (
     <article

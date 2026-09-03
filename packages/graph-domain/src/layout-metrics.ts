@@ -35,6 +35,19 @@ export const PORTAL_PLATE_HEIGHT: Record<SemanticLevel, number> = {
   implementation: 210,
 };
 
+/**
+ * An open plate always reserves the tallest it could be, not the height it
+ * happens to have right now.
+ *
+ * The level a card is drawn at follows how large the stage ends up, the stage
+ * follows where everything was placed, and placement follows how much room each
+ * node needs — so letting the level decide that last figure closes the loop.
+ * Reserving the maximum breaks it. The cost is bounded: while a plate is open
+ * below the implementation level, its neighbours are pushed about a hundred
+ * pixels further than strictly necessary. Under-reserving costs an overlap.
+ */
+const RESERVED_PLATE_HEIGHT = Math.max(...Object.values(PORTAL_PLATE_HEIGHT));
+
 /** The compact pill drawn for a node inside an unfolded Room. */
 export const NESTED_CARD_WIDTH = 132;
 export const NESTED_CARD_HEIGHT = 26;
@@ -55,6 +68,13 @@ export const ROOM_FRAME_PADDING = 12;
 export const MAX_ROOM_FRAME_SHARE = 0.55;
 
 /**
+ * How much larger than its own size a stage may be drawn. The stage is fitted
+ * to its contents, so without a ceiling a two-node graph would fill the canvas
+ * with two enormous cards.
+ */
+export const MAX_STAGE_SCALE = 1.8;
+
+/**
  * How much room a node occupies, in pixels, and where that room sits relative to
  * the node's coordinate. The coordinate is the centre of the *card*, and the
  * plate opens below it, so an expanded node's box is not centred on its own
@@ -67,18 +87,14 @@ export type NodeExtent = { width: number; height: number; offsetY: number };
  * — the stage, the reflow that keeps siblings apart, the frame of an unfolded
  * Room — asks here, so none of them can be working from a different figure.
  */
-export function nodeExtent(state: {
-  nested?: boolean;
-  expanded?: boolean;
-  lod?: SemanticLevel;
-}): NodeExtent {
+export function nodeExtent(state: { nested?: boolean; expanded?: boolean }): NodeExtent {
   if (state.nested) {
     return { width: NESTED_CARD_WIDTH, height: NESTED_CARD_HEIGHT, offsetY: 0 };
   }
   if (!state.expanded) {
     return { width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT, offsetY: 0 };
   }
-  const plate = PORTAL_PLATE_GAP + PORTAL_PLATE_HEIGHT[state.lod ?? "flow"];
+  const plate = PORTAL_PLATE_GAP + RESERVED_PLATE_HEIGHT;
   return {
     width: PORTAL_PLATE_WIDTH,
     height: PORTAL_CARD_HEIGHT + plate,
@@ -93,13 +109,9 @@ export type RoomFrameMetrics = {
   stageHeight: number;
 };
 
-/**
- * The stage, plus the view state that changes how large a node is. The layout
- * needs both: which plates are open, and at which level they are drawn.
- */
+/** The stage, plus the view state that changes how large a node is. */
 export type LayoutView = RoomFrameMetrics & {
   expandedNodeIds?: Set<string>;
-  lod?: SemanticLevel;
 };
 
 /**

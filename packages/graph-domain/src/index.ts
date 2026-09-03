@@ -1089,6 +1089,86 @@ export function resolveOverlaps(
   );
 }
 
+/**
+ * Removes the empty band around the arrangement.
+ *
+ * The stage is sized so the tightest pair of cards clears itself, but the
+ * layout only ever uses a strip of the coordinate space, so the rest of the
+ * stage is empty and the canvas is mostly margin — measured at three tenths of
+ * its height on the preview fixture.
+ *
+ * Nothing here changes how far apart anything is. The content's pixel bounding
+ * box becomes the stage, and every coordinate is re-expressed against it, which
+ * is a single affine remap: distances in pixels are exactly what they were, and
+ * no overlap can appear. What changes is that the stage is smaller, so it is
+ * drawn larger. It is also what makes closing something reclaim its space —
+ * fewer or smaller boxes, a smaller box around them, a bigger picture.
+ */
+export function fitStageToContent(
+  nodes: PositionedFlowNode[],
+  frames: ExpandedRoomFrame[],
+  extentOf: (node: PositionedFlowNode) => NodeExtent,
+  stage: RoomFrameMetrics,
+  marginPixels: number
+): {
+  stage: { width: number; height: number };
+  nodes: PositionedFlowNode[];
+  frames: ExpandedRoomFrame[];
+} {
+  const spans: Array<{ left: number; top: number; right: number; bottom: number }> = [];
+  for (const node of nodes) {
+    const extent = extentOf(node);
+    const centreX = (node.x / 100) * stage.stageWidth;
+    const centreY = (node.y / 100) * stage.stageHeight + extent.offsetY;
+    spans.push({
+      left: centreX - extent.width / 2,
+      right: centreX + extent.width / 2,
+      top: centreY - extent.height / 2,
+      bottom: centreY + extent.height / 2,
+    });
+  }
+  for (const frame of frames) {
+    spans.push({
+      left: (frame.bounds.x / 100) * stage.stageWidth,
+      top: (frame.bounds.y / 100) * stage.stageHeight,
+      right: ((frame.bounds.x + frame.bounds.width) / 100) * stage.stageWidth,
+      bottom: ((frame.bounds.y + frame.bounds.height) / 100) * stage.stageHeight,
+    });
+  }
+  if (spans.length === 0) return { stage: { width: stage.stageWidth, height: stage.stageHeight }, nodes, frames };
+
+  const left = Math.min(...spans.map((span) => span.left)) - marginPixels;
+  const top = Math.min(...spans.map((span) => span.top)) - marginPixels;
+  const width = Math.max(...spans.map((span) => span.right)) + marginPixels - left;
+  const height = Math.max(...spans.map((span) => span.bottom)) + marginPixels - top;
+  if (width <= 0 || height <= 0) {
+    return { stage: { width: stage.stageWidth, height: stage.stageHeight }, nodes, frames };
+  }
+
+  const remapX = (percent: number) =>
+    +((((percent / 100) * stage.stageWidth - left) / width) * 100).toFixed(2);
+  const remapY = (percent: number) =>
+    +((((percent / 100) * stage.stageHeight - top) / height) * 100).toFixed(2);
+  const scaleX = (percent: number) => +((percent / 100) * stage.stageWidth / width * 100).toFixed(2);
+  const scaleY = (percent: number) => +((percent / 100) * stage.stageHeight / height * 100).toFixed(2);
+  const remapBounds = (bounds: LayoutBounds): LayoutBounds => ({
+    x: remapX(bounds.x),
+    y: remapY(bounds.y),
+    width: scaleX(bounds.width),
+    height: scaleY(bounds.height),
+  });
+
+  return {
+    stage: { width, height },
+    nodes: nodes.map((node) => ({ ...node, x: remapX(node.x), y: remapY(node.y) })),
+    frames: frames.map((frame) => ({
+      ...frame,
+      bounds: remapBounds(frame.bounds),
+      contentBounds: remapBounds(frame.contentBounds),
+    })),
+  };
+}
+
 export function layoutFlowNodesWithExpandedScopes(
   visibleNodes: FlowNode[],
   scopeId: string | null = null,
@@ -1131,10 +1211,7 @@ export function layoutFlowNodesWithExpandedScopes(
         .map((node) => ({
           id: node.id,
           ...basePositionMap.get(node.id)!,
-          extent: nodeExtent({
-            expanded: view?.expandedNodeIds?.has(node.id),
-            lod: view?.lod,
-          }),
+          extent: nodeExtent({ expanded: view?.expandedNodeIds?.has(node.id) }),
         })),
     ],
     anchors,

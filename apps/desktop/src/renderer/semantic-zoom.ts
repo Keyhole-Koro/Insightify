@@ -2,6 +2,7 @@
 // the card is. The level follows the projected width of a Portal, so zooming
 // out replaces detail with structure instead of shrinking unreadable text.
 import {
+  MAX_STAGE_SCALE,
   PORTAL_CARD_HEIGHT,
   PORTAL_CARD_WIDTH,
   stagePixelsForRoom,
@@ -45,6 +46,19 @@ type StageFrame = RoomGridShape;
 // layoutFlowNodes keeps the outermost column at 15% of the stage, so the stage
 // must be wide enough for half a card to fit inside that margin.
 const MINIMUM_STAGE_WIDTH = PORTAL_CARD_WIDTH / 0.3;
+
+/**
+ * How much a stage of this size has to be shrunk, or may be grown, to sit in
+ * the canvas. A Room that needs less space than the canvas is shown larger, so
+ * a short flow gains detail instead of leaving the canvas empty.
+ */
+export function stageScale(
+  stage: { width: number; height: number },
+  frame: { width: number; height: number }
+): number {
+  const inner = { width: Math.max(320, frame.width - 96), height: Math.max(240, frame.height - 96) };
+  return Math.min(MAX_STAGE_SCALE, Math.max(0.3, Math.min(inner.width / stage.width, inner.height / stage.height)));
+}
 
 export function stageMetrics(
   nodes: StageNode[],
@@ -90,8 +104,5 @@ export function stageMetrics(
     height = Math.max(height, required.height);
   }
 
-  // A Room that needs less space than the frame is shown larger, so a short
-  // flow gains detail instead of leaving the canvas empty.
-  const scale = Math.min(1.35, Math.max(0.3, Math.min(inner.width / width, inner.height / height)));
-  return { width, height, scale };
+  return { width, height, scale: stageScale({ width, height }, frame) };
 }

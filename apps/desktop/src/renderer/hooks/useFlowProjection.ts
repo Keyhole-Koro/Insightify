@@ -6,6 +6,7 @@ import {
   getExpandedRoomShapes,
   getScopeBasePositions,
   getNodeAreaIdsForScope,
+  fitStageToContent,
   layoutFlowNodesWithExpandedScopes,
   nodeExtent,
   projectFlowWithExpandedScopes,
@@ -14,7 +15,7 @@ import {
   type FlowNode,
   type GeneratedFlowGraph,
 } from "@insightify/graph-domain";
-import { semanticLevelForZoom, stageMetrics } from "../semantic-zoom.js";
+import { semanticLevelForZoom, stageMetrics, stageScale } from "../semantic-zoom.js";
 import {
   buildScopePath,
   bundleEdgesByVisualArea,
@@ -30,6 +31,8 @@ import {
 // derived — nothing in this hook is stored, and nothing calls out to the bridge.
 
 const emptyNodes: FlowNode[] = [];
+// Breathing room between the outermost card and the edge of the canvas.
+const STAGE_MARGIN = 36;
 
 type FlowProjectionInput = {
   graph: GeneratedFlowGraph | null;
@@ -123,17 +126,12 @@ export function useFlowProjection(input: FlowProjectionInput) {
     [visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules, frame, renderedExpandedScopeIds, roomShapes]
   );
 
-  // The level a card is drawn at follows the stage's scale, and it decides how
-  // large an open plate is, so it has to be known before anything is placed.
-  const stageZoom = zoom * stage.scale;
-  const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
-
   const layoutView = useMemo(
-    () => ({ stageWidth: stage.width, stageHeight: stage.height, expandedNodeIds, lod }),
-    [stage.width, stage.height, expandedNodeIds, lod]
+    () => ({ stageWidth: stage.width, stageHeight: stage.height, expandedNodeIds }),
+    [stage.width, stage.height, expandedNodeIds]
   );
 
-  const positionedNodes = useMemo(
+  const placedNodes = useMemo(
     () =>
       layoutFlowNodesWithExpandedScopes(
         visibleNodes,
@@ -147,7 +145,7 @@ export function useFlowProjection(input: FlowProjectionInput) {
     [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, layoutView]
   );
 
-  const roomFrames = useMemo(
+  const placedFrames = useMemo(
     () =>
       getExpandedRoomFrames(
         visibleNodes,
@@ -160,6 +158,35 @@ export function useFlowProjection(input: FlowProjectionInput) {
       ),
     [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, layoutView]
   );
+
+  // Everything is placed; now throw away the empty band around it. Distances in
+  // pixels do not change, so this can only make the same picture larger.
+  const fitted = useMemo(
+    () =>
+      fitStageToContent(
+        placedNodes,
+        placedFrames,
+        (node) =>
+          nodeExtent({
+            nested: node.parentId !== activeScopeId,
+            expanded: expandedNodeIds.has(node.id),
+          }),
+        { stageWidth: stage.width, stageHeight: stage.height },
+        STAGE_MARGIN
+      ),
+    [placedNodes, placedFrames, activeScopeId, expandedNodeIds, stage.width, stage.height]
+  );
+  const positionedNodes = fitted.nodes;
+  const roomFrames = fitted.frames;
+  // Everything below reads the stage the canvas actually draws, which is the
+  // fitted one. The level a card is drawn at follows from it, and no longer
+  // feeds back into the placement that produced it.
+  const fittedStage = useMemo(
+    () => ({ ...fitted.stage, scale: stageScale(fitted.stage, frame) }),
+    [fitted.stage, frame]
+  );
+  const stageZoom = zoom * fittedStage.scale;
+  const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);
   // Areas describe how this scope arranges its own nodes. Feeding the children
   // of an unfolded Room into that calculation moved and stretched the areas of
   // the scope above them, which own neither those nodes nor that space.
@@ -216,8 +243,8 @@ export function useFlowProjection(input: FlowProjectionInput) {
   const hoveredEdge = visualEdges.find((edge) => edge.key === hoveredEdgeKey) ?? null;
 
   const projected = useMemo(
-    () => frameProjection(stage.width, stage.height, stageZoom, frame),
-    [stage, stageZoom, frame]
+    () => frameProjection(fittedStage.width, fittedStage.height, stageZoom, frame),
+    [fittedStage, stageZoom, frame]
   );
   const portRail = useMemo(
     () => layoutBoundaryRail(boundaryPorts, positionedNodes, projected),
@@ -241,7 +268,7 @@ export function useFlowProjection(input: FlowProjectionInput) {
     positionedNodes,
     positions,
     roomFrames,
-    stage,
+    stage: fittedStage,
     stageZoom,
     lod,
     debugAreas,
