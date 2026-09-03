@@ -114,16 +114,21 @@ export function useFlowProjection(input: FlowProjectionInput) {
   // Only this scope's own cards set the stage size, and at their pre-reflow
   // positions: reflow exists to fit cards into the stage, so letting it grow
   // the stage would chase its own tail.
+  const basePositions = useMemo(
+    () => getScopeBasePositions(visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules),
+    [visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules]
+  );
+
   const stage = useMemo(
     () =>
       stageMetrics(
-        getScopeBasePositions(visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules)
+        basePositions
           .filter((node) => !renderedExpandedScopeIds.has(node.id))
           .map((node) => ({ ...node, ...nodeExtent({}) })),
         frame,
         roomShapes
       ),
-    [visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules, frame, renderedExpandedScopeIds, roomShapes]
+    [basePositions, frame, renderedExpandedScopeIds, roomShapes]
   );
 
   const layoutView = useMemo(
@@ -166,15 +171,15 @@ export function useFlowProjection(input: FlowProjectionInput) {
       fitStageToContent(
         placedNodes,
         placedFrames,
-        (node) =>
-          nodeExtent({
-            nested: node.parentId !== activeScopeId,
-            expanded: expandedNodeIds.has(node.id),
-          }),
+        // The box that decides the stage ignores an open plate. A plate is
+        // transient — it should push its neighbours aside, not resize and
+        // recentre the whole canvas under the card that was just clicked.
+        (node) => nodeExtent({ nested: node.parentId !== activeScopeId }),
         { stageWidth: stage.width, stageHeight: stage.height },
-        STAGE_MARGIN
+        STAGE_MARGIN,
+        basePositions.filter((node) => !renderedExpandedScopeIds.has(node.id))
       ),
-    [placedNodes, placedFrames, activeScopeId, expandedNodeIds, stage.width, stage.height]
+    [placedNodes, placedFrames, activeScopeId, basePositions, renderedExpandedScopeIds, stage.width, stage.height]
   );
   const positionedNodes = fitted.nodes;
   const roomFrames = fitted.frames;

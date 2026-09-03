@@ -63,9 +63,15 @@ function warningKey(warning) {
 async function compareWithBaseline(runDir, scenarioDocument) {
   const baselinePath = path.join(desktopRoot, "visual-qa", "baselines", `${scenarioDocument.id}.json`);
   const report = JSON.parse(await readFile(path.join(runDir, "report.json"), "utf8"));
-  const current = Object.fromEntries(
-    report.checkpoints.map((checkpoint) => [checkpoint.name, checkpoint.metrics.warnings])
-  );
+  const current = Object.fromEntries([
+    ...report.checkpoints.map((checkpoint) => [checkpoint.name, checkpoint.metrics.warnings]),
+    // How the canvas behaves between two states is as much a regression surface
+    // as how it looks in either of them.
+    ...(report.transitions ?? []).map((transition) => [
+      `${transition.from} → ${transition.to}`,
+      transition.warnings,
+    ]),
+  ]);
 
   if (process.argv.includes("--update-baseline")) {
     await mkdir(path.dirname(baselinePath), { recursive: true });

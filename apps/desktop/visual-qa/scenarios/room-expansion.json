@@ -9,7 +9,9 @@
   "initialWait": 900,
   "thresholds": {
     "minimumFrameOccupancy": 0.45,
-    "maximumGapRatio": 1.5
+    "maximumGapRatio": 1.5,
+    "maximumZoomChange": 0.1,
+    "maximumMedianTravel": 120
   },
   "measurements": [
     {
@@ -49,7 +51,11 @@
       },
       "waitFor": "[data-vqa=\"room-frame\"]",
       "wait": 700,
-      "screenshot": true
+      "screenshot": true,
+      "motion": {
+        "samples": 24,
+        "intervalMs": 15
+      }
     },
     {
       "name": "detail-postgres",
@@ -60,7 +66,11 @@
       },
       "waitFor": "[data-vqa=\"detail-plate\"]",
       "wait": 500,
-      "screenshot": true
+      "screenshot": true,
+      "motion": {
+        "samples": 24,
+        "intervalMs": 15
+      }
     },
     {
       "name": "detail-flow-lod",
@@ -69,7 +79,11 @@
         "expression": "(() => { const b = document.querySelector('button[aria-label=\"\u7e2e\u5c0f\"]'); if (!b) throw new Error('zoom-out button not found'); b.click(); b.click(); return { clicked: 'zoom out x2' }; })()"
       },
       "wait": 700,
-      "screenshot": true
+      "screenshot": true,
+      "thresholds": {
+        "maximumZoomChange": 1,
+        "maximumMedianTravel": 400
+      }
     }
   ]
 }

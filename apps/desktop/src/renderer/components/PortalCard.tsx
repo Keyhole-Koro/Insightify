@@ -159,6 +159,7 @@ export function PortalCard({
           plate moved under the cursor of the user who had just clicked it. */}
       <div
         className="node-compact-pill"
+        data-vqa-node-id={node.id}
         onClick={handleToggle}
         title={isExpanded ? "クリックで詳細を閉じる" : "クリックで詳細を展開"}
       >

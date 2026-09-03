@@ -47,3 +47,27 @@ bun run visual:qa -- --update-baseline     # accept the current warnings
 
 Update the baseline deliberately, in the same commit as the change that altered
 it, so the diff records which warnings were accepted and why.
+
+## Transitions and motion
+
+A settled screenshot says the canvas is correct. It does not say what the user
+went through to get there, which is the part that decides whether an
+interaction feels calm or violent. Two things are recorded for that.
+
+**Transitions** compare each checkpoint with the one before it and answer three
+separate questions: did the stage rescale (every card resizes, and the whole
+picture jumps), how many nodes moved and how far (the canvas rearranges), and
+did the node that was acted on stay put (it is what the user is looking at).
+Movement is measured on the card, not on everything hanging off it — a plate
+opening is not the card moving. A step that is *supposed* to rescale, such as
+one that zooms, declares its own `thresholds` and is judged against those.
+
+**Motion** samples geometry during a step with `motion: { samples, intervalMs }`
+and reports how long anything was still moving, and whether anything travelled
+past where it ended up and came back. Screenshots are deliberately not used for
+this: a `capturePage` costs 200-300ms, longer than the transition it would be
+trying to photograph. Ask for `filmstrip: { frames }` separately when the
+picture matters more than the timing.
+
+Both feed the baseline, so a change that makes an interaction jumpier fails the
+same way a change that makes the canvas overlap does.

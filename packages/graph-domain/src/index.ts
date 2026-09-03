@@ -1057,7 +1057,17 @@ export function resolveOverlaps(
 
         const useX = penetrationX <= penetrationY;
         const push = useX ? penetrationX : penetrationY;
-        const direction = (useX ? deltaX : deltaY) >= 0 ? 1 : -1;
+        // Which side to push towards comes from the coordinates, not from the
+        // boxes. A plate makes its node's box reach far below the card, and a
+        // neighbour that was underneath can end up above the middle of that
+        // box — pushing along the boxes then flings it over to the other side
+        // of the node it was below. The coordinates never move, so the
+        // arrangement keeps the order the layout gave it.
+        const orderX = right.x - left.x;
+        const orderY = right.y - left.y;
+        const order = useX ? orderX : orderY;
+        const fallback = useX ? deltaX : deltaY;
+        const direction = (order !== 0 ? order : fallback) >= 0 ? 1 : -1;
         const leftShare = leftLocked ? 0 : rightLocked ? 1 : 0.5;
         if (useX) {
           leftPosition.x -= direction * push * leftShare;
@@ -1109,14 +1119,21 @@ export function fitStageToContent(
   frames: ExpandedRoomFrame[],
   extentOf: (node: PositionedFlowNode) => NodeExtent,
   stage: RoomFrameMetrics,
-  marginPixels: number
+  marginPixels: number,
+  /**
+   * What decides the box, if not the nodes being remapped. The arrangement is
+   * what the stage is fitted to — where the layout put things — and not the
+   * transient displacement an open plate causes around itself. Otherwise
+   * opening one node rescales and recentres the whole canvas beneath it.
+   */
+  bounds: PositionedFlowNode[] = nodes
 ): {
   stage: { width: number; height: number };
   nodes: PositionedFlowNode[];
   frames: ExpandedRoomFrame[];
 } {
   const spans: Array<{ left: number; top: number; right: number; bottom: number }> = [];
-  for (const node of nodes) {
+  for (const node of bounds) {
     const extent = extentOf(node);
     const centreX = (node.x / 100) * stage.stageWidth;
     const centreY = (node.y / 100) * stage.stageHeight + extent.offsetY;

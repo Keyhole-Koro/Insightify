@@ -71,6 +71,28 @@ async function waitForSelector(webContents, selector, timeout = 8_000) {
   throw new Error(`Timed out waiting for selector: ${selector}`);
 }
 
+// Serialized into the renderer like collectPageReport, and deliberately small:
+// it runs several times inside a 200ms transition.
+function sampleMotion() {
+  const stage = document.querySelector('[data-vqa="graph-stage"]');
+  const centres = {};
+  for (const element of document.querySelectorAll('[data-vqa="flow-node"]')) {
+    const box = element.getBoundingClientRect();
+    if (box.width === 0) continue;
+    const pill = element.querySelector(":scope > .node-compact-pill");
+    const card = pill ? pill.getBoundingClientRect() : box;
+    centres[element.dataset.vqaNodeId] = [
+      Math.round(card.x + card.width / 2),
+      Math.round(card.y + card.height / 2),
+    ];
+  }
+  return {
+    at: Math.round(performance.now()),
+    stageZoom: stage ? Number(getComputedStyle(stage).getPropertyValue("--stage-zoom")) : null,
+    centres,
+  };
+}
+
 // This function is serialized and evaluated in the renderer. Keep it free of
 // references to the Electron/Node closure above.
 function collectPageReport(measurements, thresholds) {
@@ -146,6 +168,13 @@ function collectPageReport(measurements, thresholds) {
       nested: element.dataset.vqaNested === "true",
       expanded: element.dataset.vqaExpanded === "true",
       box: union(regions) ?? rect(element),
+      // The card, as distinct from everything hanging off it. "Did the thing I
+      // clicked move" is a question about the card: the union box moves by the
+      // height of a plate simply because the plate opened.
+      card: (() => {
+        const pill = element.querySelector(":scope > .node-compact-pill");
+        return pill && visible(pill) ? rect(pill) : (union(regions) ?? rect(element));
+      })(),
       regions: regions.length > 0 ? regions : [rect(element)],
       declaredExtent: declared.length === 2 && declared.every(Number.isFinite)
         ? { width: declared[0], height: declared[1] }
@@ -290,6 +319,117 @@ function collectPageReport(measurements, thresholds) {
   };
 }
 
+/**
+ * What changed between one checkpoint and the next.
+ *
+ * A settled screenshot says the canvas is correct; it does not say what the
+ * user went through to get there. Opening one node should move that node not at
+ * all, its neighbours a little, and the rest of the canvas not much — and the
+ * three are separate questions, so they are measured separately.
+ */
+/**
+ * Turns a burst of samples into the two things worth knowing about a movement:
+ * how long anything was still moving, and whether anything went past where it
+ * ended up and came back. Overshoot is what a transition feels like when it is
+ * wrong; duration is what it feels like when it is slow.
+ */
+function summariseMotion(samples) {
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  const ids = Object.keys(last.centres).filter((id) => first.centres[id]);
+  let settledAt = 0;
+  let overshoot = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    for (const id of ids) {
+      const here = samples[index].centres[id];
+      const end = last.centres[id];
+      const start = first.centres[id];
+      const remaining = Math.hypot(here[0] - end[0], here[1] - end[1]);
+      if (remaining > 1) settledAt = Math.max(settledAt, samples[index].at - first.at);
+      // Past the finish line, measured along the direction it travelled.
+      const travelX = end[0] - start[0];
+      const travelY = end[1] - start[1];
+      const length = Math.hypot(travelX, travelY);
+      if (length < 2) continue;
+      const progress = ((here[0] - start[0]) * travelX + (here[1] - start[1]) * travelY) / (length * length);
+      if (progress > 1) overshoot = Math.max(overshoot, Math.round((progress - 1) * length));
+    }
+  }
+  return {
+    samples: samples.length,
+    spanMs: last.at - first.at,
+    settledAfterMs: settledAt,
+    overshootPixels: overshoot,
+    zoomFrom: first.stageZoom,
+    zoomTo: last.stageZoom,
+  };
+}
+
+function describeTransitions(report, thresholds, steps) {
+  const transitions = [];
+  for (let index = 1; index < report.checkpoints.length; index += 1) {
+    const before = report.checkpoints[index - 1];
+    const after = report.checkpoints[index];
+    // A step that zooms is supposed to resize every card, so it says so and is
+    // measured against its own limits rather than the scenario's.
+    const limits = {
+      maximumZoomChange: 0.1,
+      maximumMedianTravel: 120,
+      ...(thresholds ?? {}),
+      ...((steps ?? []).find((step) => step.name === after.name)?.thresholds ?? {}),
+    };
+    // Cards, not boxes: a plate opening is not the card moving.
+    const previous = new Map(before.metrics.nodes.map((node) => [node.id, node.card ?? node.box]));
+    const travels = [];
+    for (const node of after.metrics.nodes) {
+      const was = previous.get(node.id);
+      if (!was) continue;
+      const now = node.card ?? node.box;
+      const dx = (now.x + now.width / 2) - (was.x + was.width / 2);
+      const dy = (now.y + now.height / 2) - (was.y + was.height / 2);
+      travels.push({ id: node.id, distance: Math.round(Math.hypot(dx, dy)) });
+    }
+    travels.sort((left, right) => right.distance - left.distance);
+    const moved = travels.filter((item) => item.distance > 1);
+    const middle = moved.length > 0 ? moved[Math.floor(moved.length / 2)].distance : 0;
+    const zoomBefore = Number(before.metrics.stageZoom) || 0;
+    const zoomAfter = Number(after.metrics.stageZoom) || 0;
+    const zoomChange = zoomBefore > 0 ? (zoomAfter - zoomBefore) / zoomBefore : 0;
+    // The node the step acted on is the one the user is looking at.
+    const actedOn = after.actionResult && after.actionResult.clicked;
+    const anchorTravel = actedOn
+      ? (travels.find((item) => item.id === actedOn) || { distance: 0 }).distance
+      : null;
+
+    const warnings = [];
+    if (Math.abs(zoomChange) > limits.maximumZoomChange) {
+      warnings.push(`stage zoom changed ${Math.round(zoomChange * 100)}% — every card resizes`);
+    }
+    if (middle > limits.maximumMedianTravel) {
+      warnings.push(`${moved.length} nodes moved, median ${middle}px — the canvas rearranges`);
+    }
+    // A couple of pixels are expected: a node released from the stage clamp when
+    // it becomes an anchor settles a hair away from where it was held.
+    if (anchorTravel !== null && anchorTravel > 4) {
+      warnings.push(`${actedOn} moved ${anchorTravel}px, but it is what was acted on`);
+    }
+    transitions.push({
+      from: before.name,
+      to: after.name,
+      actedOn: actedOn ?? null,
+      anchorTravel,
+      zoomBefore, zoomAfter,
+      zoomChange: Math.round(zoomChange * 1000) / 1000,
+      movedCount: moved.length,
+      totalCount: travels.length,
+      medianTravel: middle,
+      largestTravels: moved.slice(0, 3),
+      warnings,
+    });
+  }
+  return transitions;
+}
+
 function markdown(report) {
   const lines = [
     `# Visual QA: ${report.scenario.title}`,
@@ -319,6 +459,24 @@ function markdown(report) {
       lines.push("Warnings:", "", ...metrics.warnings.map((warning) => `- ${warning}`), "");
     }
   }
+  if (report.transitions && report.transitions.length > 0) {
+    lines.push("## Transitions", "", "| From → To | Acted on | Zoom | Nodes moved | Median travel |",
+      "|---|---|---:|---:|---:|");
+    for (const transition of report.transitions) {
+      lines.push(
+        `| ${transition.from} → ${transition.to} | ${transition.actedOn ?? "—"}`
+        + ` | ${transition.zoomBefore.toFixed(2)} → ${transition.zoomAfter.toFixed(2)}`
+        + ` (${transition.zoomChange >= 0 ? "+" : ""}${Math.round(transition.zoomChange * 100)}%)`
+        + ` | ${transition.movedCount}/${transition.totalCount} | ${transition.medianTravel}px |`
+      );
+    }
+    lines.push("");
+    const transitionWarnings = report.transitions.flatMap((transition) =>
+      transition.warnings.map((warning) => `${transition.from} → ${transition.to}: ${warning}`));
+    if (transitionWarnings.length > 0) {
+      lines.push("Warnings:", "", ...transitionWarnings.map((warning) => `- ${warning}`), "");
+    }
+  }
   return `${lines.join("\n")}\n`;
 }
 
@@ -331,7 +489,8 @@ app.whenReady().then(async () => {
     show: false,
     webPreferences: { offscreen: true, backgroundThrottling: false },
   });
-  window.webContents.setFrameRate(10);
+  // Fast enough that a 180ms CSS transition produces distinct filmstrip frames.
+  window.webContents.setFrameRate(30);
   const report = {
     schemaVersion: 1,
     scenario: { id: scenario.id, title: scenario.title },
@@ -345,6 +504,37 @@ app.whenReady().then(async () => {
     for (const step of scenario.steps) {
       const script = actionScript(step.action);
       const actionResult = script ? await window.webContents.executeJavaScript(script, true) : null;
+
+      // Where everything is while it is still moving. Geometry only: a
+      // capturePage costs 200-300ms, which is longer than the transition it
+      // would be trying to photograph, so screenshots are asked for separately
+      // and sparingly.
+      const motion = [];
+      if (step.motion) {
+        const samples = step.motion.samples ?? 16;
+        const interval = step.motion.intervalMs ?? 20;
+        for (let index = 0; index < samples; index += 1) {
+          const at = Date.now();
+          motion.push(await window.webContents.executeJavaScript(`(${sampleMotion.toString()})()`, true));
+          const remaining = interval - (Date.now() - at);
+          if (remaining > 0) await sleep(remaining);
+        }
+      }
+
+      const filmstrip = [];
+      if (step.filmstrip) {
+        for (let index = 0; index < (step.filmstrip.frames ?? 3); index += 1) {
+          const image = await window.webContents.capturePage();
+          const file = path.join(
+            outDir,
+            `${String(report.checkpoints.length + 1).padStart(2, "0")}-${step.name}-f${index}.png`
+          );
+          writeFileSync(file, image.toPNG());
+          filmstrip.push({ frame: index, screenshot: file });
+          await sleep(step.filmstrip.intervalMs ?? 0);
+        }
+      }
+
       if (step.waitFor) await waitForSelector(window.webContents, step.waitFor, step.timeout);
       await sleep(step.wait ?? 500);
       const metrics = await window.webContents.executeJavaScript(
@@ -364,10 +554,27 @@ app.whenReady().then(async () => {
           y: Math.round((image.getSize().height / metrics.viewport.height) * 1_000) / 1_000,
         };
       }
-      report.checkpoints.push({ name: step.name, actionResult, screenshot, metrics });
+      report.checkpoints.push({
+        name: step.name,
+        actionResult,
+        screenshot,
+        metrics,
+        ...(motion.length > 0 ? { motion: summariseMotion(motion) } : {}),
+        ...(filmstrip.length > 0 ? { filmstrip } : {}),
+      });
       console.log(
         `VQA ${step.name}: ${metrics.nodes.length} nodes, ${metrics.frames.length} frames, `
         + `${metrics.overlaps.length} overlaps, ${metrics.warnings.length} warnings`
+      );
+    }
+    report.transitions = describeTransitions(report, scenario.thresholds, scenario.steps);
+    for (const transition of report.transitions) {
+      console.log(
+        `VQA ${transition.from} -> ${transition.to}: zoom `
+        + `${transition.zoomBefore.toFixed(2)}->${transition.zoomAfter.toFixed(2)}, `
+        + `${transition.movedCount}/${transition.totalCount} nodes moved, `
+        + `median ${transition.medianTravel}px`
+        + (transition.warnings.length > 0 ? `, ${transition.warnings.length} warnings` : "")
       );
     }
     const jsonPath = path.join(outDir, "report.json");

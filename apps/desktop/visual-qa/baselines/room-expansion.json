@@ -4,6 +4,9 @@
     "root": [],
     "inside-frontend": [],
     "detail-postgres": [],
-    "detail-flow-lod": []
+    "detail-flow-lod": [],
+    "root → inside-frontend": [],
+    "inside-frontend → detail-postgres": [],
+    "detail-postgres → detail-flow-lod": []
   }
 }
