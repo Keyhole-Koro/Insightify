@@ -25,13 +25,16 @@ export function buildAnchoredPrompt(anchor: PromptAnchor, prompt: string): strin
 }
 
 function describeAnchorNode(node: FlowNode): string {
-  return [
+  const description = [
     `Selected node: ${node.title}`,
     `Node kind: ${node.kind}`,
     `Node summary: ${node.summary}`,
     `Tags: ${node.tags?.join(", ") || "none"}`,
     `Evidence: ${node.evidence.join(", ") || "none"}`,
   ].join("\n") + (node.codeSnippet ? `\nCode:\n${node.codeSnippet}` : "");
+  return description + (node.implementation
+    ? `\nImplementation outline JSON:\n${JSON.stringify(node.implementation)}`
+    : "");
 }
 
 export function buildNodeQuestionPrompt(node: FlowNode): string {

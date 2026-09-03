@@ -47,6 +47,77 @@ export const flowNodeKindSchema = z.enum([
 
 export const flowNodeStatusSchema = z.enum(["idle", "working", "ready", "error"]);
 
+export const implementationStepKindSchema = z.enum([
+  "phase",
+  "condition",
+  "call",
+  "side-effect",
+  "return",
+]);
+
+export const sourceReferenceSchema = z.object({
+  path: z.string().trim().min(1).max(240),
+  symbol: z.string().trim().min(1).max(120).optional(),
+  startLine: z.number().int().positive().optional(),
+  endLine: z.number().int().positive().optional(),
+}).refine(
+  (source) => source.startLine === undefined || source.endLine === undefined || source.endLine >= source.startLine,
+  { path: ["endLine"], message: "endLine must not be before startLine" }
+);
+
+const implementationStepShape = {
+  id: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
+  title: z.string().trim().min(1).max(60),
+  summary: z.string().trim().min(1).max(180),
+  kind: implementationStepKindSchema,
+  inputs: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
+  outputs: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
+  source: sourceReferenceSchema.optional(),
+};
+
+// Provider JSON schemas are deliberately reference-free, so the authored tree
+// has a bounded three-level shape instead of a recursive schema: outline,
+// phases, then their meaningful substeps. That is also enough depth for an
+// explanation UI; a raw AST would only move the unreadable code into a tree.
+export const implementationLeafSchema = z.object(implementationStepShape);
+export const implementationStepSchema = z.object({
+  ...implementationStepShape,
+  children: z.array(implementationLeafSchema).max(5).optional(),
+});
+export const implementationOutlineSchema = z.object({
+  entrypoint: z.string().trim().min(1).max(120),
+  source: sourceReferenceSchema,
+  steps: z.array(implementationStepSchema).min(1).max(6),
+}).superRefine((outline, context) => {
+  const seen = new Set<string>();
+  for (const [stepIndex, step] of outline.steps.entries()) {
+    if (seen.has(step.id)) {
+      context.addIssue({
+        code: "custom",
+        path: ["steps", stepIndex, "id"],
+        message: `Duplicate implementation step id: ${step.id}`,
+      });
+    }
+    seen.add(step.id);
+    for (const [childIndex, child] of (step.children ?? []).entries()) {
+      if (seen.has(child.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["steps", stepIndex, "children", childIndex, "id"],
+          message: `Duplicate implementation step id: ${child.id}`,
+        });
+      }
+      seen.add(child.id);
+    }
+  }
+});
+
+export type ImplementationStepKind = z.infer<typeof implementationStepKindSchema>;
+export type SourceReference = z.infer<typeof sourceReferenceSchema>;
+export type ImplementationLeaf = z.infer<typeof implementationLeafSchema>;
+export type ImplementationStep = z.infer<typeof implementationStepSchema>;
+export type ImplementationOutline = z.infer<typeof implementationOutlineSchema>;
+
 export const flowNodeSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]{0,39}$/),
   title: z.string().trim().min(1).max(60),
@@ -58,6 +129,7 @@ export const flowNodeSchema = z.object({
   status: flowNodeStatusSchema.optional(),
   technology: z.string().trim().max(40).optional(),
   codeSnippet: z.string().trim().max(600).optional(),
+  implementation: implementationOutlineSchema.optional(),
 });
 export type FlowNodeStatus = z.infer<typeof flowNodeStatusSchema>;
 
@@ -90,6 +162,24 @@ export const flowGraphSchema = z.object({
     }
     if (node.parentId === node.id) {
       context.addIssue({ code: "custom", path: ["nodes", index, "parentId"], message: "A node cannot parent itself" });
+    }
+    if (node.implementation) {
+      const sources = [
+        node.implementation.source,
+        ...node.implementation.steps.flatMap((step) => [
+          ...(step.source ? [step.source] : []),
+          ...(step.children ?? []).flatMap((child) => child.source ? [child.source] : []),
+        ]),
+      ];
+      for (const source of sources) {
+        if (!node.evidence.includes(source.path)) {
+          context.addIssue({
+            code: "custom",
+            path: ["nodes", index, "implementation", "source", "path"],
+            message: `Implementation source must also appear in evidence: ${source.path}`,
+          });
+        }
+      }
     }
   });
   // A parent cycle keeps every node in it out of every scope: each one is a
@@ -1375,7 +1465,5 @@ function separateExpandedFrames(frames: ExpandedRoomFrame[]): void {
     if (!moved) break;
   }
 }
-
-
 
 

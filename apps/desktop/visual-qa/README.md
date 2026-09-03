@@ -7,6 +7,7 @@ captures screenshots, and writes geometry in screen pixels.
 ```bash
 bun run visual:qa
 bun run visual:qa -- --scenario room-expansion
+bun run visual:qa -- --scenario implementation-tree
 bun run visual:qa -- --scenario room-expansion --out /tmp/my-visual-check
 ```
 

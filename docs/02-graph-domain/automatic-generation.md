@@ -6,8 +6,8 @@ Projectを選択しただけではAIを起動しない。保存済みGraphがあ
 `Generate with Codex` または `Generate with Antigravity` を表示する。ユーザーの明示操作で、現在選択している
 providerへ一度だけ初期Graph生成を依頼する。
 
-AIが決めるのはNode、包含関係、Edge、summary、evidenceに加え、Nodeを意味的なAreaへまとめる
-Semantic Layout Planである。座標、余白、比率などの視覚的な数値はAIへ生成させず、同じGraphとPlanなら同じ
+AIが決めるのはNode、包含関係、Edge、summary、evidence、コードから根拠を取れるNodeのImplementation Outlineに加え、
+Nodeを意味的なAreaへまとめるSemantic Layout Planである。座標、余白、比率などの視覚的な数値はAIへ生成させず、同じGraphとPlanなら同じ
 結果になるdeterministic layout compilerをDesktop側で適用する。これによりプロジェクト固有の構造を表現しつつ、
 再生成時の不要な位置揺れとmodel固有の座標差を避ける。
 
@@ -30,7 +30,9 @@ Semantic Layout Planである。座標、余白、比率などの視覚的な数
 
 ## Current MVP Contract
 
-- Node: `id`, `title`, `summary`, `kind`, `parentId`, `evidence`, 任意の`tags`と`technology`
+- Node: `id`, `title`, `summary`, `kind`, `parentId`, `evidence`, 任意の`tags`、`technology`、`implementation`
+- Implementation Outline: exact entrypoint/sourceと、`phase`、`condition`、`call`、`side-effect`、`return`からなる
+  最大3階層の意味ツリー。生のASTや座標は含めず、source pathはNodeの`evidence`にも存在しなければならない
 - `status`と`codeSnippet`はprovider contractへ含めない。前者は静的snapshotが主張できない実行時の注釈、
   後者は`evidence`と重複しtoken costが大きい。どちらも手動編集で入れられ、再生成でも失われない
 - provider へ渡すJSON SchemaはZod定義から生成する。Domainに存在してcontractから漏れるfieldは作れない
@@ -53,5 +55,6 @@ failedとしてUIへ返し、未検証のJSONをGraphとして表示・保存し
 - 生成前snapshot previewと含有ファイルの除外操作
 - 再生成結果を直接置換せずChangeSetとしてdiff表示
 - evidenceからArtifact Linkへの昇格
+- source symbol/lineをeditorへ直接開くArtifact Link
 - 生成Graphと手動編集GraphのChangeSet diff
 - snapshot hashによるstale表示と差分再解析

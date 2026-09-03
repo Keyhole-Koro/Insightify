@@ -65,7 +65,9 @@ semantic levelはPortalのprojected width (`PORTAL_CARD_WIDTH * 適用scale`) �
 
 - `structure`: title、kind、status、接続済みport、折り畳み件数
 - `flow`: summary、Portal fold内のminiature flow、edge label、boundary port名、Peek/Enter/edit action
-- `implementation`: 先頭evidence path、fold内の子Node名
+- `implementation`: code-bearing Nodeは折りたたみ可能なImplementation Outlineを表示する。各stepは意味上の
+  phase/condition/call/side-effect/return、短い説明、input/output、source referenceを持つ。Outlineがない旧Nodeだけ
+  `codeSnippet`と先頭evidence pathへfallbackする
 
 zoomはGraph mutationではなくview stateであるため、Graph Revisionを作らない。manual Node positionはlayout stateとして
 永続化する。

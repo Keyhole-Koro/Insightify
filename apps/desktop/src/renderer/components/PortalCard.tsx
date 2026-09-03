@@ -4,6 +4,7 @@ import type { SemanticLevel } from "../semantic-zoom.js";
 import { copyToClipboard } from "../lib/clipboard.js";
 import { NodeIcon } from "./NodeIcon.js";
 import { PortalFold } from "./PortalFold.js";
+import { ImplementationTree } from "./ImplementationTree.js";
 
 interface PortalCardProps {
   node: FlowNode & { x: number; y: number };
@@ -47,6 +48,7 @@ export function PortalCard({
   onPointerUp,
 }: PortalCardProps) {
   const isPortal = preview.childCount > 0 || isRoom(node);
+  const showsImplementationTree = lod === "implementation" && Boolean(node.implementation);
 
   const status = node.status ?? (preview.childCount > 0 ? "ready" : "idle");
   const tech =
@@ -194,7 +196,7 @@ export function PortalCard({
               and the title, and repeating them was most of the plate's height. */}
 
           {/* Tags */}
-          {node.tags && node.tags.length > 0 && (
+          {!showsImplementationTree && node.tags && node.tags.length > 0 && (
             <div className="plate-tags">
               {node.tags.map((tag) => (
                 <span key={tag} className="portal-tag">
@@ -205,35 +207,39 @@ export function PortalCard({
           )}
 
           {/* Summary */}
-          <p className="plate-summary">{node.summary}</p>
+          {!showsImplementationTree && <p className="plate-summary">{node.summary}</p>}
 
           {/* Code, evidence and the miniature are what the implementation level
               exists for. Below it they are unreadable at this width anyway, and
               they cost the height that hides the cards above and below. The Peek
               panel carries them at any zoom. */}
           {lod === "implementation" && (
-            <>
-              {node.codeSnippet && (
-                <div className="plate-code-block">
-                  <code>{node.codeSnippet}</code>
-                </div>
-              )}
+            node.implementation ? (
+              <ImplementationTree compact outline={node.implementation} />
+            ) : (
+              <>
+                {node.codeSnippet && (
+                  <div className="plate-code-block">
+                    <code>{node.codeSnippet}</code>
+                  </div>
+                )}
 
-              {isPortal && <PortalFold preview={preview} lod={lod} />}
+                {isPortal && <PortalFold preview={preview} lod={lod} />}
 
-              {node.evidence.length > 0 && (
-                <div
-                  className="plate-evidence"
-                  title="クリックしてパスをコピー"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await copyToClipboard(node.evidence[0] ?? "");
-                  }}
-                >
-                  📄 {node.evidence[0]}
-                </div>
-              )}
-            </>
+                {node.evidence.length > 0 && (
+                  <div
+                    className="plate-evidence"
+                    title="クリックしてパスをコピー"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await copyToClipboard(node.evidence[0] ?? "");
+                    }}
+                  >
+                    📄 {node.evidence[0]}
+                  </div>
+                )}
+              </>
+            )
           )}
 
           {/* Plate Footer */}

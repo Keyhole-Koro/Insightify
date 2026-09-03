@@ -1,0 +1,14 @@
+{
+  "id": "implementation-tree",
+  "checkpoints": {
+    "root": [],
+    "implementation-lod": [],
+    "event-outline": [],
+    "envelope-expanded": [],
+    "payload-selected": [],
+    "root → implementation-lod": [],
+    "implementation-lod → event-outline": [],
+    "event-outline → envelope-expanded": [],
+    "envelope-expanded → payload-selected": []
+  }
+}

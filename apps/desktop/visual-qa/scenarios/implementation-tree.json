@@ -1,0 +1,46 @@
+{
+  "id": "implementation-tree",
+  "title": "Interactive implementation explanation tree",
+  "viewport": { "width": 1800, "height": 1125 },
+  "readySelector": "[data-vqa=\"graph-stage\"]",
+  "initialWait": 900,
+  "measurements": [
+    { "name": "implementation tree", "selector": "[data-vqa=\"implementation-tree\"]", "all": true },
+    { "name": "visible steps", "selector": "[data-vqa=\"implementation-step\"]", "all": true },
+    { "name": "selected detail", "selector": "[data-vqa=\"implementation-step-detail\"]", "all": true }
+  ],
+  "steps": [
+    { "name": "root", "screenshot": true },
+    {
+      "name": "implementation-lod",
+      "action": {
+        "type": "evaluate",
+        "expression": "(async () => { const stage = document.querySelector('[data-vqa=\\\"graph-stage\\\"]'); const zoomIn = document.querySelector('button[aria-label=\\\"拡大\\\"]'); const zoomOut = document.querySelector('button[aria-label=\\\"縮小\\\"]'); if (!stage || !zoomIn || !zoomOut) throw new Error('implementation zoom controls not found'); let clicks = 0; const scale = () => Number.parseFloat(getComputedStyle(stage).getPropertyValue('--stage-zoom')) || 1; if (scale() > 1.5) { zoomOut.click(); clicks += 1; await new Promise((resolve) => setTimeout(resolve, 180)); } while (stage.dataset.vqaLod !== 'implementation' && clicks < 6) { zoomIn.click(); clicks += 1; await new Promise((resolve) => setTimeout(resolve, 120)); } return { clicked: 'zoom-implementation', clicks, lod: stage.dataset.vqaLod, scale: scale() }; })()"
+      },
+      "waitFor": "[data-vqa=\"graph-stage\"][data-vqa-lod=\"implementation\"]",
+      "wait": 400,
+      "screenshot": true,
+      "thresholds": { "maximumZoomChange": 2, "maximumMedianTravel": 500 }
+    },
+    {
+      "name": "event-outline",
+      "action": { "type": "clickText", "selector": ".node-compact-pill", "text": "Event Bus & Task Queue" },
+      "waitFor": "[data-vqa=\"implementation-tree\"]",
+      "wait": 500,
+      "screenshot": true
+    },
+    {
+      "name": "envelope-expanded",
+      "action": { "type": "clickText", "selector": "[data-vqa=\"implementation-step\"]", "text": "Encode stream envelope" },
+      "waitFor": "[data-vqa-step-id=\"serialize-payload\"]",
+      "wait": 250,
+      "screenshot": true
+    },
+    {
+      "name": "payload-selected",
+      "action": { "type": "clickText", "selector": "[data-vqa=\"implementation-step\"]", "text": "Serialize task payload" },
+      "wait": 250,
+      "screenshot": true
+    }
+  ]
+}
