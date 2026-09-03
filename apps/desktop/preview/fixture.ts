@@ -1,9 +1,13 @@
 import {
   LAYOUT_ENGINE_VERSION,
+  balanceFlowGraphScopes,
   createDefaultGraphLayout,
   parseFlowGraph,
+  parseSemanticLayoutPlan,
+  resolveRoomLayoutRules,
   type FlowGraph,
   type GeneratedFlowGraph,
+  type SemanticLayoutPlan,
 } from "@insightify/graph-domain";
 
 // Rich multi-cloud & multi-kind architectural fixture with diverse API endpoints
@@ -86,12 +90,23 @@ const source: FlowGraph = {
       codeSnippet: "CREATE TABLE workflows (\n  id UUID PRIMARY KEY,\n  user_id UUID NOT NULL,\n  status VARCHAR(32) NOT NULL\n);",
     },
     {
+      id: "external-services",
+      title: "Managed Dependencies",
+      summary: "Third-party services the platform calls out to rather than operates itself.",
+      kind: "room",
+      technology: "Cloud",
+      parentId: null,
+      evidence: ["services/ai/src/openai.ts", "services/billing/src/stripe.ts"],
+      tags: ["external", "saas", "managed"],
+      status: "ready",
+    },
+    {
       id: "ai-synthesizer",
       title: "OpenAI Synthesizer",
       summary: "Generative intelligence agent generating code transforms and structural summaries.",
       kind: "external",
       technology: "OpenAI",
-      parentId: null,
+      parentId: "external-services",
       evidence: ["services/ai/src/openai.ts"],
       tags: ["openai", "llm", "agent", "gpt-4o"],
       status: "working",
@@ -103,7 +118,7 @@ const source: FlowGraph = {
       summary: "Encrypted blob storage for repository tarballs, sandbox diffs, and artifacts.",
       kind: "external",
       technology: "AWS",
-      parentId: null,
+      parentId: "external-services",
       evidence: ["services/storage/src/s3.ts"],
       tags: ["aws", "s3", "blob", "storage"],
       status: "ready",
@@ -115,7 +130,7 @@ const source: FlowGraph = {
       summary: "Subscription metering, customer portal, and invoice webhook handling.",
       kind: "external",
       technology: "Stripe",
-      parentId: null,
+      parentId: "external-services",
       evidence: ["services/billing/src/stripe.ts"],
       tags: ["stripe", "billing", "webhook"],
       status: "ready",
@@ -127,7 +142,7 @@ const source: FlowGraph = {
       summary: "Real-time telemetry and aggregated system performance metrics stream.",
       kind: "external",
       technology: "GCP",
-      parentId: null,
+      parentId: "external-services",
       evidence: ["services/telemetry/src/bigquery.ts"],
       tags: ["gcp", "bigquery", "analytics", "cloud-run"],
       status: "ready",
@@ -345,15 +360,70 @@ const source: FlowGraph = {
   ],
 };
 
+// A generated document always carries a plan the model authored, and always
+// went through balanceFlowGraphScopes. A fixture without both measures a shape
+// the pipeline cannot produce: it would exercise the no-plan fallback and could
+// hold more nodes in one scope than FlowFold allows.
+const layoutPlan: SemanticLayoutPlan = parseSemanticLayoutPlan({
+  version: 1,
+  scopes: [
+    {
+      roomId: null,
+      direction: "row",
+      areas: [
+        { id: "entry", label: "Entry", direction: "column", nodeIds: ["frontend-portal", "api-gateway", "auth-guard"] },
+        { id: "processing", label: "Processing", direction: "column", nodeIds: ["workflow-engine", "event-bus"] },
+        { id: "state", label: "State", direction: "column", nodeIds: ["primary-db", "external-services"] },
+      ],
+    },
+    {
+      roomId: "api-gateway",
+      direction: "row",
+      areas: [
+        { id: "auth", label: "Auth", direction: "column", nodeIds: ["api-auth-login"] },
+        { id: "workflows", label: "Workflows", direction: "column", nodeIds: ["api-workflows-get", "api-workflows-create", "api-workflows-run"] },
+        { id: "integrations", label: "Integrations", direction: "column", nodeIds: ["api-ai-synthesize", "api-stripe-webhook", "api-graphql"] },
+      ],
+    },
+    {
+      roomId: "frontend-portal",
+      direction: "row",
+      areas: [
+        { id: "clients", label: "Clients", direction: "column", nodeIds: ["web-dashboard", "canvas-editor", "mobile-client"] },
+        { id: "gate", label: "Gate", direction: "column", nodeIds: ["auth-modal"] },
+      ],
+    },
+    {
+      roomId: "workflow-engine",
+      direction: "row",
+      areas: [
+        { id: "pipeline", label: "Pipeline", direction: "column", nodeIds: ["dispatch-service", "branch-evaluator", "k8s-runner"] },
+        { id: "durability", label: "Durability", direction: "column", nodeIds: ["state-checkpoint"] },
+      ],
+    },
+    {
+      roomId: "external-services",
+      direction: "row",
+      areas: [
+        { id: "intelligence", label: "Intelligence", direction: "column", nodeIds: ["ai-synthesizer"] },
+        { id: "data", label: "Data", direction: "column", nodeIds: ["cloud-storage", "analytics-lake"] },
+        { id: "billing", label: "Billing", direction: "column", nodeIds: ["payment-hub"] },
+      ],
+    },
+  ],
+});
+
 export const previewGraph: GeneratedFlowGraph = (() => {
-  const graph = parseFlowGraph(source);
+  const graph = balanceFlowGraphScopes(parseFlowGraph(source));
+  const rules = resolveRoomLayoutRules(graph, layoutPlan);
   return {
     projectId: "0b6f4d3e-3f2a-4b7c-8d1e-9a0c5f2b7d41",
     provider: "codex",
     snapshotHash: "preview-v2",
     generatedAt: new Date("2026-08-29T00:00:00.000Z").toISOString(),
     graph,
-    layout: createDefaultGraphLayout(graph),
+    layoutPlan,
+    layout: createDefaultGraphLayout(graph, {}, rules),
     layoutEngineVersion: LAYOUT_ENGINE_VERSION,
   };
 })();

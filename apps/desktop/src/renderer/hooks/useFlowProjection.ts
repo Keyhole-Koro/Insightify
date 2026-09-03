@@ -3,6 +3,8 @@ import {
   buildPortalPreview,
   getDebugAreasForScope,
   getExpandedRoomFrames,
+  getExpandedRoomShapes,
+  getScopeBasePositions,
   getNodeAreaIdsForScope,
   layoutFlowNodesWithExpandedScopes,
   projectFlowWithExpandedScopes,
@@ -11,7 +13,12 @@ import {
   type FlowNode,
   type GeneratedFlowGraph,
 } from "@insightify/graph-domain";
-import { semanticLevelForZoom, stageMetrics } from "../semantic-zoom.js";
+import {
+  PORTAL_CARD_HEIGHT,
+  PORTAL_CARD_WIDTH,
+  semanticLevelForZoom,
+  stageMetrics,
+} from "../semantic-zoom.js";
 import {
   buildScopePath,
   bundleEdgesByVisualArea,
@@ -26,8 +33,6 @@ import {
 // scope's nodes, its edges, its boundary, its coordinates. Every value here is
 // derived — nothing in this hook is stored, and nothing calls out to the bridge.
 
-const ROOT_CARD_WIDTH = 190;
-const ROOT_CARD_HEIGHT = 82;
 const emptyNodes: FlowNode[] = [];
 
 type FlowProjectionInput = {
@@ -87,6 +92,43 @@ export function useFlowProjection(input: FlowProjectionInput) {
     [graph?.layout, graph?.layoutOverrides]
   );
 
+  // The order below is the whole point. A Room frame is a share of the stage,
+  // and the stage has to be big enough for that share to hold real cards — so
+  // the two cannot each be derived from the other. The shape of a Room (its
+  // lanes and rows) needs neither, so it comes first, the stage second, and the
+  // frames last, against a stage that is already known to fit them.
+  const roomShapes = useMemo(
+    () =>
+      getExpandedRoomShapes(
+        visibleNodes,
+        activeScopeId,
+        renderedExpandedScopeIds,
+        flowEdges,
+        layoutRules
+      ),
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, layoutRules]
+  );
+
+  // Only this scope's own cards set the stage size, and at their pre-reflow
+  // positions: reflow exists to fit cards into the stage, so letting it grow
+  // the stage would chase its own tail.
+  const stage = useMemo(
+    () =>
+      stageMetrics(
+        getScopeBasePositions(visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules)
+          .filter((node) => !renderedExpandedScopeIds.has(node.id))
+          .map((node) => ({ ...node, width: PORTAL_CARD_WIDTH, height: PORTAL_CARD_HEIGHT })),
+        frame,
+        roomShapes
+      ),
+    [visibleNodes, activeScopeId, flowEdges, savedLayout, layoutRules, frame, renderedExpandedScopeIds, roomShapes]
+  );
+
+  const stageMetricsForFrames = useMemo(
+    () => ({ stageWidth: stage.width, stageHeight: stage.height }),
+    [stage.width, stage.height]
+  );
+
   const positionedNodes = useMemo(
     () =>
       layoutFlowNodesWithExpandedScopes(
@@ -95,9 +137,10 @@ export function useFlowProjection(input: FlowProjectionInput) {
         renderedExpandedScopeIds,
         flowEdges,
         savedLayout,
-        layoutRules
+        layoutRules,
+        stageMetricsForFrames
       ),
-    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, stageMetricsForFrames]
   );
 
   const roomFrames = useMemo(
@@ -108,27 +151,10 @@ export function useFlowProjection(input: FlowProjectionInput) {
         renderedExpandedScopeIds,
         flowEdges,
         savedLayout,
-        layoutRules
+        layoutRules,
+        stageMetricsForFrames
       ),
-    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules]
-  );
-
-  // Only this scope's own cards set the stage size. A node inside an unfolded
-  // Room sits at a deliberately tight pitch, and reading that pitch as the gap
-  // between two ordinary cards demanded a stage several screens tall — which
-  // then scaled every card down and left the canvas mostly empty. The Rooms
-  // themselves are passed separately, as frames that must fit their contents.
-  const stage = useMemo(
-    () =>
-      stageMetrics(
-        positionedNodes
-          .filter((node) => node.parentId === activeScopeId)
-          .filter((node) => !renderedExpandedScopeIds.has(node.id))
-          .map((node) => ({ ...node, width: ROOT_CARD_WIDTH, height: ROOT_CARD_HEIGHT })),
-        frame,
-        roomFrames
-      ),
-    [positionedNodes, frame, renderedExpandedScopeIds, activeScopeId, roomFrames]
+    [visibleNodes, activeScopeId, renderedExpandedScopeIds, flowEdges, savedLayout, layoutRules, stageMetricsForFrames]
   );
   const stageZoom = zoom * stage.scale;
   const lod = useMemo(() => semanticLevelForZoom("flow", stageZoom), [stageZoom]);

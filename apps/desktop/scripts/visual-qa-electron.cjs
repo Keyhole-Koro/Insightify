@@ -73,7 +73,7 @@ async function waitForSelector(webContents, selector, timeout = 8_000) {
 
 // This function is serialized and evaluated in the renderer. Keep it free of
 // references to the Electron/Node closure above.
-function collectPageReport(measurements) {
+function collectPageReport(measurements, thresholds) {
   const round = (value) => Math.round(value * 10) / 10;
   const rect = (element) => {
     const box = element.getBoundingClientRect();
@@ -235,12 +235,17 @@ function collectPageReport(measurements) {
       })),
     };
   });
+  const limits = {
+    minimumFrameOccupancy: 0.45,
+    maximumGapRatio: 1.5,
+    ...(thresholds ?? {}),
+  };
   const warnings = [
-    ...frames.filter((frame) => frame.occupancy && frame.occupancy.height < 0.45)
+    ...frames.filter((frame) => frame.occupancy && frame.occupancy.height < limits.minimumFrameOccupancy)
       .map((frame) => `${frame.roomId}: children occupy only ${frame.occupancy.height} of frame height`),
-    ...frames.filter((frame) => frame.spacing.rowGapToChildHeight > 1.5)
+    ...frames.filter((frame) => frame.spacing.rowGapToChildHeight > limits.maximumGapRatio)
       .map((frame) => `${frame.roomId}: median row gap is ${frame.spacing.rowGapToChildHeight}× child height`),
-    ...frames.filter((frame) => frame.spacing.columnGapToChildWidth > 1.5)
+    ...frames.filter((frame) => frame.spacing.columnGapToChildWidth > limits.maximumGapRatio)
       .map((frame) => `${frame.roomId}: median column gap is ${frame.spacing.columnGapToChildWidth}× child width`),
     ...frames.filter((frame) => frame.outsideChildren.length > 0)
       .map((frame) => `${frame.roomId}: children outside frame: ${frame.outsideChildren.join(", ")}`),
@@ -326,7 +331,9 @@ app.whenReady().then(async () => {
       if (step.waitFor) await waitForSelector(window.webContents, step.waitFor, step.timeout);
       await sleep(step.wait ?? 500);
       const metrics = await window.webContents.executeJavaScript(
-        `(${collectPageReport.toString()})(${JSON.stringify(step.measurements ?? scenario.measurements ?? [])})`,
+        `(${collectPageReport.toString()})(`
+        + `${JSON.stringify(step.measurements ?? scenario.measurements ?? [])}, `
+        + `${JSON.stringify(scenario.thresholds ?? {})})`,
         true
       );
       let screenshot = null;

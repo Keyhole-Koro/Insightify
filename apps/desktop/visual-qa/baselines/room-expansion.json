@@ -1,0 +1,16 @@
+{
+  "id": "room-expansion",
+  "checkpoints": {
+    "root": [
+      "node overlap: frontend-portal / api-gateway (226.9px²)",
+      "node overlap: workflow-engine / primary-db (105.7px²)"
+    ],
+    "inside-frontend": [
+      "node overlap: workflow-engine / primary-db (255px²)"
+    ],
+    "detail-postgres": [
+      "node overlap: workflow-engine / primary-db (1702.9px²)",
+      "node overlap: primary-db / external-services (13461.9px²)"
+    ]
+  }
+}

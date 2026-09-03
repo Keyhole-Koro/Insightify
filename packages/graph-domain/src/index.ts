@@ -2,6 +2,18 @@ import { z } from "zod";
 import { isExpandedRoom } from "./room.js";
 import { toProviderJsonSchema } from "./json-schema.js";
 import {
+  DEFAULT_STAGE,
+  MAX_ROOM_FRAME_SHARE,
+  PORTAL_CARD_HEIGHT,
+  PORTAL_CARD_WIDTH,
+  NESTED_CARD_HEIGHT,
+  NESTED_CARD_WIDTH,
+  ROOM_FRAME_PADDING,
+  ROOM_HEADER_HEIGHT,
+  roomFramePixelSize,
+  type RoomFrameMetrics,
+} from "./layout-metrics.js";
+import {
   compileSemanticLayoutPlan,
   defaultRoomLayoutRules,
   deriveSemanticLayoutPlan,
@@ -13,6 +25,7 @@ import {
 
 export * from "./area-layout.js";
 export * from "./room.js";
+export * from "./layout-metrics.js";
 
 export const flowNodeKindSchema = z.enum([
   "room",
@@ -856,18 +869,58 @@ export function projectFlowWithExpandedScopes(
 /**
  * Computes bounding frame boxes for all inline-expanded Room nodes.
  */
+/** How many lanes and rows an unfolded Room's own layout puts its children in. */
+export type RoomGridShape = { roomId: string; columns: number; rows: number };
+
+/**
+ * The shape of every unfolded Room, in cards rather than pixels or percentages.
+ * The stage is sized from this, and the frames are then sized against that
+ * stage — so nothing here may depend on the stage.
+ */
+export function getExpandedRoomShapes(
+  visibleNodes: FlowNode[],
+  scopeId: string | null = null,
+  expandedScopeIds: Set<string> = new Set(),
+  edges: FlowEdge[] = [],
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): RoomGridShape[] {
+  const shapes: RoomGridShape[] = [];
+  for (const node of visibleNodes.filter((item) => item.parentId === scopeId)) {
+    if (!isExpandedRoom(node, expandedScopeIds)) continue;
+    const childNodes = visibleNodes.filter((child) => child.parentId === node.id);
+    const structuralPositions = layoutNodesWithAreaDSL(childNodes, node.id, rules, edges);
+    const xLanes = clusterCoordinates(structuralPositions.map((child) => child.x));
+    const columns = Math.max(1, xLanes.length);
+    const rows = Math.max(
+      1,
+      ...xLanes.map((lane) =>
+        structuralPositions.filter((child) => Math.abs(child.x - lane) <= COORDINATE_CLUSTER_GAP).length
+      )
+    );
+    shapes.push({ roomId: node.id, columns, rows });
+  }
+  return shapes;
+}
+
 export function getExpandedRoomFrames(
   visibleNodes: FlowNode[],
   scopeId: string | null = null,
   expandedScopeIds: Set<string> = new Set(),
   edges: FlowEdge[] = [],
   savedLayout: GraphLayout = {},
-  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules,
+  metrics: RoomFrameMetrics = DEFAULT_STAGE
 ): ExpandedRoomFrame[] {
   const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
   const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, rules, edges);
   const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
+  const shapes = new Map(
+    getExpandedRoomShapes(visibleNodes, scopeId, expandedScopeIds, edges, rules)
+      .map((shape) => [shape.roomId, shape])
+  );
 
+  const toWidth = (pixels: number) => (pixels / metrics.stageWidth) * 100;
+  const toHeight = (pixels: number) => (pixels / metrics.stageHeight) * 100;
   const frames: ExpandedRoomFrame[] = [];
 
   for (const node of directNodes) {
@@ -875,33 +928,27 @@ export function getExpandedRoomFrames(
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       const saved = savedLayout[node.id];
       const pos = saved ?? directPosMap.get(node.id) ?? { x: 50, y: 50 };
+      const { columns, rows } = shapes.get(node.id) ?? { columns: 1, rows: 1 };
 
-      const structuralPositions = layoutNodesWithAreaDSL(
-        childNodes,
-        node.id,
-        rules,
-        edges
-      );
-      const xLanes = clusterCoordinates(structuralPositions.map((child) => child.x));
-      const columns = Math.max(1, xLanes.length);
-      const rows = Math.max(
-        1,
-        ...xLanes.map((lane) =>
-          structuralPositions.filter((child) => Math.abs(child.x - lane) <= COORDINATE_CLUSTER_GAP).length
-        )
-      );
-      // Size the frame from the compact child-card pitch, not from a generous
-      // fraction of the whole canvas. The previous 19/36/53% progression made
-      // a three-lane Room occupy more than half the stage even though its cards
-      // only need about two fifths. Reflow now protects surrounding cards from
-      // collapsing, so the frame itself can stay content-tight.
-      const frameWidth = clamp(15 + (columns - 1) * 13, 15, 54);
-      // Vertical space includes the fixed header; each additional row then
-      // contributes one compact-card pitch.
-      const frameHeight = clamp(18 + (rows - 1) * 9, 18, 72);
+      // The frame holds real cards at a real pitch, so it is measured in pixels
+      // and turned into a share of the stage once. stageMetrics has already
+      // made the stage large enough for that share to stay under the cap.
+      const pixels = roomFramePixelSize(columns, rows);
+      const frameWidth = clamp(toWidth(pixels.width), 8, MAX_ROOM_FRAME_SHARE * 100);
+      const frameHeight = clamp(toHeight(pixels.height), 10, MAX_ROOM_FRAME_SHARE * 100);
       const inwardShift = pos.x < 35 ? 12 : pos.x > 65 ? -12 : 0;
       const frameX = clamp(pos.x + inwardShift - frameWidth / 2, 1, 99 - frameWidth);
       const frameY = clamp(pos.y - frameHeight / 2, 3, 97 - frameHeight);
+
+      // Children are placed on the centre box: the span their *centres* cover.
+      // The frame is that span plus one whole card, so the outermost cards have
+      // their half-widths inside the frame instead of hanging out of it.
+      const halfCardWidth = toWidth(NESTED_CARD_WIDTH / 2);
+      const halfCardHeight = toHeight(NESTED_CARD_HEIGHT / 2);
+      const padding = toWidth(ROOM_FRAME_PADDING);
+      const header = toHeight(ROOM_HEADER_HEIGHT);
+      const centreLeft = frameX + padding + halfCardWidth;
+      const centreTop = frameY + header + halfCardHeight;
 
       frames.push({
         roomId: node.id,
@@ -909,10 +956,15 @@ export function getExpandedRoomFrames(
         bounds: {
           x: +frameX.toFixed(1),
           y: +frameY.toFixed(1),
-          width: frameWidth,
-          height: frameHeight,
+          width: +frameWidth.toFixed(1),
+          height: +frameHeight.toFixed(1),
         },
-        contentBounds: contentBoundsForFrame(frameX, frameY, frameWidth, frameHeight, columns),
+        contentBounds: {
+          x: +centreLeft.toFixed(1),
+          y: +centreTop.toFixed(1),
+          width: +Math.max(0, frameWidth - padding * 2 - halfCardWidth * 2).toFixed(1),
+          height: +Math.max(0, frameHeight - header - toHeight(ROOM_FRAME_PADDING) - halfCardHeight * 2).toFixed(1),
+        },
         childCount: childNodes.length,
         columns,
         rows,
@@ -927,25 +979,45 @@ export function getExpandedRoomFrames(
 /**
  * Computes positions for all visible nodes using compact local frame projections for inline-expanded scopes.
  */
+/**
+ * Where this scope's own nodes sit before anything is moved out of the way of a
+ * Room frame. The stage is sized from these: reflow only pushes cards apart to
+ * fit the stage, so sizing the stage from reflowed positions would let the two
+ * chase each other.
+ */
+export function getScopeBasePositions(
+  visibleNodes: FlowNode[],
+  scopeId: string | null = null,
+  edges: FlowEdge[] = [],
+  savedLayout: GraphLayout = {},
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+): PositionedFlowNode[] {
+  const directNodes = visibleNodes.filter((node) => node.parentId === scopeId);
+  const structural = new Map(
+    layoutNodesWithAreaDSL(directNodes, scopeId, rules, edges).map((node) => [node.id, node])
+  );
+  return directNodes.map((node) => ({
+    ...node,
+    ...(savedLayout[node.id] ?? structural.get(node.id) ?? { x: 50, y: 50 }),
+  }));
+}
+
 export function layoutFlowNodesWithExpandedScopes(
   visibleNodes: FlowNode[],
   scopeId: string | null = null,
   expandedScopeIds: Set<string> = new Set(),
   edges: FlowEdge[] = [],
   savedLayout: GraphLayout = {},
-  rules: RoomLayoutRule[] = defaultRoomLayoutRules
+  rules: RoomLayoutRule[] = defaultRoomLayoutRules,
+  metrics?: RoomFrameMetrics
 ): PositionedFlowNode[] {
+  const resolved = metrics ?? DEFAULT_STAGE;
   const directNodes = visibleNodes.filter((n) => n.parentId === scopeId);
-  const directPositions = layoutNodesWithAreaDSL(directNodes, scopeId, rules, edges);
-  const directPosMap = new Map(directPositions.map((n) => [n.id, n]));
-
-  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout, rules);
+  const frames = getExpandedRoomFrames(visibleNodes, scopeId, expandedScopeIds, edges, savedLayout, rules, metrics);
   const frameMap = new Map(frames.map((f) => [f.roomId, f]));
   const basePositionMap = new Map(
-    directNodes.map((node) => [
-      node.id,
-      savedLayout[node.id] ?? directPosMap.get(node.id) ?? { x: 50, y: 50 },
-    ])
+    getScopeBasePositions(visibleNodes, scopeId, edges, savedLayout, rules)
+      .map((node) => [node.id, { x: node.x, y: node.y }])
   );
   const reflowedPositionMap = new Map(
     directNodes
@@ -953,8 +1025,8 @@ export function layoutFlowNodesWithExpandedScopes(
       .map((node) => [node.id, reflowAroundFrames(basePositionMap.get(node.id)!, frames)])
   );
   cascadeHorizontalReflow(directNodes, reflowedPositionMap, basePositionMap, frames);
-  packReflowedColumns(directNodes, reflowedPositionMap, basePositionMap, frames);
-  separateReflowedNodes(directNodes, reflowedPositionMap, basePositionMap, frames);
+  packReflowedColumns(directNodes, reflowedPositionMap, basePositionMap, frames, resolved);
+  separateReflowedNodes(directNodes, reflowedPositionMap, basePositionMap, frames, resolved);
 
   const result: PositionedFlowNode[] = [];
 
@@ -1036,30 +1108,13 @@ function localRoomPositions(
   });
 }
 
-function contentBoundsForFrame(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  columns: number
-): LayoutBounds {
-  // A percentage inset grows with the frame. Capping every lane at the same
-  // small value leaves enough breathing room without stealing most of a
-  // one-column Room's usable width.
-  const insetX = Math.min(1.5, width * 0.1);
-  const headerInset = Math.min(5.5, Math.max(4.5, height * 0.14));
-  const bottomInset = Math.min(1, height * 0.06);
-  return {
-    x: +(x + insetX).toFixed(1),
-    y: +(y + headerInset).toFixed(1),
-    width: +(width - insetX * 2).toFixed(1),
-    height: +(height - headerInset - bottomInset).toFixed(1),
-  };
-}
 
+// The full 0-100 range, because it is projected onto the box the frame reserves
+// for card *centres*. The half-card margin that keeps the outermost cards
+// inside the frame is part of the frame's own size, not of this range.
 function normalizeLocalCoordinate(value: number, minimum: number, maximum: number): number {
   if (maximum - minimum < 0.1) return 50;
-  return +(5 + ((value - minimum) / (maximum - minimum)) * 90).toFixed(1);
+  return +(((value - minimum) / (maximum - minimum)) * 100).toFixed(1);
 }
 
 function projectPercentage(value: number, start: number, size: number): number {
@@ -1091,27 +1146,18 @@ function separateExpandedFrames(frames: ExpandedRoomFrame[]): void {
           : right.bounds.y + right.bounds.height / 2;
         const direction = leftCenter <= rightCenter ? -1 : 1;
         const shift = (useX ? overlapX : overlapY) / 2;
-        if (useX) {
-          left.bounds.x = clamp(left.bounds.x + direction * shift, 1, 99 - left.bounds.width);
-          right.bounds.x = clamp(right.bounds.x - direction * shift, 1, 99 - right.bounds.width);
-        } else {
-          left.bounds.y = clamp(left.bounds.y + direction * shift, 3, 97 - left.bounds.height);
-          right.bounds.y = clamp(right.bounds.y - direction * shift, 3, 97 - right.bounds.height);
+        // Separating frames only moves them. The content box keeps its size and
+        // its offset inside the frame, so it travels with it rather than being
+        // recomputed from a second formula that could disagree with the first.
+        const axis = useX ? "x" : "y";
+        const span = useX ? "width" : "height";
+        const lower = useX ? 1 : 3;
+        const upper = useX ? 99 : 97;
+        for (const [frame, sign] of [[left, direction], [right, -direction]] as const) {
+          const moveTo = clamp(frame.bounds[axis] + sign * shift, lower, upper - frame.bounds[span]);
+          frame.contentBounds[axis] = +(frame.contentBounds[axis] + (moveTo - frame.bounds[axis])).toFixed(1);
+          frame.bounds[axis] = +moveTo.toFixed(1);
         }
-        left.contentBounds = contentBoundsForFrame(
-          left.bounds.x,
-          left.bounds.y,
-          left.bounds.width,
-          left.bounds.height,
-          left.columns
-        );
-        right.contentBounds = contentBoundsForFrame(
-          right.bounds.x,
-          right.bounds.y,
-          right.bounds.width,
-          right.bounds.height,
-          right.columns
-        );
         moved = true;
       }
     }
@@ -1166,16 +1212,16 @@ function separateReflowedNodes(
   nodes: FlowNode[],
   positions: Map<string, FlowNodePosition>,
   originalPositions: Map<string, FlowNodePosition>,
-  frames: ExpandedRoomFrame[]
+  frames: ExpandedRoomFrame[],
+  metrics: RoomFrameMetrics
 ): void {
   const visible = nodes.filter((node) => positions.has(node.id));
-  // These are not cosmetic. The stage is sized so that the tightest pair of
-  // cards still clears its neighbour, so the closest two nodes in a scope
-  // decide the scale of every card on the canvas. Letting a reflow squeeze a
-  // pair to 8% made unfolding a Room shrink every card to 63% of its size and
-  // spread the canvas over twice its width.
-  const minimumX = 15;
-  const minimumY = 13;
+  // Two cards must not overlap, which is a statement about pixels: a fixed
+  // percentage means one thing on a wide stage and another on a narrow one.
+  // Deriving the gap from the card and the stage is the same fact the stage
+  // sizing uses, so the two can no longer disagree.
+  const minimumX = (PORTAL_CARD_WIDTH / metrics.stageWidth) * 100;
+  const minimumY = (PORTAL_CARD_HEIGHT / metrics.stageHeight) * 100;
 
   for (let pass = 0; pass < 6; pass += 1) {
     let moved = false;
@@ -1262,7 +1308,8 @@ function packReflowedColumns(
   nodes: FlowNode[],
   positions: Map<string, FlowNodePosition>,
   originalPositions: Map<string, FlowNodePosition>,
-  frames: ExpandedRoomFrame[]
+  frames: ExpandedRoomFrame[],
+  metrics: RoomFrameMetrics
 ): void {
   if (frames.length === 0) return;
   const groups: Array<{ originalX: number; nodeIds: string[] }> = [];
@@ -1287,7 +1334,7 @@ function packReflowedColumns(
     frames.length;
   // Columns are pulled back together so an unfolded Room leaves no dead band,
   // but never closer than separateReflowedNodes is about to push them apart.
-  const maximumPitch = 18;
+  const maximumPitch = (PORTAL_CARD_WIDTH * 1.2 / metrics.stageWidth) * 100;
 
   const moveGroup = (group: { nodeIds: string[] }, delta: number) => {
     for (const nodeId of group.nodeIds) {

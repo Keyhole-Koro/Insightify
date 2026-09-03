@@ -4,6 +4,7 @@ import {
   balanceFlowGraphScopes,
   buildPortalPreview,
   createDefaultGraphLayout,
+  DEFAULT_STAGE,
   generatedFlowGraphSchema,
   getExpandedRoomFrames,
   layoutFlowNodes,
@@ -15,6 +16,7 @@ import {
   projectFlowToScope,
   projectFlowWithExpandedScopes,
   resolveRoomLayoutRules,
+  roomFramePixelSize,
   scopeBoundaryPorts,
   defaultRoomLayoutRules,
   semanticLayoutPlanSchema,
@@ -477,8 +479,15 @@ describe("projectFlowWithExpandedScopes", () => {
     const children = layout.filter((node) => node.parentId === "api-gateway");
 
     expect(frame).toMatchObject({ childCount: 7, columns: 2, rows: 4 });
-    expect(frame!.bounds).toMatchObject({ width: 28, height: 45 });
-    expect(auth.x).toBeGreaterThanOrEqual(frame!.bounds.x + frame!.bounds.width + 7);
+    // The frame is exactly the space two lanes of four compact cards need, as a
+    // share of the stage it is drawn on — not a number from a second formula
+    // that the cards inside it know nothing about.
+    const required = roomFramePixelSize(2, 4);
+    expect(frame!.bounds.width).toBeCloseTo((required.width / DEFAULT_STAGE.stageWidth) * 100, 1);
+    expect(frame!.bounds.height).toBeCloseTo((required.height / DEFAULT_STAGE.stageHeight) * 100, 1);
+    // Frame bounds are rounded to a tenth of a percent, so compare at that
+    // resolution rather than letting float noise decide the assertion.
+    expect(auth.x).toBeGreaterThanOrEqual(frame!.bounds.x + frame!.bounds.width + 7 - 0.05);
     expect(children.every((node) =>
       node.x >= frame!.contentBounds.x &&
       node.x <= frame!.contentBounds.x + frame!.contentBounds.width &&

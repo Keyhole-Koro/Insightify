@@ -1,9 +1,16 @@
 // Semantic Zoom changes which abstraction level a Portal presents, not how big
 // the card is. The level follows the projected width of a Portal, so zooming
 // out replaces detail with structure instead of shrinking unreadable text.
+import {
+  PORTAL_CARD_HEIGHT,
+  PORTAL_CARD_WIDTH,
+  stagePixelsForRoom,
+  type RoomGridShape,
+} from "@insightify/graph-domain";
+
 export type SemanticLevel = "structure" | "flow" | "implementation";
 
-export const PORTAL_CARD_WIDTH = 190;
+export { PORTAL_CARD_WIDTH, PORTAL_CARD_HEIGHT };
 export const SEMANTIC_THRESHOLDS = { flow: 112, implementation: 230 } as const;
 // Interaction spec 9.3: a 12% band keeps the level from flipping every frame
 // while the user hovers on a threshold.
@@ -25,22 +32,12 @@ export function semanticLevelForZoom(current: SemanticLevel, zoom: number): Sema
 // A Room is laid out at its natural pitch and then fitted into the frame, so a
 // dense Room reads at a lower semantic level instead of overlapping itself.
 export const COLUMN_PITCH = PORTAL_CARD_WIDTH + 20;
-export const ROW_PITCH = 82;
+export const ROW_PITCH = PORTAL_CARD_HEIGHT;
 
 export type StageMetrics = { width: number; height: number; scale: number };
 type StageNode = { x: number; y: number; width?: number; height?: number };
 // Only the parts of a Room frame the stage has to be big enough for.
-type StageFrame = {
-  bounds: { width: number; height: number };
-  columns: number;
-  rows: number;
-};
-
-// A compact pill inside an unfolded Room, and the gap it needs from the next.
-// The pill carries its icon inline rather than stacked above it, which is what
-// keeps the vertical pitch near the height of a single row of text.
-export const NESTED_PITCH_X = 162;
-export const NESTED_PITCH_Y = 40;
+type StageFrame = RoomGridShape;
 
 // layoutFlowNodes keeps the outermost column at 15% of the stage, so the stage
 // must be wide enough for half a card to fit inside that margin.
@@ -79,18 +76,15 @@ export function stageMetrics(
       }
     }
   }
-  // An unfolded Room is sized as a share of the stage, so the stage has to be
-  // large enough for that share to hold the pills inside it. Measuring the
-  // frame rather than its children keeps their deliberately tight pitch from
-  // being read as the gap between two ordinary cards, which would demand a
-  // stage several screens tall and shrink everything else to pay for it.
+  // An unfolded Room needs a fixed number of pixels for the cards it holds, and
+  // may occupy at most a fixed share of the stage. Those two facts give the
+  // stage size directly. The frame is then sized against that stage, so the
+  // frame and its contents are derived from one number instead of two that
+  // could disagree — which is what used to let cards spill out of their frame.
   for (const room of roomFrames) {
-    if (room.bounds.width > 0) {
-      width = Math.max(width, (room.columns * NESTED_PITCH_X * 100) / room.bounds.width);
-    }
-    if (room.bounds.height > 0) {
-      height = Math.max(height, (room.rows * NESTED_PITCH_Y * 100) / room.bounds.height);
-    }
+    const required = stagePixelsForRoom(room.columns, room.rows);
+    width = Math.max(width, required.width);
+    height = Math.max(height, required.height);
   }
 
   // A Room that needs less space than the frame is shown larger, so a short

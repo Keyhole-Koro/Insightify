@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   createDefaultGraphLayout,
   getExpandedRoomFrames,
+  getExpandedRoomShapes,
+  getScopeBasePositions,
   layoutFlowNodesWithExpandedScopes,
+  NESTED_CARD_HEIGHT,
+  NESTED_CARD_WIDTH,
+  NESTED_COLUMN_PITCH,
   parseFlowGraph,
   projectFlowWithExpandedScopes,
   resolveRoomLayoutRules,
   type FlowNode,
 } from "@insightify/graph-domain";
-import { NESTED_PITCH_X, NESTED_PITCH_Y, stageMetrics } from "./semantic-zoom.js";
+import { stageMetrics } from "./semantic-zoom.js";
 
 // Unfolding a Room in place must not change how the rest of the canvas is
 // drawn. It has broken twice: once because the Room's own children were fed
@@ -56,26 +61,35 @@ function graphWith(childCount: number) {
   });
 }
 
+// The same order the canvas uses: a Room's shape needs neither the stage nor a
+// frame, the stage is sized from those shapes, and the frames are sized against
+// the stage. Measuring in any other order is measuring a canvas that never
+// existed.
 function render(childCount: number, open: Set<string>) {
   const graph = graphWith(childCount);
   const rules = resolveRoomLayoutRules(graph);
   const savedLayout = createDefaultGraphLayout(graph, {}, rules);
   const projection = projectFlowWithExpandedScopes(graph, null, open);
-  const frames = getExpandedRoomFrames(projection.nodes, null, open, [], savedLayout, rules);
+  const shapes = getExpandedRoomShapes(projection.nodes, null, open, [], rules);
+  const stage = stageMetrics(
+    getScopeBasePositions(projection.nodes, null, [], savedLayout, rules)
+      .filter((item) => !open.has(item.id))
+      .map((item) => ({ ...item, ...ROOT_CARD })),
+    CANVAS,
+    shapes
+  );
+  const metrics = { stageWidth: stage.width, stageHeight: stage.height };
+  const frames = getExpandedRoomFrames(projection.nodes, null, open, [], savedLayout, rules, metrics);
   const positioned = layoutFlowNodesWithExpandedScopes(
     projection.nodes,
     null,
     open,
     [],
     savedLayout,
-    rules
+    rules,
+    metrics
   );
   const roots = positioned.filter((item) => item.parentId === null && !open.has(item.id));
-  const stage = stageMetrics(
-    roots.map((item) => ({ ...item, ...ROOT_CARD })),
-    CANVAS,
-    frames
-  );
   return { frames, roots, positioned, stage, cardWidth: ROOT_CARD.width * stage.scale };
 }
 
@@ -104,14 +118,26 @@ describe("unfolding a Room in place", () => {
 
   // The stage scales the frame and the pills inside it together, so whether
   // they fit is decided in stage coordinates and does not depend on the zoom.
-  it("gives the frame room for every pill inside it", () => {
-    for (const childCount of [2, 4, 7]) {
-      const { frames, stage } = render(childCount, new Set(["gateway"]));
+  // This is the property itself rather than a proxy for it: the frame used to
+  // be sized by one formula and its children placed by another, and every card
+  // in a two-lane Room hung outside the frame that was supposed to hold it.
+  it("keeps every child card inside the frame that holds it", () => {
+    for (const childCount of [1, 2, 3, 4, 5, 7]) {
+      const { frames, positioned, stage } = render(childCount, new Set(["gateway"]));
       const frame = frames[0]!;
-      expect((frame.bounds.width / 100) * stage.width)
-        .toBeGreaterThanOrEqual(frame.columns * NESTED_PITCH_X - 0.01);
-      expect((frame.bounds.height / 100) * stage.height)
-        .toBeGreaterThanOrEqual(frame.rows * NESTED_PITCH_Y - 0.01);
+      const left = (frame.bounds.x / 100) * stage.width;
+      const top = (frame.bounds.y / 100) * stage.height;
+      const right = left + (frame.bounds.width / 100) * stage.width;
+      const bottom = top + (frame.bounds.height / 100) * stage.height;
+      for (const child of positioned.filter((item) => item.parentId === "gateway")) {
+        const centreX = (child.x / 100) * stage.width;
+        const centreY = (child.y / 100) * stage.height;
+        const label = `${child.id} of ${childCount}`;
+        expect(centreX - NESTED_CARD_WIDTH / 2, label).toBeGreaterThanOrEqual(left - 0.5);
+        expect(centreX + NESTED_CARD_WIDTH / 2, label).toBeLessThanOrEqual(right + 0.5);
+        expect(centreY - NESTED_CARD_HEIGHT / 2, label).toBeGreaterThanOrEqual(top - 0.5);
+        expect(centreY + NESTED_CARD_HEIGHT / 2, label).toBeLessThanOrEqual(bottom + 0.5);
+      }
     }
   });
 
@@ -120,7 +146,8 @@ describe("unfolding a Room in place", () => {
       const { frames, stage } = render(childCount, new Set(["gateway"]));
       const frame = frames[0]!;
       const frameWidth = (frame.bounds.width / 100) * stage.width;
-      expect(frameWidth).toBeLessThan(frame.columns * NESTED_PITCH_X * 1.3);
+      const needed = NESTED_CARD_WIDTH + (frame.columns - 1) * NESTED_COLUMN_PITCH;
+      expect(frameWidth).toBeLessThan(needed * 1.3);
     }
   });
 

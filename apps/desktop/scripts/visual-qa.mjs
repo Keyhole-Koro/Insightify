@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -43,6 +43,62 @@ async function waitForUrl(url, child) {
 
 function stop(child) {
   if (child && child.exitCode === null) child.kill("SIGTERM");
+}
+
+
+/**
+ * Absolute numbers say what the canvas looks like today; only a baseline says
+ * whether it got worse. The comparison is over warnings rather than raw
+ * geometry, because geometry moves for good reasons — a fixture gaining a node
+ * is not a regression, a Room whose children left their frame is.
+ */
+// A warning carries the measurement that produced it, which is what makes it
+// useful to read and useless to compare: every harmless nudge would look like a
+// new warning. The identity of a warning is what it is about, not how large it
+// was, so the numbers come out before the sets are compared.
+function warningKey(warning) {
+  return warning.replace(/-?\d+(\.\d+)?/g, "#");
+}
+
+async function compareWithBaseline(runDir, scenarioDocument) {
+  const baselinePath = path.join(desktopRoot, "visual-qa", "baselines", `${scenarioDocument.id}.json`);
+  const report = JSON.parse(await readFile(path.join(runDir, "report.json"), "utf8"));
+  const current = Object.fromEntries(
+    report.checkpoints.map((checkpoint) => [checkpoint.name, checkpoint.metrics.warnings])
+  );
+
+  if (process.argv.includes("--update-baseline")) {
+    await mkdir(path.dirname(baselinePath), { recursive: true });
+    await writeFile(baselinePath, `${JSON.stringify({ id: scenarioDocument.id, checkpoints: current }, null, 2)}\n`);
+    console.log(`Baseline updated: ${baselinePath}`);
+    return false;
+  }
+
+  let baseline;
+  try {
+    baseline = JSON.parse(await readFile(baselinePath, "utf8"));
+  } catch {
+    console.log(`No baseline yet. Record one with: bun run visual:qa -- --update-baseline`);
+    return false;
+  }
+
+  let regressed = false;
+  for (const [name, warnings] of Object.entries(current)) {
+    const before = new Set((baseline.checkpoints?.[name] ?? []).map(warningKey));
+    const now = new Set(warnings.map(warningKey));
+    const appeared = warnings.filter((warning) => !before.has(warningKey(warning)));
+    const resolved = (baseline.checkpoints?.[name] ?? []).filter(
+      (warning) => !now.has(warningKey(warning))
+    );
+    for (const warning of resolved) console.log(`  fixed  ${name}: ${warning}`);
+    for (const warning of appeared) console.error(`  NEW    ${name}: ${warning}`);
+    if (appeared.length > 0) regressed = true;
+  }
+  if (regressed) {
+    console.error("Visual QA found warnings that are not in the baseline.");
+    console.error("Accept them deliberately with: bun run visual:qa -- --update-baseline");
+  }
+  return regressed;
 }
 
 const scenarioName = option("scenario", "room-expansion");
@@ -95,6 +151,8 @@ try {
   const exitCode = await new Promise((resolve) => electron.once("exit", resolve));
   if (exitCode !== 0) throw new Error(`Visual QA Electron runner exited with ${exitCode}`);
   console.log(`Visual QA artifacts: ${outDir}`);
+  const regressed = await compareWithBaseline(outDir, scenario);
+  if (regressed) process.exitCode = 1;
 } catch (error) {
   console.error(viteLog.trim());
   throw error;
