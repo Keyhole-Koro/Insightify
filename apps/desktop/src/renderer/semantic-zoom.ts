@@ -2,9 +2,11 @@
 // the card is. The level follows the projected width of a Portal, so zooming
 // out replaces detail with structure instead of shrinking unreadable text.
 import {
+  MAX_ROOM_FRAME_TOTAL_SHARE,
   MAX_STAGE_SCALE,
   PORTAL_CARD_HEIGHT,
   PORTAL_CARD_WIDTH,
+  roomFramePixelSize,
   stagePixelsForRoom,
   type RoomGridShape,
 } from "@insightify/graph-domain";
@@ -98,10 +100,16 @@ export function stageMetrics(
   // stage size directly. The frame is then sized against that stage, so the
   // frame and its contents are derived from one number instead of two that
   // could disagree — which is what used to let cards spill out of their frame.
+  let roomsWide = 0;
   for (const room of roomFrames) {
     const required = stagePixelsForRoom(room.columns, room.rows);
     width = Math.max(width, required.width);
     height = Math.max(height, required.height);
+    roomsWide += roomFramePixelSize(room.columns, room.rows).width;
+  }
+  // Side by side, they all have to fit at once.
+  if (roomFrames.length > 1) {
+    width = Math.max(width, roomsWide / MAX_ROOM_FRAME_TOTAL_SHARE);
   }
 
   return { width, height, scale: stageScale({ width, height }, frame) };

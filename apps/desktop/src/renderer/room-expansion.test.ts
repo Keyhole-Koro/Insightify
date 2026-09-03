@@ -7,7 +7,8 @@ import {
   layoutFlowNodesWithExpandedScopes,
   NESTED_CARD_HEIGHT,
   NESTED_CARD_WIDTH,
-  NESTED_COLUMN_PITCH,
+  roomFramePixelSize,
+  stagePixelsForRoom,
   parseFlowGraph,
   projectFlowWithExpandedScopes,
   resolveRoomLayoutRules,
@@ -104,15 +105,21 @@ describe("unfolding a Room in place", () => {
     }
   });
 
-  it("does not let the stage run away when the siblings are pushed aside", () => {
+  it("grows the stage by what the Room needs and no more", () => {
     for (const childCount of [2, 4, 7]) {
       const closed = render(childCount, new Set());
       const open = render(childCount, new Set(["gateway"]));
-      // A compact single-column frame may need a wider coordinate space while
-      // the height still determines its visual scale. Guard the old true
-      // runaway (more than two canvases) without rejecting that harmless case.
-      expect(open.stage.width).toBeLessThan(closed.stage.width * 2);
-      expect(open.stage.height).toBeLessThan(closed.stage.height * 1.35);
+      const frame = open.frames[0]!;
+      // The old failure was a stage that ran away for no stated reason. The
+      // property is not a multiple of the closed stage — a Room of three lanes
+      // genuinely needs a wider one — but that every pixel of the growth is
+      // explained by what the Room has to hold within its allowed share.
+      const required = stagePixelsForRoom(frame.columns, frame.rows);
+      expect(open.stage.width).toBeGreaterThanOrEqual(closed.stage.width - 0.01);
+      expect(open.stage.width).toBeLessThanOrEqual(Math.max(closed.stage.width, required.width) + 1);
+      expect(open.stage.height).toBeLessThanOrEqual(
+        Math.max(closed.stage.height, required.height) + 1
+      );
     }
   });
 
@@ -141,13 +148,15 @@ describe("unfolding a Room in place", () => {
     }
   });
 
-  it("does not reserve a large empty band around the child cards", () => {
+  it("does not reserve a large empty band around what it holds", () => {
     for (const childCount of [2, 4, 7]) {
       const { frames, stage } = render(childCount, new Set(["gateway"]));
       const frame = frames[0]!;
       const frameWidth = (frame.bounds.width / 100) * stage.width;
-      const needed = NESTED_CARD_WIDTH + (frame.columns - 1) * NESTED_COLUMN_PITCH;
-      expect(frameWidth).toBeLessThan(needed * 1.3);
+      // Against everything the frame holds, which is its header as well as its
+      // cards: a one-column Room is wider than its cards on purpose, because
+      // otherwise its own title has 18px of the 109 it needs.
+      expect(frameWidth).toBeLessThan(roomFramePixelSize(frame.columns, frame.rows).width * 1.3);
     }
   });
 

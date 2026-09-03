@@ -39,7 +39,10 @@ export const PORTAL_PLATE_GAP = 6;
 export const PORTAL_PLATE_HEIGHT = 112;
 
 /** The compact pill drawn for a node inside an unfolded Room. */
-export const NESTED_CARD_WIDTH = 132;
+// Matches the width the nested card is drawn with. It was 132 while the CSS
+// said 154, so every Room frame was measured from a card narrower than the
+// one it had to hold.
+export const NESTED_CARD_WIDTH = 154;
 export const NESTED_CARD_HEIGHT = 26;
 
 /** Centre-to-centre distance between two nested cards. */
@@ -48,14 +51,32 @@ export const NESTED_ROW_PITCH = NESTED_CARD_HEIGHT + 16;
 
 /** The Room's title bar, and the breathing room around its contents. */
 export const ROOM_HEADER_HEIGHT = 30;
+/**
+ * A frame holds a header as well as cards, and the header has a badge, a count
+ * and a fold button around its title. A one-column Room sized purely from its
+ * cards left the title 18px of the 109 it needed.
+ */
+export const ROOM_HEADER_MIN_WIDTH = 268;
 export const ROOM_FRAME_PADDING = 12;
 
 /**
  * The largest share of the stage one unfolded Room may take. A Room that needs
  * more than this does not grow past it — the stage grows instead, so the Room's
  * neighbours keep their own space rather than being squeezed out by it.
+ *
+ * It was 0.55, which is more than half: a single-column Room wide enough for
+ * its own header took the whole left of the canvas and the six cards beside it
+ * had 44% to share, which is not enough for two columns of them.
  */
-export const MAX_ROOM_FRAME_SHARE = 0.55;
+export const MAX_ROOM_FRAME_SHARE = 0.42;
+
+/**
+ * And the share all of them together may take. Unfolded Rooms sit beside each
+ * other, so two open at once need the stage to hold both — sizing it for the
+ * largest alone left the second one nowhere to go, and the cards around them
+ * were squeezed into the Rooms' children.
+ */
+export const MAX_ROOM_FRAME_TOTAL_SHARE = 0.6;
 
 /**
  * How much larger than its own size a stage may be drawn. The stage is fitted
@@ -143,7 +164,10 @@ export function roomFramePixelSize(columns: number, rows: number): { width: numb
   const centreSpanX = Math.max(0, columns - 1) * NESTED_COLUMN_PITCH;
   const centreSpanY = Math.max(0, rows - 1) * NESTED_ROW_PITCH;
   return {
-    width: centreSpanX + NESTED_CARD_WIDTH + ROOM_FRAME_PADDING * 2,
+    width: Math.max(
+      ROOM_HEADER_MIN_WIDTH,
+      centreSpanX + NESTED_CARD_WIDTH + ROOM_FRAME_PADDING * 2
+    ),
     height: centreSpanY + NESTED_CARD_HEIGHT + ROOM_HEADER_HEIGHT + ROOM_FRAME_PADDING,
   };
 }

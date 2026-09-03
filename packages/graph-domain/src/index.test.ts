@@ -488,11 +488,15 @@ describe("projectFlowWithExpandedScopes", () => {
     // Frame bounds are rounded to a tenth of a percent, so compare at that
     // resolution rather than letting float noise decide the assertion.
     expect(auth.x).toBeGreaterThanOrEqual(frame!.bounds.x + frame!.bounds.width + 7 - 0.05);
+    // The outermost child sits exactly on the edge of the content box, so the
+    // comparison is made at the tenth of a percent the bounds are rounded to
+    // rather than at the resolution of the float that adds them together.
+    const edge = 0.05;
     expect(children.every((node) =>
-      node.x >= frame!.contentBounds.x &&
-      node.x <= frame!.contentBounds.x + frame!.contentBounds.width &&
-      node.y >= frame!.contentBounds.y &&
-      node.y <= frame!.contentBounds.y + frame!.contentBounds.height
+      node.x >= frame!.contentBounds.x - edge &&
+      node.x <= frame!.contentBounds.x + frame!.contentBounds.width + edge &&
+      node.y >= frame!.contentBounds.y - edge &&
+      node.y <= frame!.contentBounds.y + frame!.contentBounds.height + edge
     )).toBe(true);
   });
 

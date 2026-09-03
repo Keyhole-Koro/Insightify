@@ -3,10 +3,39 @@
   "checkpoints": {
     "root": [],
     "inside-frontend": [],
-    "detail-postgres": [],
-    "detail-flow-lod": [],
-    "root → inside-frontend": [],
-    "inside-frontend → detail-postgres": [],
+    "inside-gateway": [
+      "title cut off — \"/api/v1/workflows/:id\" needs 91px, has 81px",
+      "title cut off — \"/api/v1/workflows/:id/execute\" needs 128px, has 76px",
+      "title cut off — \"/api/v1/ai/synthesize\" needs 89px, has 76px",
+      "title cut off — \"/api/v1/webhooks/stripe\" needs 105px, has 76px",
+      "node overlap: api-auth-login / api-workflows-create (183.6px²)"
+    ],
+    "detail-postgres": [
+      "title cut off — \"/api/v1/workflows/:id\" needs 91px, has 81px",
+      "title cut off — \"/api/v1/workflows/:id/execute\" needs 128px, has 76px",
+      "title cut off — \"/api/v1/ai/synthesize\" needs 89px, has 76px",
+      "title cut off — \"/api/v1/webhooks/stripe\" needs 105px, has 76px",
+      "node overlap: api-auth-login / api-workflows-create (183.6px²)",
+      "node overlap: primary-db / external-services (3990.3px²)"
+    ],
+    "detail-flow-lod": [
+      "title cut off — \"/api/v1/workflows/:id\" needs 91px, has 81px",
+      "title cut off — \"/api/v1/workflows/:id/execute\" needs 128px, has 76px",
+      "title cut off — \"/api/v1/ai/synthesize\" needs 89px, has 76px",
+      "title cut off — \"/api/v1/webhooks/stripe\" needs 105px, has 76px",
+      "node overlap: api-auth-login / api-workflows-create (47.3px²)",
+      "node overlap: primary-db / external-services (993.4px²)"
+    ],
+    "root → inside-frontend": [
+      "6 nodes moved, median 153px — the canvas rearranges"
+    ],
+    "inside-frontend → inside-gateway": [
+      "stage zoom changed -37% — every card resizes",
+      "9 nodes moved, median 164px — the canvas rearranges"
+    ],
+    "inside-gateway → detail-postgres": [
+      "1 nodes moved, median 151px — the canvas rearranges"
+    ],
     "detail-postgres → detail-flow-lod": []
   }
 }

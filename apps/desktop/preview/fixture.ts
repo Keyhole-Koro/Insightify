@@ -389,8 +389,12 @@ const layoutPlan: SemanticLayoutPlan = parseSemanticLayoutPlan({
       roomId: "frontend-portal",
       direction: "row",
       areas: [
-        { id: "clients", label: "Clients", direction: "column", nodeIds: ["web-dashboard", "canvas-editor", "mobile-client"] },
-        { id: "gate", label: "Gate", direction: "column", nodeIds: ["auth-modal"] },
+        {
+          id: "screens",
+          label: "Screens",
+          direction: "column",
+          nodeIds: ["web-dashboard", "canvas-editor", "mobile-client", "auth-modal"],
+        },
       ],
     },
     {

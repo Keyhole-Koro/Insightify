@@ -58,6 +58,16 @@
       }
     },
     {
+      "name": "inside-gateway",
+      "action": {
+        "type": "clickText",
+        "selector": ".node-compact-pill",
+        "text": "API Gateway"
+      },
+      "wait": 700,
+      "screenshot": true
+    },
+    {
       "name": "detail-postgres",
       "action": {
         "type": "clickText",

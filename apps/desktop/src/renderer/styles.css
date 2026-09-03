@@ -1300,6 +1300,11 @@ button { color: inherit; }
    Compact Pill & Click-to-Expand Interaction
    ========================================================================== */
 
+/* A card is at most PORTAL_CARD_WIDTH and otherwise as wide as its title needs.
+   The layout reserves the maximum, which is all it needs to keep cards apart —
+   a card that paints narrower than its reservation can never collide because of
+   it. Pinning every card to the full width was tried and only made them wider
+   than the arrangement had room for. */
 .flow-node.is-compact {
   width: auto;
   min-width: 120px;
@@ -1320,11 +1325,7 @@ button { color: inherit; }
 .flow-node:not(.no-avatar):not(.is-nested-child) .node-compact-pill {
   padding-left: 46px;
 }
-/* A nested card is its own size, and the frame that holds it is measured from
-   that size. */
-.flow-node.is-nested-child {
-  width: 132px;
-}
+
 .node-compact-pill {
   display: flex;
   align-items: center;
@@ -1744,6 +1745,7 @@ button { color: inherit; }
 }
 
 /* Compact nested child nodes inside expanded room frame */
+/* NESTED_CARD_WIDTH. The frame that holds these is measured from it. */
 .flow-node.is-nested-child {
   width: 154px;
   z-index: 3;
@@ -1840,8 +1842,13 @@ button { color: inherit; }
    Nodes Without Head Avatars (Repeated Sibling Kinds / Clean List Style)
    ========================================================================== */
 
-.flow-node.no-avatar {
-  width: auto;
+/* A card without an icon is still the width the layout reserved for it. This
+   rule used to set `width: auto`, and being the last of three declarations for
+   the same element it decided the size of every card whose kind repeats in its
+   scope — which is most of the children of any Room. The frame that holds them
+   was measured from a card 154px wide while some were painted at 205. */
+.flow-node.no-avatar .node-compact-pill {
+  padding-left: 6px;
 }
 
 .flow-node.no-avatar .card-port {
