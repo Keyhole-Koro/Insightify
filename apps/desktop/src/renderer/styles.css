@@ -368,7 +368,9 @@ button { color: inherit; }
 @keyframes stream-blink { 50% { opacity: 0; } }
 .context-card, .assistant-message, .approval-card, .error-card { margin-bottom: 13px; border: 1px solid #292c32; border-radius: 12px; background: #17191e; }
 .context-card { padding: 13px; }
-.context-card span, .assistant-message span, .approval-card > span { display: block; margin-bottom: 7px; color: #6f727b; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+/* The card's own label, not everything that happens to be a span inside it.
+   This was styling the tag chips as uppercase blocks at 3.78:1. */
+.context-card > span, .assistant-message-header > span, .approval-card > span { display: block; margin-bottom: 7px; color: #6f727b; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .context-card strong { font-size: 12px; }
 .context-card p { margin: 7px 0 0; color: #6f727b; font-size: 11px; line-height: 1.5; }
 .context-card code { display: block; overflow: hidden; margin-top: 7px; color: #81965e; font-size: 8px; text-overflow: ellipsis; }
@@ -648,7 +650,9 @@ button { color: inherit; }
   padding: 1px 5px;
   border: 1px solid #2e323b;
   border-radius: 4px;
-  color: #8b909a;
+  /* 8px text needs the contrast of body text, not of a decoration. #8b909a on
+     this background measured 3.78:1, under the 4.5:1 small text asks for. */
+  color: #a8aeb9;
   background: #13151ae0;
   font-size: 8px;
   font-weight: 600;

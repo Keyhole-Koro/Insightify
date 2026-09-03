@@ -11,9 +11,7 @@ interface PortalCardProps {
   lod: SemanticLevel;
   selected: boolean;
   isExpanded?: boolean;
-  onToggleExpand?: () => void;
   isScopeExpanded?: boolean;
-  onToggleScopeExpand?: () => void;
   isNestedChild?: boolean;
   isLeavingScope?: boolean;
   showAvatar?: boolean;
@@ -34,9 +32,7 @@ export function PortalCard({
   lod,
   selected,
   isExpanded = false,
-  onToggleExpand,
   isScopeExpanded = false,
-  onToggleScopeExpand,
   isNestedChild = false,
   isLeavingScope = false,
   showAvatar = true,
@@ -64,20 +60,6 @@ export function PortalCard({
   const httpMethod = httpMethodMatch?.[1]?.toUpperCase();
   const displayTitle = httpMethod ? node.title.replace(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|GRAPHQL|GQL)\s+/i, "") : node.title;
   const tagLabel = httpMethod || tech || node.kind;
-
-  function handleToggle(event: React.MouseEvent) {
-    event.stopPropagation();
-    if (onToggleExpand) {
-      onToggleExpand();
-    }
-  }
-
-  function handleToggleScope(event: React.MouseEvent) {
-    event.stopPropagation();
-    if (onToggleScopeExpand) {
-      onToggleScopeExpand();
-    }
-  }
 
   // Geometric avatar shape
   const avatarShape = (() => {
@@ -146,7 +128,7 @@ export function PortalCard({
           inside the pill instead of above it: stacking the two costs roughly
           twice the height, and height is what an unfolded Room is short of. */}
       {showAvatar && !(isNestedChild && !isExpanded) && (
-        <div className="node-avatar-container" onClick={handleToggle} title="クリックで詳細を開閉">
+        <div className="node-avatar-container">
           <div className={`node-avatar shape-${avatarShape}`}>
             <NodeIcon kind={node.kind} technology={tech} size={22} />
             <span className={`node-status-orb status-${status}`} title={`Status: ${status}`} />
@@ -157,12 +139,7 @@ export function PortalCard({
       {/* THE CARD ITSELF. Drawn whether or not the plate below it is open: it is
           what the node's coordinate points at, so a node that swapped it for the
           plate moved under the cursor of the user who had just clicked it. */}
-      <div
-        className="node-compact-pill"
-        data-vqa-node-id={node.id}
-        onClick={handleToggle}
-        title={isExpanded ? "クリックで詳細を閉じる" : "クリックで詳細を展開"}
-      >
+      <div className="node-compact-pill" data-vqa-node-id={node.id}>
           {isNestedChild ? (
             <span className="compact-icon" aria-hidden="true">
               <NodeIcon kind={node.kind} technology={tech} size={14} />
@@ -189,20 +166,22 @@ export function PortalCard({
           <span className="compact-title" title={node.title}>
             {displayTitle}
           </span>
-          {isPortal && onToggleScopeExpand && (
-            <button
-              className={`pill-scope-expand-btn ${isScopeExpanded ? "active" : ""}`}
-              data-vqa-action="toggle-room-inline"
-              data-vqa-node-id={node.id}
-              onClick={handleToggleScope}
-              title={isScopeExpanded ? "内部ノードを折りたたむ" : "今いる画面で内部ノードを展開"}
-              type="button"
-            >
-              {isScopeExpanded ? "⊟ Fold" : "⊞ Inside"}
-            </button>
-          )}
-        <span className="compact-toggle-icon" title={isExpanded ? "詳細を閉じる" : "詳細を開く"}>
-          {isExpanded ? "▴" : "▾"}
+        {/* What this card will show if it is clicked. A Room shows the flow
+            inside it; anything else shows its own detail. The glyph is the only
+            trace of that difference the card can afford — the button it
+            replaces was taking 69 of the card's 190px, and taking them from
+            the title. */}
+        <span
+          className="compact-toggle-icon"
+          data-vqa-action={isPortal ? "toggle-room-inline" : "toggle-detail"}
+          data-vqa-node-id={node.id}
+          title={
+            isPortal
+              ? isScopeExpanded ? "内部ノードを折りたたむ" : "内部ノードを展開"
+              : isExpanded ? "詳細を閉じる" : "詳細を開く"
+          }
+        >
+          {isPortal ? (isScopeExpanded ? "⊟" : "⊞") : isExpanded ? "▴" : "▾"}
         </span>
       </div>
 

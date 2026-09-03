@@ -5,7 +5,7 @@ import React, {
   useState,
   type CSSProperties,
 } from "react";
-import { roomsInScope, type FlowNode, type GeneratedFlowGraph } from "@insightify/graph-domain";
+import { isRoom, roomsInScope, type FlowNode, type GeneratedFlowGraph } from "@insightify/graph-domain";
 import type { GenerationMode, ProjectSummary } from "@insightify/desktop-bridge";
 import { type AppError } from "./lib/errors.js";
 import { toAppError } from "./lib/error-normalize.js";
@@ -706,9 +706,7 @@ export function App() {
                       lod={lod}
                       selected={selectedNodeId === node.id}
                       isExpanded={expandedNodeIds.has(node.id)}
-                      onToggleExpand={() => toggleNodeExpansion(node.id)}
                       isScopeExpanded={renderedExpandedScopeIds.has(node.id)}
-                      onToggleScopeExpand={() => toggleScopeExpand(node.id)}
                       isNestedChild={node.parentId !== activeScopeId}
                       isLeavingScope={
                         node.parentId !== activeScopeId &&
@@ -720,7 +718,12 @@ export function App() {
                         if (drag.consumeClickSuppression(node.id)) return;
                         view.selectNode(node.id);
                         session.clearEvents();
-                        toggleNodeExpansion(node.id);
+                        // A click means "show me more of this". For a Room that
+                        // is the flow inside it, unfolded in place; for anything
+                        // else it is the node's own detail. One gesture, and
+                        // what it reveals is decided by what the node is.
+                        if (isRoom(node)) toggleScopeExpand(node.id);
+                        else toggleNodeExpansion(node.id);
                       }}
                       onPeek={() => view.peekNode(node.id)}
                       onEnter={() => enterRoom(node)}
