@@ -66,6 +66,10 @@ export function PortalCard({
   const httpMethodMatch = node.title.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|GRAPHQL|GQL)\b/i);
   const httpMethod = httpMethodMatch?.[1]?.toUpperCase();
   const displayTitle = httpMethod ? node.title.replace(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|GRAPHQL|GQL)\s+/i, "") : node.title;
+  // A route is identified by its end. Cut from the front and
+  // "/api/v1/workflows/:id/execute" reads as "/api/v1/workfl…", which every
+  // route in the same Room reads as too.
+  const isRoute = displayTitle.startsWith("/");
   const tagLabel = httpMethod || tech || node.kind;
 
   // Geometric avatar shape
@@ -176,8 +180,13 @@ export function PortalCard({
               {tagLabel}
             </span>
           )}
-          <span className="compact-title" title={node.title}>
-            {displayTitle}
+          <span
+            className={`compact-title${isRoute ? " is-route" : ""}`}
+            title={node.title}
+          >
+            {/* Isolated so the route still reads left to right inside a box
+                whose overflow is taken from its left. */}
+            {isRoute ? <bdi>{displayTitle}</bdi> : displayTitle}
           </span>
         {/* What this card will show if it is clicked. A Room shows the flow
             inside it; anything else shows its own detail. The glyph is the only

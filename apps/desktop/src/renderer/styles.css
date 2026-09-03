@@ -1878,6 +1878,14 @@ button { color: inherit; }
   flex: 1 1 auto;
   min-width: 0;
 }
+/* A route loses its front rather than its end. Six of the seven routes in one
+   Room begin "/api/v1/", so cutting from the right left them all reading the
+   same; what tells them apart is the last segment. The text itself is isolated
+   in a <bdi>, so only the overflow changes side, not the reading order. */
+.compact-title.is-route {
+  direction: rtl;
+  text-align: left;
+}
 
 /* A fixed slot for the glyph. It changes with what the card will do — ▾ ▴ for
    detail, ⊞ ⊟ for a Room, ↗ × for an implementation outline — and the widest of

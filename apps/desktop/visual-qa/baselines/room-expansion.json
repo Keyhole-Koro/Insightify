@@ -14,8 +14,7 @@
       "title cut off — \"/api/v1/workflows/:id/execute\" needs 128px, has 70px",
       "title cut off — \"/api/v1/ai/synthesize\" needs 89px, has 70px",
       "title cut off — \"/api/v1/webhooks/stripe\" needs 105px, has 70px",
-      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px",
-      "node overlap: api-auth-login / api-workflows-create (183.6px²)"
+      "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px"
     ],
     "detail-postgres": [
       "title cut off — \"/api/v1/auth/login\" needs 76px, has 70px",
@@ -25,7 +24,6 @@
       "title cut off — \"/api/v1/ai/synthesize\" needs 89px, has 70px",
       "title cut off — \"/api/v1/webhooks/stripe\" needs 105px, has 70px",
       "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px",
-      "node overlap: api-auth-login / api-workflows-create (183.6px²)",
       "node overlap: primary-db / external-services (4018.4px²)"
     ],
     "detail-flow-lod": [
@@ -36,7 +34,6 @@
       "title cut off — \"/api/v1/ai/synthesize\" needs 89px, has 70px",
       "title cut off — \"/api/v1/webhooks/stripe\" needs 105px, has 70px",
       "title cut off — \"Event Bus & Task Queue\" needs 124px, has 119px",
-      "node overlap: api-auth-login / api-workflows-create (47.3px²)",
       "node overlap: primary-db / external-services (1000.4px²)"
     ],
     "root → inside-frontend": [

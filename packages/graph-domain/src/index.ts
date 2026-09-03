@@ -1118,7 +1118,13 @@ const OVERLAP_PASSES = 12;
 export function resolveOverlaps(
   boxes: OverlapBox[],
   anchors: Set<string>,
-  stage: RoomFrameMetrics
+  stage: RoomFrameMetrics,
+  /**
+   * Where a box is allowed to end up, as percentages of the stage. Defaults to
+   * the stage itself; a Room passes its own content box, so separating the
+   * cards inside it can never push one out through its wall.
+   */
+  bounds?: LayoutBounds
 ): Map<string, FlowNodePosition> {
   const toX = (pixels: number) => (pixels / stage.stageWidth) * 100;
   const toY = (pixels: number) => (pixels / stage.stageHeight) * 100;
@@ -1176,8 +1182,13 @@ export function resolveOverlaps(
     for (const box of boxes) {
       if (anchors.has(box.id)) continue;
       const position = positions.get(box.id)!;
-      position.x = clamp(position.x, toX(box.extent.width / 2) + 1, 99 - toX(box.extent.width / 2));
-      position.y = clamp(position.y, toY(box.extent.height / 2) + 1, 99 - toY(box.extent.height / 2));
+      if (bounds) {
+        position.x = clamp(position.x, bounds.x, bounds.x + bounds.width);
+        position.y = clamp(position.y, bounds.y, bounds.y + bounds.height);
+      } else {
+        position.x = clamp(position.x, toX(box.extent.width / 2) + 1, 99 - toX(box.extent.width / 2));
+        position.y = clamp(position.y, toY(box.extent.height / 2) + 1, 99 - toY(box.extent.height / 2));
+      }
     }
     if (!moved) break;
   }
@@ -1370,10 +1381,26 @@ export function layoutFlowNodesWithExpandedScopes(
       const childNodes = visibleNodes.filter((c) => c.parentId === node.id);
       if (childNodes.length > 0) {
         const localRelPositions = localRoomPositions(childNodes, node.id, edges, savedLayout, rules);
+        // The cards inside a Room are kept off each other the same way the ones
+        // outside it are. Their lanes come from the Room's own plan, and two
+        // lanes of unequal length can leave a card beside another close enough
+        // to touch — nothing separated them, because a child was placed by its
+        // Room and then left alone. Bounded by the Room, so a card pushed aside
+        // cannot leave the frame that holds it.
+        const placedChildren = resolveOverlaps(
+          localRelPositions.map((child) => ({
+            id: child.id,
+            x: projectPercentage(child.x, frame.contentBounds.x, frame.contentBounds.width),
+            y: projectPercentage(child.y, frame.contentBounds.y, frame.contentBounds.height),
+            extent: nodeExtent({ nested: true }),
+          })),
+          new Set(),
+          resolved,
+          frame.contentBounds
+        );
         for (const child of localRelPositions) {
-          const childX = projectPercentage(child.x, frame.contentBounds.x, frame.contentBounds.width);
-          const childY = projectPercentage(child.y, frame.contentBounds.y, frame.contentBounds.height);
-          result.push({ ...child, x: childX, y: childY });
+          const placed = placedChildren.get(child.id)!;
+          result.push({ ...child, x: placed.x, y: placed.y });
         }
       }
     } else {
