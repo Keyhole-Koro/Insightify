@@ -172,9 +172,16 @@ export function PortalCard({
               <span className={`node-status-dot status-${status}`} title={`Status: ${status}`} />
             )
           )}
-          {/* The icon already says what kind of node this is. The text tag
-              stays only where it carries something the icon cannot: a method. */}
-          {(!isNestedChild || httpMethod) && (
+          {/* The icon already says what kind of node this is, so the text tag
+              stays only where it carries something the icon cannot: a method,
+              or a node drawn without an avatar. This rule was written for
+              nested children, where space is obviously short. It applies just
+              as well to a root card carrying an avatar — the tag was taking
+              more room than the title there, and "POSTGRESQL" was pushing
+              "PostgreSQL Database" into an ellipsis while the Postgres icon sat
+              directly above it. A nested child never shows it: its frame
+              already says which Room it belongs to. */}
+          {((!isNestedChild && !showAvatar) || httpMethod) && (
             <span className={`compact-kind-tag${httpMethod ? ` tag-method-${httpMethod.toLowerCase()}` : ""}`}>
               {tagLabel}
             </span>

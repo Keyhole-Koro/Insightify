@@ -1,10 +1,18 @@
 {
   "id": "room-expansion",
   "checkpoints": {
-    "root": [],
-    "inside-frontend": [],
-    "detail-postgres": [],
-    "detail-flow-lod": [],
+    "root": [
+      "title cut off — \"Managed Dependencies\" needs 120px, has 112px"
+    ],
+    "inside-frontend": [
+      "title cut off — \"Managed Dependencies\" needs 120px, has 112px"
+    ],
+    "detail-postgres": [
+      "title cut off — \"Managed Dependencies\" needs 120px, has 112px"
+    ],
+    "detail-flow-lod": [
+      "title cut off — \"Managed Dependencies\" needs 120px, has 112px"
+    ],
     "root → inside-frontend": [],
     "inside-frontend → detail-postgres": [],
     "detail-postgres → detail-flow-lod": []

@@ -152,6 +152,89 @@ function collectPageReport(measurements, thresholds) {
     };
   };
 
+  // Readability, as far as it can be computed. Contrast needs the colour behind
+  // the text, which no API reports, so the nearest painted ancestor background
+  // is composited by hand. Blur and translucency make it approximate — close
+  // enough to find text nobody can read, not a substitute for looking.
+  const parseColour = (value) => {
+    const parts = (value || "").match(/[\d.]+/g);
+    if (!parts || parts.length < 3) return null;
+    return {
+      r: Number(parts[0]), g: Number(parts[1]), b: Number(parts[2]),
+      a: parts.length > 3 ? Number(parts[3]) : 1,
+    };
+  };
+  const over = (front, back) => ({
+    r: front.r * front.a + back.r * (1 - front.a),
+    g: front.g * front.a + back.g * (1 - front.a),
+    b: front.b * front.a + back.b * (1 - front.a),
+    a: 1,
+  });
+  const luminance = ({ r, g, b }) => {
+    const channel = (value) => {
+      const scaled = value / 255;
+      return scaled <= 0.03928 ? scaled / 12.92 : Math.pow((scaled + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  const backgroundBehind = (element) => {
+    let layers = [];
+    let cursor = element;
+    while (cursor) {
+      const colour = parseColour(getComputedStyle(cursor).backgroundColor);
+      if (colour && colour.a > 0) {
+        layers.push(colour);
+        if (colour.a >= 0.999) break;
+      }
+      cursor = cursor.parentElement;
+    }
+    let base = { r: 11, g: 13, b: 17, a: 1 };
+    for (let index = layers.length - 1; index >= 0; index -= 1) base = over(layers[index], base);
+    return base;
+  };
+  const contrastOf = (element) => {
+    const style = getComputedStyle(element);
+    const colour = parseColour(style.color);
+    if (!colour) return null;
+    const front = luminance(over(colour, backgroundBehind(element)));
+    const back = luminance(backgroundBehind(element));
+    const lighter = Math.max(front, back);
+    const darker = Math.min(front, back);
+    return {
+      ratio: round(((lighter + 0.05) / (darker + 0.05)) * 10) / 10,
+      fontSize: round(parseFloat(style.fontSize)),
+    };
+  };
+  // A label nobody can finish reading is unreadable whatever its contrast is.
+  const truncated = [...document.querySelectorAll(".compact-title, .plate-title, .room-frame-title")]
+    .filter(visible)
+    .filter((element) => element.scrollWidth > element.clientWidth + 1)
+    .map((element) => {
+      const pill = element.closest(".node-compact-pill");
+      const siblings = pill
+        ? [...pill.children].filter((child) => child !== element && visible(child))
+            .map((child) => ({
+              className: child.className,
+              width: round(child.getBoundingClientRect().width),
+            }))
+        : [];
+      return {
+        text: (element.textContent || "").trim(),
+        shown: round(element.clientWidth),
+        needed: round(element.scrollWidth),
+        pillWidth: pill ? round(pill.getBoundingClientRect().width) : null,
+        competingFor: siblings,
+      };
+    });
+
+  const readability = [...document.querySelectorAll(
+    ".compact-title, .compact-kind-tag, .plate-summary, .portal-tag, .room-frame-title, .edge-label, .flow-edge-label"
+  )].filter(visible).map((element) => ({
+    text: (element.textContent || "").trim().slice(0, 40),
+    className: element.className,
+    ...contrastOf(element),
+  })).filter((item) => item.ratio !== undefined);
+
   const stageElement = document.querySelector('[data-vqa="graph-stage"]');
   const canvasElement = document.querySelector(".canvas-frame");
   const stage = stageElement ? rect(stageElement) : null;
@@ -285,7 +368,16 @@ function collectPageReport(measurements, thresholds) {
   }).map((node) => `${node.id}: painted ${round(node.box.width / scale)}x${round(node.box.height / scale)}`
     + ` but declares ${node.declaredExtent.width}x${node.declaredExtent.height}`);
 
+  // WCAG asks 4.5:1 for body text and 3:1 for large text. A canvas label is
+  // small, so the stricter number is the one that matters.
+  const unreadable = readability
+    .filter((item) => item.ratio < (item.fontSize >= 18 ? 3 : 4.5))
+    .map((item) => `${item.ratio}:1 at ${item.fontSize}px — "${item.text}"`);
+
   const warnings = [
+    ...truncated.map((item) =>
+      `title cut off — "${item.text}" needs ${item.needed}px, has ${item.shown}px`),
+    ...unreadable.map((item) => `low contrast — ${item}`),
     ...understated.map((item) => `extent understated — ${item}`),
     ...frames.filter((frame) => frame.occupancy && frame.occupancy.height < limits.minimumFrameOccupancy)
       .map((frame) => `${frame.roomId}: children occupy only ${frame.occupancy.height} of frame height`),
@@ -314,6 +406,8 @@ function collectPageReport(measurements, thresholds) {
       text: element.textContent?.trim().replace(/\s+/g, " ").slice(0, 300),
     })),
     overlaps,
+    readability,
+    truncated,
     warnings,
     measurements: custom,
   };
