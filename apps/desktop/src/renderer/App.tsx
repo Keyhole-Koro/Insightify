@@ -28,11 +28,11 @@ import {
   isNodeDraftComplete,
   nodeDraftFromNode,
   nodePatchFromDraft,
-  type NodeDraft,
 } from "./lib/node-draft.js";
 import { DEFAULT_PROMPT, buildAnchoredPrompt, buildNodeQuestionPrompt } from "./lib/prompts.js";
 import { useAgentSession } from "./hooks/useAgentSession.js";
 import { DIVE_SCALE_IN, DIVE_SCALE_OUT, useCanvasView } from "./hooks/useCanvasView.js";
+import { useEditorState } from "./hooks/useEditorState.js";
 import { useFlowProjection } from "./hooks/useFlowProjection.js";
 import { useNodeDrag } from "./hooks/useNodeDrag.js";
 import { useProjectGraph, type GraphUpdate } from "./hooks/useProjectGraph.js";
@@ -45,7 +45,7 @@ import { PortalCard } from "./components/PortalCard.js";
 import { BoundaryPortChip } from "./components/BoundaryPortChip.js";
 import { PeekPanel } from "./components/PeekPanel.js";
 import { NodeEditor } from "./components/NodeEditor.js";
-import { EdgeManager, type EdgeDraft } from "./components/EdgeManager.js";
+import { EdgeManager } from "./components/EdgeManager.js";
 import { ThreadPanel } from "./components/ThreadPanel.js";
 
 // App composes the four renderer layers and owns nothing but the transient bits
@@ -54,12 +54,12 @@ import { ThreadPanel } from "./components/ThreadPanel.js";
 //   useAgentSession   provider runs and the events they stream back
 //   useCanvasView     camera, selection, unfolded Rooms — never persisted
 //   useFlowProjection the read path from document to what is drawn
+//   useEditorState    which editor is open, as one value instead of three
 export function App() {
   const [error, setError] = useState<AppError | null>(null);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
-  const [nodeDraft, setNodeDraft] = useState<NodeDraft | null>(null);
-  const [edgeManagerOpen, setEdgeManagerOpen] = useState(false);
-  const [edgeDraft, setEdgeDraft] = useState<EdgeDraft | null>(null);
+  const editor = useEditorState();
+  const { nodeDraft, edgeDraft } = editor;
   const [frame, setFrame] = useState({ width: 960, height: 700 });
   const canvasRef = useRef<HTMLElement | null>(null);
 
@@ -286,7 +286,7 @@ export function App() {
 
   function openEditNode(node: FlowNode) {
     view.selectNode(node.id);
-    setNodeDraft(nodeDraftFromNode(node));
+    editor.editNode(nodeDraftFromNode(node));
   }
 
   function saveNodeDraft() {
@@ -294,7 +294,7 @@ export function App() {
     editGraph((current) =>
       patchNode(current, nodeDraft.nodeId, nodePatchFromDraft(nodeDraft))
     );
-    setNodeDraft(null);
+    editor.close();
   }
 
   function deleteNode(nodeId: string) {
@@ -302,7 +302,7 @@ export function App() {
     const node = current?.graph.nodes.find((item) => item.id === nodeId);
     if (!current || !node || !window.confirm(`Delete \u201c${node.title}\u201d and all nested nodes?`)) return;
     editGraph((value) => removeNodeAndDescendants(value, nodeId));
-    setNodeDraft(null);
+    editor.close();
     view.selectNode(null);
   }
 
@@ -317,7 +317,7 @@ export function App() {
       reportError("Create at least two nodes in this Room before connecting them.");
       return;
     }
-    setEdgeDraft({ index: null, source: visibleNodes[0].id, target: visibleNodes[1].id, label: "" });
+    editor.draftEdge({ index: null, source: visibleNodes[0].id, target: visibleNodes[1].id, label: "" });
   }
 
   function saveEdgeDraft() {
@@ -332,12 +332,12 @@ export function App() {
         edgeDraft.index
       )
     );
-    setEdgeDraft(null);
+    editor.draftEdge(null);
   }
 
   function deleteEdge(index: number) {
     editGraph((current) => removeEdgeAt(current, index));
-    setEdgeDraft(null);
+    editor.draftEdge(null);
   }
 
   function startRun() {
@@ -419,10 +419,7 @@ export function App() {
                   )}
                   <button
                     type="button"
-                    onClick={() => {
-                      setEdgeManagerOpen(true);
-                      setEdgeDraft(null);
-                    }}
+                    onClick={editor.openEdges}
                   >
                     ↗ Edges <span>{editableEdges.length}</span>
                   </button>
@@ -883,19 +880,16 @@ export function App() {
                   />
                 )}
 
-                {edgeManagerOpen && (
+                {editor.edgesOpen && (
                   <EdgeManager
                     nodes={visibleNodes}
                     edges={editableEdges}
                     draft={edgeDraft}
-                    onDraft={setEdgeDraft}
+                    onDraft={editor.draftEdge}
                     onNew={startNewEdge}
                     onSave={saveEdgeDraft}
                     onDelete={deleteEdge}
-                    onClose={() => {
-                      setEdgeManagerOpen(false);
-                      setEdgeDraft(null);
-                    }}
+                    onClose={editor.close}
                   />
                 )}
               </>
@@ -929,10 +923,10 @@ export function App() {
         {nodeDraft && (
           <NodeEditor
             draft={nodeDraft}
-            onChange={setNodeDraft}
+            onChange={editor.draftNode}
             onSave={saveNodeDraft}
             onDelete={nodeDraft.nodeId ? () => deleteNode(nodeDraft.nodeId!) : null}
-            onClose={() => setNodeDraft(null)}
+            onClose={editor.close}
           />
         )}
       </div>
